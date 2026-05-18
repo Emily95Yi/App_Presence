@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Presence</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main id="app" aria-label="Presence infinite canvas">
+      <div id="sceneRoot" aria-hidden="true"></div>
+
+      <header class="mobile-frame">
+        <p class="brand">Presence</p>
+        <nav class="top-actions" aria-label="工具">
+          <button id="resetView" class="icon-button" type="button" aria-label="重置视角">↺</button>
+          <button id="cardSetToggle" class="pill-button" type="button">卡组</button>
+          <button id="calendarToggle" class="pill-button" type="button">日历</button>
+        </nav>
+      </header>
+
+      <aside class="side-panel" id="cardSetPanel" aria-hidden="true">
+        <div class="panel-head">
+          <p class="panel-title">卡牌套组</p>
+          <button id="closeCardSetPanel" class="icon-button" type="button" aria-label="关闭卡组">×</button>
+        </div>
+        <div id="cardSetList" class="set-list"></div>
+      </aside>
+
+      <aside class="side-panel calendar-panel" id="calendarPanel" aria-hidden="true">
+        <div class="panel-head">
+          <p class="panel-title">日历回看</p>
+          <button id="closeCalendarPanel" class="icon-button" type="button" aria-label="关闭日历">×</button>
+        </div>
+        <div id="calendarList" class="calendar-list"></div>
+      </aside>
+
+      <section class="card-modal" id="cardModal" aria-hidden="true">
+        <div class="modal-scrim" id="modalScrim"></div>
+        <div class="modal-stage" role="dialog" aria-modal="true" aria-label="卡牌回应">
+          <button id="closeModal" class="icon-button close-modal" type="button" aria-label="关闭">×</button>
+          <canvas id="focusCard" width="512" height="680" aria-hidden="true"></canvas>
+          <div id="promptLayer" class="prompt-layer"></div>
+          <div class="response-dock">
+            <div id="liveTagResult" class="tag-result"></div>
+            <textarea id="answerInput" placeholder="一个词、一句话、一个画面都可以。"></textarea>
+            <button id="submitAnswer" class="primary-button" type="button">提交</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
