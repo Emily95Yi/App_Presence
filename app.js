@@ -8,13 +8,19 @@ const promptLayer = document.getElementById("promptLayer");
 const answerInput = document.getElementById("answerInput");
 const submitAnswerButton = document.getElementById("submitAnswer");
 const liveTagResult = document.getElementById("liveTagResult");
+const responseDock = document.getElementById("responseDock");
 const cardSetPanel = document.getElementById("cardSetPanel");
 const calendarPanel = document.getElementById("calendarPanel");
 const photoInput = document.getElementById("photoInput");
+const choiceModeToggle = document.getElementById("choiceModeToggle");
+const journalModeToggle = document.getElementById("journalModeToggle");
+const prevCardButton = document.getElementById("prevCard");
+const nextCardButton = document.getElementById("nextCard");
 
 const recordStoreKey = "presence.records.v1";
 const visibilityStoreKey = "presence.contentVisibility.v1";
 const userStoreKey = "presence.localUserId.v1";
+const modeStoreKey = "presence.mode.v1";
 const dbName = "presence.db.v1";
 const dbVersion = 1;
 const chunkSize = 92;
@@ -261,6 +267,22 @@ const defaultTags = [
   { family: "shift", label: "先放在这里" },
 ];
 
+const oppositeTagRules = [
+  { match: ["累", "疲", "困", "闷"], tags: ["一点轻盈", "慢慢醒来"] },
+  { match: ["乱", "模糊", "不清楚"], tags: ["留一条线", "稍微清楚"] },
+  { match: ["爱", "亲密", "靠近"], tags: ["保留距离", "照顾边界"] },
+  { match: ["危险", "有毒", "控制"], tags: ["回到安全", "收回自己"] },
+  { match: ["放弃", "躲"], tags: ["再看一眼", "小小出来"] },
+];
+
+const resonanceTagRules = [
+  { match: ["需要", "支持", "抱", "陪"], tags: ["想被接住", "需要陪伴"] },
+  { match: ["身体", "胸", "胃", "肩", "呼吸"], tags: ["身体有话", "放慢呼吸"] },
+  { match: ["关系", "爱", "恨", "依靠"], tags: ["关系牵动", "想被看见"] },
+  { match: ["光", "亮", "开始"], tags: ["一点希望", "微小开始"] },
+  { match: ["雾", "雨", "风", "傍晚"], tags: ["天气一样", "情绪在流动"] },
+];
+
 const projectionSets = [
   makeCardSet("mist", "雾面", "模糊、不确定、还没说清", ["#dbece6", "#c7d7ea", "#efd77e", "#dfa28f"], 1100),
   makeCardSet("light", "微光", "一点亮、开始、慢慢靠近", ["#f3df91", "#cfe5db", "#f2b9a1", "#fff4c2"], 2200),
@@ -280,9 +302,9 @@ const photoSet = {
 };
 
 const contentGroups = [
+  { id: "photos", name: "Photos", enabled: true, children: [photoSet] },
   { id: "projection", name: "投射", enabled: true, children: projectionSets },
   { id: "words", name: "Words", enabled: true, children: wordGroups },
-  { id: "photos", name: "Photos", enabled: true, children: [photoSet] },
 ];
 
 const palette = {
@@ -333,6 +355,12 @@ const state = {
   lastPointer: null,
   lastTouchDist: 0,
   scrollAccum: 0,
+  mode: localStorage.getItem(modeStoreKey) || "choice",
+  activeCards: [],
+  activeCardIndex: 0,
+  activeBatchId: null,
+  cardSessions: new Map(),
+  touchStartX: 0,
   selectedCard: null,
   selectedPrompts: [],
   currentPromptIndex: 0,
@@ -343,6 +371,7 @@ const state = {
 
 const chunkOffsets = makeChunkOffsets();
 resize();
+renderModeToggle();
 renderContentPanel();
 renderCalendar();
 updateChunks(true);
@@ -484,6 +513,8 @@ async function hydratePhotoCard(card) {
     ...card,
     kind: "photo",
     setId: "photos",
+    width: card.width ?? imageElement.naturalWidth,
+    height: card.height ?? imageElement.naturalHeight,
     seed: card.seed ?? hashString(card.id),
     imageUrl,
     imageElement,
@@ -534,6 +565,10 @@ async function persistEvent(entry) {
     type: entry.type,
     cardId: entry.payload.cardId,
     promptId: entry.payload.promptId,
+    questionId: entry.payload.questionId,
+    mode: entry.payload.mode,
+    action: entry.payload.action,
+    photoBatchId: entry.payload.photoBatchId,
     label: entry.payload.label ?? entry.payload.tag,
     text: entry.payload.text,
     dateKey: entry.dateKey,
@@ -650,13 +685,18 @@ function generateChunkPlanesCached(cx, cy, cz) {
     if (isCard) {
       const card = cards[Math.floor(r(5) * cards.length) % cards.length];
       const set = [...projectionSets, photoSet].find((candidate) => candidate.id === card.setId) ?? photoSet;
+      const cardHeight = 17 + r(4) * 12;
+      const cardAspect = getCardAspect(card);
       items.push({
         ...base,
         id: `${key}-${i}-${card.id}`,
         kind: "card",
         card,
         set,
-        scale: new THREE.Vector3(13 + r(3) * 12, 18 + r(4) * 15, 1),
+        scale:
+          card.kind === "photo"
+            ? new THREE.Vector3(clamp(cardHeight * cardAspect, 10, 30), cardHeight, 1)
+            : new THREE.Vector3(13 + r(3) * 12, 18 + r(4) * 15, 1),
       });
     } else if (enabledWords.length) {
       const word = enabledWords[Math.floor(r(5) * enabledWords.length) % enabledWords.length];
@@ -667,7 +707,7 @@ function generateChunkPlanesCached(cx, cy, cz) {
         word,
         text: word.text,
         groupId: word.groupId,
-        scale: new THREE.Vector3(8 + Math.min(12, word.text.length * 1.1), 5.2, 1),
+        scale: new THREE.Vector3(11 + Math.min(16, word.text.length * 1.28), 6.8, 1),
       });
     }
   }
@@ -698,8 +738,9 @@ function makeCardTexture(card) {
   const key = `card-${card.id}`;
   if (textureCache.has(key)) return textureCache.get(key);
   const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 680;
+  const size = getCardCanvasSize(card);
+  canvas.width = size.width;
+  canvas.height = size.height;
   drawCardCanvas(canvas.getContext("2d"), canvas.width, canvas.height, card);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -712,14 +753,14 @@ function makeWordTexture(text, lit, seed) {
   const key = `word-${text}-${lit}-${seed % 6}`;
   if (textureCache.has(key)) return textureCache.get(key);
   const canvas = document.createElement("canvas");
-  canvas.width = 480;
-  canvas.height = 150;
+  canvas.width = 620;
+  canvas.height = 190;
   const ctx = canvas.getContext("2d");
   const colors = ["#dbece6", "#efd77e", "#c7d7ea", "#dfa28f", "#d7c4d7", "#e9e1c7"];
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.shadowColor = lit ? "rgba(52, 125, 112, 0.34)" : "rgba(22, 32, 27, 0.14)";
   ctx.shadowBlur = lit ? 28 : 18;
-  roundedRect(ctx, 28, 38, canvas.width - 56, 74, 37);
+  roundedRect(ctx, 30, 44, canvas.width - 60, 102, 51);
   ctx.fillStyle = lit ? "#f3d56e" : colors[Math.abs(seed) % colors.length];
   ctx.fill();
   ctx.strokeStyle = lit ? "rgba(52, 125, 112, 0.52)" : "rgba(22, 32, 27, 0.14)";
@@ -727,10 +768,10 @@ function makeWordTexture(text, lit, seed) {
   ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.fillStyle = palette.ink;
-  ctx.font = `${text.length > 16 ? "600 25px" : "700 32px"} Inter, system-ui, sans-serif`;
+  ctx.font = `${text.length > 16 ? "650 34px" : "740 42px"} Inter, system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(text, canvas.width / 2, 76, canvas.width - 80);
+  ctx.fillText(text, canvas.width / 2, 96, canvas.width - 92);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   textureCache.set(key, texture);
@@ -775,27 +816,56 @@ function drawCardCanvas(ctx, width, height, card) {
   ctx.restore();
 }
 
+function getCardAspect(card) {
+  if (card.kind !== "photo") return 512 / 680;
+  const image = card.imageElement;
+  const width = card.width ?? image?.naturalWidth ?? 512;
+  const height = card.height ?? image?.naturalHeight ?? 680;
+  return clamp(width / Math.max(1, height), 0.42, 2.4);
+}
+
+function getCardCanvasSize(card) {
+  if (card.kind !== "photo") return { width: 512, height: 680 };
+  const aspect = getCardAspect(card);
+  const longSide = 720;
+  return aspect >= 1
+    ? { width: longSide, height: Math.round(longSide / aspect) }
+    : { width: Math.round(longSide * aspect), height: longSide };
+}
+
 function drawPhotoCardCanvas(ctx, width, height, card) {
   ctx.clearRect(0, 0, width, height);
   ctx.save();
   ctx.shadowColor = "rgba(22, 32, 27, 0.24)";
-  ctx.shadowBlur = 34;
-  roundedRect(ctx, 34, 28, width - 68, height - 56, 34);
+  ctx.shadowBlur = 22;
+  roundedRect(ctx, 10, 10, width - 20, height - 20, 28);
   ctx.fillStyle = palette.paper;
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.strokeStyle = "rgba(22, 32, 27, 0.14)";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.stroke();
-  roundedRect(ctx, 68, 68, width - 136, height - 136, 20);
+  const pad = Math.max(12, Math.min(width, height) * 0.035);
+  roundedRect(ctx, pad, pad, width - pad * 2, height - pad * 2, 22);
   ctx.clip();
   if (card.imageElement) {
-    drawImageCover(ctx, card.imageElement, 68, 68, width - 136, height - 136);
+    drawImageContain(ctx, card.imageElement, pad, pad, width - pad * 2, height - pad * 2);
   } else if (card.thumbDataUrl) {
     ctx.fillStyle = "#dbece6";
-    ctx.fillRect(68, 68, width - 136, height - 136);
+    ctx.fillRect(pad, pad, width - pad * 2, height - pad * 2);
   }
   ctx.restore();
+}
+
+function drawImageContain(ctx, image, x, y, width, height) {
+  const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+  const dw = image.naturalWidth * scale;
+  const dh = image.naturalHeight * scale;
+  const dx = x + (width - dw) / 2;
+  const dy = y + (height - dh) / 2;
+  ctx.fillStyle = palette.paper;
+  ctx.fillRect(x, y, width, height);
+  ctx.drawImage(image, dx, dy, dw, dh);
 }
 
 function drawImageCover(ctx, image, x, y, width, height) {
@@ -820,19 +890,22 @@ function cardThumbnail(card) {
 async function handlePhotoUpload(event) {
   const files = [...(event.target.files ?? [])].filter((file) => file.type.startsWith("image/"));
   if (!files.length) return;
+  const uploadedCards = [];
   for (const file of files) {
     const card = await createPhotoCard(file);
     photoSet.cards.unshift(card);
+    uploadedCards.push(card);
   }
   photoSet.enabled = true;
   saveVisibility();
   renderContentPanel();
   rebuildScene();
   event.target.value = "";
+  openCardExperience(uploadedCards, 0, `batch-${Date.now()}`);
 }
 
 async function createPhotoCard(file) {
-  const { imageBlob, thumbDataUrl, imageElement } = await compressImageFile(file);
+  const { imageBlob, thumbDataUrl, imageElement, width, height } = await compressImageFile(file);
   const id = `photo-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const now = new Date().toISOString();
   const card = {
@@ -843,6 +916,8 @@ async function createPhotoCard(file) {
     title: file.name.replace(/\.[^.]+$/, "") || "Photo",
     imageBlob,
     thumbDataUrl,
+    width,
+    height,
     createdByUserId: localUserId,
     createdAt: now,
     seed: hashString(id),
@@ -881,7 +956,7 @@ async function compressImageFile(file) {
   drawImageCover(thumbCtx, image, 0, 0, thumbCanvas.width, thumbCanvas.height);
   const thumbDataUrl = thumbCanvas.toDataURL("image/jpeg", 0.76);
   const imageElement = await loadImage(URL.createObjectURL(imageBlob));
-  return { imageBlob, thumbDataUrl, imageElement };
+  return { imageBlob, thumbDataUrl, imageElement, width: imageCanvas.width, height: imageCanvas.height };
 }
 
 function canvasToBlob(canvas, type, quality) {
@@ -937,7 +1012,7 @@ function updateMeshVisibility() {
     const gridFade = dist <= renderDistance ? 1 : Math.max(0, 1 - (dist - renderDistance) / chunkFadeMargin);
     const depthFade =
       absDepth <= depthFadeStart ? 1 : Math.max(0, 1 - (absDepth - depthFadeStart) / (depthFadeEnd - depthFadeStart));
-    const tooCloseWord = item.kind === "word" && relativeDepth < 58;
+    const tooCloseWord = item.kind === "word" && relativeDepth < 24;
     const target = relativeDepth > -26 && !tooCloseWord ? Math.min(gridFade, depthFade * depthFade) : 0;
     mesh.material.opacity += (target - mesh.material.opacity) * 0.16;
     mesh.material.depthWrite = mesh.material.opacity > 0.98;
@@ -995,32 +1070,80 @@ function handleTap(x, y) {
     record("keyword", { wordId: item.word?.id ?? item.id, text: item.text, groupId: item.groupId });
     return;
   }
-  openModal(item);
+  openCardExperience([item.card], 0, null);
 }
 
-function openModal(item) {
-  state.selectedCard = item.card;
-  state.selectedTags = new Set();
-  state.currentPromptIndex = 0;
-  state.answerSubmitted = false;
-  answerInput.value = "";
-  drawCardCanvas(focusCtx, focusCard.width, focusCard.height, item.card);
-  state.selectedPrompts = selectPrompts(item.card, item.set, item.seed);
-  renderCurrentPrompt();
-  renderLiveTags("");
+function openCardExperience(cards, initialIndex = 0, batchId = null) {
+  state.activeCards = cards;
+  state.activeCardIndex = initialIndex;
+  state.activeBatchId = batchId;
+  state.cardSessions = new Map();
+  cards.forEach((card) => {
+    state.cardSessions.set(card.id, createCardSession(card));
+  });
+  syncActiveCard();
   cardModal.classList.add("open");
   cardModal.setAttribute("aria-hidden", "false");
+}
+
+function createCardSession(card) {
+  const set = [...projectionSets, photoSet].find((candidate) => candidate.id === card.setId) ?? photoSet;
+  return {
+    card,
+    set,
+    prompts: selectPrompts(card, set, card.seed ?? hashString(card.id)),
+    currentPromptIndex: 0,
+    selectedTags: new Set(),
+    collectedTags: new Set(),
+    answerText: "",
+    responseTags: [],
+    hasResponse: false,
+  };
+}
+
+function syncActiveCard() {
+  const card = state.activeCards[state.activeCardIndex];
+  if (!card) return;
+  const session = getActiveSession();
+  state.selectedCard = card;
+  state.selectedPrompts = session.prompts;
+  state.currentPromptIndex = session.currentPromptIndex;
+  state.selectedTags = session.selectedTags;
+  const size = getCardCanvasSize(card);
+  focusCard.width = size.width;
+  focusCard.height = size.height;
+  focusCard.style.aspectRatio = `${size.width} / ${size.height}`;
+  drawCardCanvas(focusCtx, focusCard.width, focusCard.height, card);
+  renderModalByMode();
+  updateBatchNav();
   record("card_open", {
-    cardId: item.card.id,
-    setId: item.card.setId,
-    title: item.card.title,
-    thumbnail: cardThumbnail(item.card),
+    cardId: card.id,
+    setId: card.setId,
+    title: card.title,
+    mode: state.mode,
+    photoBatchId: state.activeBatchId,
+    thumbnail: cardThumbnail(card),
   });
 }
 
 function closeModal() {
   cardModal.classList.remove("open");
   cardModal.setAttribute("aria-hidden", "true");
+  state.activeCards = [];
+  state.activeCardIndex = 0;
+  state.activeBatchId = null;
+}
+
+function getActiveSession() {
+  const card = state.activeCards[state.activeCardIndex] ?? state.selectedCard;
+  if (!card) return null;
+  if (!state.cardSessions.has(card.id)) state.cardSessions.set(card.id, createCardSession(card));
+  return state.cardSessions.get(card.id);
+}
+
+function getCurrentPrompt() {
+  const session = getActiveSession();
+  return session?.prompts[session.currentPromptIndex] ?? null;
 }
 
 function selectPrompts(card, set, seed) {
@@ -1039,20 +1162,9 @@ function renderCurrentPrompt() {
   promptLayer.innerHTML = "";
   const prompt = getCurrentPrompt();
   const bubble = document.createElement("span");
-  bubble.className = `prompt-bubble${state.answerSubmitted ? " answered" : ""}`;
-  bubble.textContent = prompt
-    ? `${state.currentPromptIndex + 1}/${state.selectedPrompts.length} ${prompt.text}`
-    : "已经完成";
+  bubble.className = "prompt-bubble";
+  bubble.textContent = prompt ? prompt.text : "已经完成";
   promptLayer.appendChild(bubble);
-  submitAnswerButton.textContent = state.answerSubmitted
-    ? state.currentPromptIndex < state.selectedPrompts.length - 1
-      ? "继续"
-      : "完成"
-    : "提交";
-}
-
-function getCurrentPrompt() {
-  return state.selectedPrompts[state.currentPromptIndex] ?? null;
 }
 
 function renderLiveTags(text) {
@@ -1083,6 +1195,178 @@ function renderLiveTags(text) {
   });
 }
 
+function renderModalByMode() {
+  renderCurrentPrompt();
+  responseDock.dataset.mode = state.mode;
+  if (state.mode === "journal") {
+    renderJournalMode();
+  } else {
+    renderChoiceMode();
+  }
+}
+
+function renderChoiceMode() {
+  const session = getActiveSession();
+  const prompt = getCurrentPrompt();
+  const tags = generateChoiceTags(prompt, session.card);
+  const canStay = session.selectedTags.size > 0;
+  const isLast = session.currentPromptIndex >= session.prompts.length - 1;
+  responseDock.innerHTML = `
+    <div class="response-status${canStay ? " visible" : ""}">收到回应</div>
+    <div class="tag-result choice-tags" id="liveTagResult"></div>
+    <div class="modal-actions">
+      <button class="secondary-button" id="leaveCard" type="button">↙ 离开</button>
+      <button class="primary-button" id="stayCard" type="button" ${canStay ? "" : "disabled"}>${isLast ? "✦ 放手" : "◌ 停留"}</button>
+    </div>
+  `;
+  const tagRoot = responseDock.querySelector("#liveTagResult");
+  tags.forEach((tag) => {
+    const button = document.createElement("button");
+    button.className = `tag-chip${session.selectedTags.has(tag.label) ? " active" : ""}`;
+    button.dataset.family = tag.family;
+    button.type = "button";
+    button.textContent = tag.label;
+    button.addEventListener("click", () => {
+      toggleSessionTag(session, tag);
+      record("tag", tagPayload(tag, "choice_select"));
+      renderChoiceMode();
+    });
+    tagRoot.appendChild(button);
+  });
+  responseDock.querySelector("#leaveCard").addEventListener("click", closeModal);
+  responseDock.querySelector("#stayCard").addEventListener("click", handleChoiceStay);
+}
+
+function renderJournalMode() {
+  const session = getActiveSession();
+  responseDock.innerHTML = `
+    <div class="bottle-response${session.hasResponse ? " visible" : ""}">
+      <p>收到回应</p>
+      <div class="tag-result bottle-tags" id="bottleTags"></div>
+    </div>
+    <textarea id="answerInput" placeholder="把此刻投进瓶子里。"></textarea>
+    <div class="modal-actions three-actions">
+      <button class="secondary-button" id="exploreCard" type="button">⌁ 探索</button>
+      <button class="primary-button" id="castBottle" type="button">➶ 投出</button>
+      <button class="secondary-button" id="keepBottle" type="button">◍ 收好</button>
+    </div>
+  `;
+  const textarea = responseDock.querySelector("#answerInput");
+  textarea.value = session.answerText;
+  textarea.addEventListener("input", () => {
+    session.answerText = textarea.value;
+  });
+  const tagRoot = responseDock.querySelector("#bottleTags");
+  session.responseTags.forEach((tag) => {
+    const button = document.createElement("button");
+    button.className = `tag-chip${session.collectedTags.has(tag.label) ? " active collected" : ""}`;
+    button.dataset.family = tag.family;
+    button.type = "button";
+    button.textContent = tag.label;
+    button.addEventListener("click", () => {
+      session.collectedTags.add(tag.label);
+      record("tag", tagPayload(tag, "journal_collect"));
+      renderJournalMode();
+    });
+    tagRoot.appendChild(button);
+  });
+  responseDock.querySelector("#castBottle").addEventListener("click", handleJournalCast);
+  responseDock.querySelector("#exploreCard").addEventListener("click", handleJournalExplore);
+  responseDock.querySelector("#keepBottle").addEventListener("click", closeModal);
+}
+
+function toggleSessionTag(session, tag) {
+  if (session.selectedTags.has(tag.label)) {
+    session.selectedTags.delete(tag.label);
+  } else {
+    session.selectedTags.add(tag.label);
+  }
+}
+
+function tagPayload(tag, action) {
+  const session = getActiveSession();
+  const prompt = getCurrentPrompt();
+  return {
+    label: tag.label,
+    family: tag.family,
+    mode: state.mode,
+    action,
+    cardId: session.card.id,
+    setId: session.card.setId,
+    promptId: prompt?.id,
+    questionId: prompt?.id,
+    photoBatchId: state.activeBatchId,
+  };
+}
+
+function handleChoiceStay() {
+  const session = getActiveSession();
+  if (!session.selectedTags.size) return;
+  const prompt = getCurrentPrompt();
+  record("question_action", {
+    mode: "choice",
+    action: session.currentPromptIndex >= session.prompts.length - 1 ? "release" : "stay",
+    cardId: session.card.id,
+    setId: session.card.setId,
+    promptId: prompt?.id,
+    questionId: prompt?.id,
+    labels: [...session.selectedTags],
+    photoBatchId: state.activeBatchId,
+  });
+  if (session.currentPromptIndex >= session.prompts.length - 1) {
+    closeModal();
+    return;
+  }
+  session.currentPromptIndex += 1;
+  session.selectedTags = new Set();
+  syncActiveCard();
+}
+
+function handleJournalCast() {
+  const session = getActiveSession();
+  const prompt = getCurrentPrompt();
+  session.hasResponse = true;
+  session.responseTags = generateAiLikeTags(session.answerText, { card: session.card, prompt });
+  if (session.answerText.trim()) {
+    record("answer", {
+      mode: "journal",
+      action: "cast",
+      cardId: session.card.id,
+      setId: session.card.setId,
+      promptId: prompt?.id,
+      questionId: prompt?.id,
+      text: session.answerText.trim(),
+      thumbnail: cardThumbnail(session.card),
+      photoBatchId: state.activeBatchId,
+    });
+  }
+  renderJournalMode();
+}
+
+function handleJournalExplore() {
+  const session = getActiveSession();
+  const prompt = getCurrentPrompt();
+  record("question_action", {
+    mode: "journal",
+    action: "explore",
+    cardId: session.card.id,
+    setId: session.card.setId,
+    promptId: prompt?.id,
+    questionId: prompt?.id,
+    photoBatchId: state.activeBatchId,
+  });
+  if (session.currentPromptIndex >= session.prompts.length - 1) {
+    closeModal();
+    return;
+  }
+  session.currentPromptIndex += 1;
+  session.answerText = "";
+  session.responseTags = [];
+  session.collectedTags = new Set();
+  session.hasResponse = false;
+  syncActiveCard();
+}
+
 function generateTags(text) {
   const trimmed = text.trim();
   if (!trimmed) return defaultTags;
@@ -1101,6 +1385,32 @@ function generateTags(text) {
   return uniqueTags([...matches, ...promptTags, ...fallback, ...defaultTags]).slice(0, 8);
 }
 
+function generateChoiceTags(prompt, card) {
+  const baseText = [prompt?.text, card?.title, ...(prompt?.tags ?? [])].filter(Boolean).join(" ");
+  const generated = generateAiLikeTags(baseText, { card, prompt });
+  const promptTags = (prompt?.tags ?? []).map((label) => ({ family: inferFamily(label), label }));
+  return uniqueTags([...promptTags, ...generated, ...defaultTags]).slice(0, 9);
+}
+
+function generateAiLikeTags(input, context = {}) {
+  const text = `${input || ""} ${context.prompt?.text ?? ""} ${context.card?.title ?? ""}`.trim();
+  const related = collectRuleTags(text, tagRules, "related", ["与它有关", "靠近一点", "先看见"]).slice(0, 3);
+  const opposite = collectRuleTags(text, oppositeTagRules, "opposite", ["反过来", "松开一点", "换个方向"]).slice(0, 3);
+  const resonance = collectRuleTags(text, resonanceTagRules, "resonance", ["同一种需要", "相似感受", "被轻轻接住"]).slice(0, 3);
+  return uniqueTags([...related, ...opposite, ...resonance]).slice(0, 9);
+}
+
+function collectRuleTags(text, rules, family, fallback) {
+  const matches = [];
+  rules.forEach((rule) => {
+    if (rule.match.some((word) => text.includes(word))) {
+      rule.tags.forEach((label) => matches.push({ family, label }));
+    }
+  });
+  if (!matches.length) fallback.forEach((label) => matches.push({ family, label }));
+  return matches;
+}
+
 function inferFamily(label) {
   if (["身体", "感受"].some((word) => label.includes(word))) return "body";
   if (["关系", "距离", "靠近"].some((word) => label.includes(word))) return "relation";
@@ -1113,32 +1423,7 @@ function uniqueTags(tags) {
 }
 
 function submitAnswer() {
-  if (state.answerSubmitted) {
-    if (state.currentPromptIndex < state.selectedPrompts.length - 1) {
-      state.currentPromptIndex += 1;
-      state.answerSubmitted = false;
-      answerInput.value = "";
-      renderCurrentPrompt();
-      renderLiveTags("");
-    } else {
-      closeModal();
-    }
-    return;
-  }
-  const text = answerInput.value.trim();
-  const prompt = getCurrentPrompt();
-  if (text) {
-    record("answer", {
-      cardId: state.selectedCard?.id ?? "unknown",
-      setId: state.selectedCard?.setId ?? "unknown",
-      promptId: prompt?.id,
-      text,
-      thumbnail: cardThumbnail(state.selectedCard),
-    });
-  }
-  state.answerSubmitted = true;
-  renderLiveTags(text);
-  renderCurrentPrompt();
+  handleJournalCast();
 }
 
 function renderContentPanel() {
@@ -1178,6 +1463,30 @@ function renderContentPanel() {
     });
     rootEl.appendChild(block);
   });
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  localStorage.setItem(modeStoreKey, mode);
+  renderModeToggle();
+  if (cardModal.classList.contains("open")) renderModalByMode();
+}
+
+function renderModeToggle() {
+  choiceModeToggle.classList.toggle("active", state.mode === "choice");
+  journalModeToggle.classList.toggle("active", state.mode === "journal");
+}
+
+function updateBatchNav() {
+  const show = state.activeCards.length > 1;
+  prevCardButton.classList.toggle("visible", show);
+  nextCardButton.classList.toggle("visible", show);
+}
+
+function moveActiveCard(delta) {
+  if (state.activeCards.length <= 1) return;
+  state.activeCardIndex = (state.activeCardIndex + delta + state.activeCards.length) % state.activeCards.length;
+  syncActiveCard();
 }
 
 function saveVisibility() {
@@ -1372,11 +1681,22 @@ document.getElementById("calendarToggle").addEventListener("click", () => {
   renderCalendar();
   togglePanel(calendarPanel);
 });
+choiceModeToggle.addEventListener("click", () => setMode("choice"));
+journalModeToggle.addEventListener("click", () => setMode("journal"));
 document.getElementById("closeCardSetPanel").addEventListener("click", () => togglePanel(cardSetPanel));
 document.getElementById("closeCalendarPanel").addEventListener("click", () => togglePanel(calendarPanel));
 document.getElementById("closeModal").addEventListener("click", closeModal);
 document.getElementById("modalScrim").addEventListener("click", closeModal);
+prevCardButton.addEventListener("click", () => moveActiveCard(-1));
+nextCardButton.addEventListener("click", () => moveActiveCard(1));
+focusCard.addEventListener("touchstart", (event) => {
+  state.touchStartX = event.touches[0]?.clientX ?? 0;
+});
+focusCard.addEventListener("touchend", (event) => {
+  const endX = event.changedTouches[0]?.clientX ?? state.touchStartX;
+  const delta = endX - state.touchStartX;
+  if (Math.abs(delta) > 44) moveActiveCard(delta > 0 ? -1 : 1);
+});
 submitAnswerButton.addEventListener("click", submitAnswer);
 photoInput.addEventListener("change", handlePhotoUpload);
-answerInput.addEventListener("input", () => renderLiveTags(answerInput.value));
 window.addEventListener("resize", resize);

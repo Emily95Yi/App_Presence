@@ -106,6 +106,34 @@ button {
   pointer-events: auto;
 }
 
+.mode-switch {
+  display: flex;
+  min-height: 44px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-soft);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.mode-option {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 720;
+}
+
+.mode-option.active {
+  background: var(--accent);
+  color: #fffaf1;
+}
+
 .icon-button,
 .pill-button,
 .primary-button,
@@ -129,6 +157,62 @@ button {
   font-size: 20px;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+}
+
+.cards-icon,
+.calendar-icon {
+  position: relative;
+  display: block;
+  width: 19px;
+  height: 19px;
+}
+
+.cards-icon::before,
+.cards-icon::after {
+  position: absolute;
+  width: 11px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  content: "";
+}
+
+.cards-icon::before {
+  left: 2px;
+  top: 1px;
+  transform: rotate(-8deg);
+}
+
+.cards-icon::after {
+  right: 2px;
+  bottom: 1px;
+  background: rgba(250, 247, 239, 0.72);
+  transform: rotate(8deg);
+}
+
+.calendar-icon {
+  border: 2px solid currentColor;
+  border-radius: 4px;
+}
+
+.calendar-icon::before {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  width: 100%;
+  border-top: 2px solid currentColor;
+  content: "";
+}
+
+.calendar-icon::after {
+  position: absolute;
+  top: -3px;
+  left: 4px;
+  width: 7px;
+  height: 4px;
+  border-right: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  content: "";
 }
 
 .pill-button {
@@ -386,14 +470,36 @@ button {
   background: rgba(255, 252, 245, 0.9);
 }
 
+.batch-nav {
+  position: absolute;
+  top: 36%;
+  z-index: 4;
+  display: none;
+  background: rgba(255, 252, 245, 0.86);
+  font-size: 28px;
+}
+
+.batch-nav.visible {
+  display: grid;
+}
+
+.batch-prev {
+  left: 0;
+}
+
+.batch-next {
+  right: 0;
+}
+
 #focusCard {
   position: relative;
   z-index: 2;
-  width: min(68vw, 330px);
+  width: min(72vw, 360px);
+  max-width: min(78vw, 420px);
   max-height: 42vh;
-  aspect-ratio: 512 / 680;
   height: auto;
-  border-radius: 18px;
+  object-fit: contain;
+  border-radius: 16px;
   box-shadow: 0 22px 80px rgba(22, 32, 27, 0.34);
 }
 
@@ -441,6 +547,45 @@ button {
   -webkit-backdrop-filter: blur(24px);
 }
 
+.response-status,
+.bottle-response {
+  display: none;
+  margin-bottom: 10px;
+  color: rgba(20, 60, 53, 0.78);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.response-status.visible,
+.bottle-response.visible {
+  display: block;
+}
+
+.bottle-response p {
+  margin: 0 0 8px;
+}
+
+.modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.three-actions {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.secondary-button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 252, 245, 0.86);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 720;
+}
+
 textarea {
   width: 100%;
   min-height: 76px;
@@ -468,6 +613,11 @@ textarea:focus {
   background: var(--accent);
   color: white;
   font-weight: 720;
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  background: rgba(22, 32, 27, 0.2);
 }
 
 .tag-result {
@@ -527,9 +677,23 @@ textarea:focus {
   background: rgba(235, 232, 224, 0.8);
 }
 
+.tag-chip[data-family="opposite"] {
+  border-color: rgba(22, 32, 27, 0.24);
+  background: rgba(232, 213, 190, 0.78);
+}
+
+.tag-chip[data-family="resonance"] {
+  border-color: rgba(52, 125, 112, 0.32);
+  background: rgba(206, 220, 180, 0.76);
+}
+
 .tag-chip.active {
   outline: 2px solid rgba(22, 32, 27, 0.25);
   color: #143c35;
+}
+
+.tag-chip.collected {
+  box-shadow: inset 0 0 0 1px rgba(52, 125, 112, 0.38);
 }
 
 @media (min-width: 760px) {
