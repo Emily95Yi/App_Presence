@@ -6,12 +6,17 @@ const focusCard = document.getElementById("focusCard");
 const focusCtx = focusCard.getContext("2d");
 const promptLayer = document.getElementById("promptLayer");
 const answerInput = document.getElementById("answerInput");
+const submitAnswerButton = document.getElementById("submitAnswer");
 const liveTagResult = document.getElementById("liveTagResult");
 const cardSetPanel = document.getElementById("cardSetPanel");
 const calendarPanel = document.getElementById("calendarPanel");
+const photoInput = document.getElementById("photoInput");
 
 const recordStoreKey = "presence.records.v1";
 const visibilityStoreKey = "presence.contentVisibility.v1";
+const userStoreKey = "presence.localUserId.v1";
+const dbName = "presence.db.v1";
+const dbVersion = 1;
 const chunkSize = 92;
 const renderDistance = 2;
 const chunkFadeMargin = 1.2;
@@ -21,6 +26,7 @@ const maxVelocity = 2.9;
 const velocityLerp = 0.16;
 const velocityDecay = 0.9;
 const initialCameraZ = 92;
+const maxPromptsPerCard = 3;
 
 const angelPairs = `
 Abundance|丰盛
@@ -261,10 +267,22 @@ const projectionSets = [
   makeCardSet("night", "夜色", "安静、躲藏、低声停留", ["#d7c4d7", "#b9c5d9", "#e6d8c7", "#a8b5aa"], 3300),
 ];
 
+const localUserId = getOrCreateLocalUserId();
+const presenceDb = await openPresenceDb();
+await ensureLocalUser();
+await seedQuestionSchema();
+const photoSet = {
+  id: "photos",
+  name: "Photos",
+  description: "上传/拍照的图片",
+  enabled: true,
+  cards: await loadPhotoCards(),
+};
+
 const contentGroups = [
   { id: "projection", name: "投射", enabled: true, children: projectionSets },
   { id: "words", name: "Words", enabled: true, children: wordGroups },
-  { id: "photos", name: "Photos", enabled: false, children: [] },
+  { id: "photos", name: "Photos", enabled: true, children: [photoSet] },
 ];
 
 const palette = {
@@ -274,7 +292,7 @@ const palette = {
 
 const savedVisibility = readJson(visibilityStoreKey, null);
 if (savedVisibility) {
-  [...projectionSets, ...wordGroups].forEach((item) => {
+  [...projectionSets, ...wordGroups, photoSet].forEach((item) => {
     item.enabled = savedVisibility[item.id] ?? item.enabled;
   });
 }
@@ -317,6 +335,8 @@ const state = {
   scrollAccum: 0,
   selectedCard: null,
   selectedPrompts: [],
+  currentPromptIndex: 0,
+  answerSubmitted: false,
   selectedTags: new Set(),
   lastChunkKey: "",
 };
@@ -340,10 +360,143 @@ function makeCardSet(id, name, description, colors, seedBase) {
       setId: id,
       title: `${name} ${index + 1}`,
       seed: seedBase + index * 137,
+      kind: "projection",
       src: null,
       promptIds: index === 0 ? [`${id}-card-1`] : [],
     })),
   };
+}
+
+function getOrCreateLocalUserId() {
+  const saved = localStorage.getItem(userStoreKey);
+  if (saved) return saved;
+  const id = `local-${crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+  localStorage.setItem(userStoreKey, id);
+  return id;
+}
+
+function openPresenceDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName, dbVersion);
+    request.addEventListener("upgradeneeded", () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("users")) db.createObjectStore("users", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("cards")) {
+        const store = db.createObjectStore("cards", { keyPath: "id" });
+        store.createIndex("source", "source", { unique: false });
+        store.createIndex("createdByUserId", "createdByUserId", { unique: false });
+      }
+      if (!db.objectStoreNames.contains("prompts")) db.createObjectStore("prompts", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("cardPrompts")) {
+        const store = db.createObjectStore("cardPrompts", { keyPath: "id" });
+        store.createIndex("cardId", "cardId", { unique: false });
+        store.createIndex("promptId", "promptId", { unique: false });
+      }
+      if (!db.objectStoreNames.contains("events")) {
+        const store = db.createObjectStore("events", { keyPath: "id" });
+        store.createIndex("userId", "userId", { unique: false });
+        store.createIndex("dateKey", "dateKey", { unique: false });
+        store.createIndex("type", "type", { unique: false });
+      }
+      if (!db.objectStoreNames.contains("dailyCounts")) {
+        const store = db.createObjectStore("dailyCounts", { keyPath: "id" });
+        store.createIndex("userDate", ["userId", "dateKey"], { unique: false });
+      }
+    });
+    request.addEventListener("success", () => resolve(request.result));
+    request.addEventListener("error", () => reject(request.error));
+  });
+}
+
+function dbRequest(request) {
+  return new Promise((resolve, reject) => {
+    request.addEventListener("success", () => resolve(request.result));
+    request.addEventListener("error", () => reject(request.error));
+  });
+}
+
+async function ensureLocalUser() {
+  const readTx = presenceDb.transaction("users", "readonly");
+  const existing = await dbRequest(readTx.objectStore("users").get(localUserId));
+  await waitForTransaction(readTx);
+  if (existing) return;
+  const writeTx = presenceDb.transaction("users", "readwrite");
+  writeTx.objectStore("users").put({ id: localUserId, createdAt: new Date().toISOString(), displayName: "Local user" });
+  await waitForTransaction(writeTx);
+}
+
+async function seedQuestionSchema() {
+  const tx = presenceDb.transaction(["cards", "prompts", "cardPrompts"], "readwrite");
+  const cardStore = tx.objectStore("cards");
+  const promptStore = tx.objectStore("prompts");
+  const relationStore = tx.objectStore("cardPrompts");
+  const now = new Date().toISOString();
+  projectionSets.forEach((set) => {
+    set.cards.forEach((card) => {
+      cardStore.put({ ...card, source: "projection", createdAt: now });
+    });
+  });
+  promptBank.forEach((prompt) => {
+    promptStore.put({ id: prompt.id, text: prompt.text, tags: prompt.tags ?? [], scope: prompt.scope, createdAt: now });
+  });
+  promptBank.forEach((prompt) => {
+    if (prompt.scope === "card") {
+      relationStore.put({ id: `${prompt.cardId}|${prompt.id}`, cardId: prompt.cardId, promptId: prompt.id, weight: 3 });
+    }
+    if (prompt.scope === "set") {
+      projectionSets
+        .find((set) => set.id === prompt.setId)
+        ?.cards.forEach((card) => {
+          relationStore.put({ id: `${card.id}|${prompt.id}`, cardId: card.id, promptId: prompt.id, weight: 2 });
+        });
+    }
+    if (prompt.scope === "generic") {
+      projectionSets.forEach((set) => {
+        set.cards.forEach((card) => {
+          relationStore.put({ id: `${card.id}|${prompt.id}`, cardId: card.id, promptId: prompt.id, weight: 1 });
+        });
+      });
+    }
+  });
+  await waitForTransaction(tx);
+}
+
+function waitForTransaction(tx) {
+  return new Promise((resolve, reject) => {
+    tx.addEventListener("complete", resolve);
+    tx.addEventListener("abort", () => reject(tx.error));
+    tx.addEventListener("error", () => reject(tx.error));
+  });
+}
+
+async function loadPhotoCards() {
+  const tx = presenceDb.transaction("cards", "readonly");
+  const cards = await dbRequest(tx.objectStore("cards").getAll());
+  await waitForTransaction(tx);
+  const photoCards = cards.filter((card) => card.source === "photo");
+  return Promise.all(photoCards.map(hydratePhotoCard));
+}
+
+async function hydratePhotoCard(card) {
+  const imageUrl = URL.createObjectURL(card.imageBlob);
+  const imageElement = await loadImage(imageUrl);
+  return {
+    ...card,
+    kind: "photo",
+    setId: "photos",
+    seed: card.seed ?? hashString(card.id),
+    imageUrl,
+    imageElement,
+  };
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", reject);
+    image.src = src;
+  });
 }
 
 function readJson(key, fallback) {
@@ -359,9 +512,50 @@ function writeJson(key, value) {
 }
 
 function record(type, payload) {
-  records.push({ type, payload, at: new Date().toISOString() });
+  const at = new Date().toISOString();
+  const entry = {
+    id: `event-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    type,
+    payload,
+    userId: localUserId,
+    dateKey: formatRecordDay(at),
+    at,
+  };
+  records.push(entry);
   writeJson(recordStoreKey, records);
+  persistEvent(entry);
   renderCalendar();
+}
+
+async function persistEvent(entry) {
+  const event = {
+    id: entry.id,
+    userId: entry.userId,
+    type: entry.type,
+    cardId: entry.payload.cardId,
+    promptId: entry.payload.promptId,
+    label: entry.payload.label ?? entry.payload.tag,
+    text: entry.payload.text,
+    dateKey: entry.dateKey,
+    createdAt: entry.at,
+  };
+  const tx = presenceDb.transaction(["events", "dailyCounts"], "readwrite");
+  tx.objectStore("events").put(event);
+  const target = event.cardId ?? event.label ?? entry.payload.wordId ?? entry.payload.text ?? "unknown";
+  const targetType = event.cardId ? "card" : event.label ? "tag" : entry.payload.wordId ? "word" : "event";
+  const countId = [event.userId, event.dateKey, targetType, target, event.type].join("|");
+  const countStore = tx.objectStore("dailyCounts");
+  const existing = await dbRequest(countStore.get(countId));
+  countStore.put({
+    id: countId,
+    userId: event.userId,
+    dateKey: event.dateKey,
+    targetType,
+    targetId: target,
+    eventType: event.type,
+    count: (existing?.count ?? 0) + 1,
+  });
+  await waitForTransaction(tx);
 }
 
 function makeChunkOffsets() {
@@ -383,7 +577,8 @@ function getEnabledProjectionSets() {
 }
 
 function getEnabledCards() {
-  return getEnabledProjectionSets().flatMap((set) => set.cards);
+  const photoCards = photoSet.enabled ? photoSet.cards : [];
+  return [...getEnabledProjectionSets().flatMap((set) => set.cards), ...photoCards];
 }
 
 function getEnabledWords() {
@@ -394,9 +589,10 @@ function updateChunks(force = false) {
   const cx = Math.floor(state.basePos.x / chunkSize);
   const cy = Math.floor(state.basePos.y / chunkSize);
   const cz = Math.floor(state.basePos.z / chunkSize);
-  const enabledKey = [...getEnabledProjectionSets(), ...wordGroups.filter((group) => group.enabled)]
-    .map((item) => item.id)
-    .join("|") || "none";
+  const enabledKey =
+    [...getEnabledProjectionSets(), ...wordGroups.filter((group) => group.enabled), ...(photoSet.enabled ? [photoSet] : [])]
+      .map((item) => item.id)
+      .join("|") || "none";
   const key = `${cx},${cy},${cz},${enabledKey}`;
   if (!force && key === state.lastChunkKey) return;
   state.lastChunkKey = key;
@@ -423,9 +619,10 @@ function updateChunks(force = false) {
 }
 
 function generateChunkPlanesCached(cx, cy, cz) {
-  const enabledKey = [...getEnabledProjectionSets(), ...wordGroups.filter((group) => group.enabled)]
-    .map((item) => item.id)
-    .join("|") || "none";
+  const enabledKey =
+    [...getEnabledProjectionSets(), ...wordGroups.filter((group) => group.enabled), ...(photoSet.enabled ? [photoSet] : [])]
+      .map((item) => item.id)
+      .join("|") || "none";
   const key = `${cx},${cy},${cz},${enabledKey}`;
   if (planeCache.has(key)) return planeCache.get(key);
 
@@ -452,7 +649,7 @@ function generateChunkPlanesCached(cx, cy, cz) {
 
     if (isCard) {
       const card = cards[Math.floor(r(5) * cards.length) % cards.length];
-      const set = projectionSets.find((candidate) => candidate.id === card.setId);
+      const set = [...projectionSets, photoSet].find((candidate) => candidate.id === card.setId) ?? photoSet;
       items.push({
         ...base,
         id: `${key}-${i}-${card.id}`,
@@ -541,6 +738,10 @@ function makeWordTexture(text, lit, seed) {
 }
 
 function drawCardCanvas(ctx, width, height, card) {
+  if (card.kind === "photo") {
+    drawPhotoCardCanvas(ctx, width, height, card);
+    return;
+  }
   const set = projectionSets.find((candidate) => candidate.id === card.setId) ?? projectionSets[0];
   const colors = set.colors;
   const seed = card.seed;
@@ -574,13 +775,117 @@ function drawCardCanvas(ctx, width, height, card) {
   ctx.restore();
 }
 
+function drawPhotoCardCanvas(ctx, width, height, card) {
+  ctx.clearRect(0, 0, width, height);
+  ctx.save();
+  ctx.shadowColor = "rgba(22, 32, 27, 0.24)";
+  ctx.shadowBlur = 34;
+  roundedRect(ctx, 34, 28, width - 68, height - 56, 34);
+  ctx.fillStyle = palette.paper;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "rgba(22, 32, 27, 0.14)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  roundedRect(ctx, 68, 68, width - 136, height - 136, 20);
+  ctx.clip();
+  if (card.imageElement) {
+    drawImageCover(ctx, card.imageElement, 68, 68, width - 136, height - 136);
+  } else if (card.thumbDataUrl) {
+    ctx.fillStyle = "#dbece6";
+    ctx.fillRect(68, 68, width - 136, height - 136);
+  }
+  ctx.restore();
+}
+
+function drawImageCover(ctx, image, x, y, width, height) {
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+  const sw = width / scale;
+  const sh = height / scale;
+  const sx = (image.naturalWidth - sw) / 2;
+  const sy = (image.naturalHeight - sh) / 2;
+  ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
+}
+
 function cardThumbnail(card) {
   if (!card) return "";
+  if (card.thumbDataUrl) return card.thumbDataUrl;
   const canvas = document.createElement("canvas");
   canvas.width = 96;
   canvas.height = 128;
   drawCardCanvas(canvas.getContext("2d"), canvas.width, canvas.height, card);
   return canvas.toDataURL("image/png");
+}
+
+async function handlePhotoUpload(event) {
+  const files = [...(event.target.files ?? [])].filter((file) => file.type.startsWith("image/"));
+  if (!files.length) return;
+  for (const file of files) {
+    const card = await createPhotoCard(file);
+    photoSet.cards.unshift(card);
+  }
+  photoSet.enabled = true;
+  saveVisibility();
+  renderContentPanel();
+  rebuildScene();
+  event.target.value = "";
+}
+
+async function createPhotoCard(file) {
+  const { imageBlob, thumbDataUrl, imageElement } = await compressImageFile(file);
+  const id = `photo-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const now = new Date().toISOString();
+  const card = {
+    id,
+    source: "photo",
+    kind: "photo",
+    setId: "photos",
+    title: file.name.replace(/\.[^.]+$/, "") || "Photo",
+    imageBlob,
+    thumbDataUrl,
+    createdByUserId: localUserId,
+    createdAt: now,
+    seed: hashString(id),
+  };
+  const imageUrl = URL.createObjectURL(imageBlob);
+  const hydrated = { ...card, imageUrl, imageElement };
+  const tx = presenceDb.transaction(["cards", "cardPrompts"], "readwrite");
+  tx.objectStore("cards").put(card);
+  promptBank
+    .filter((prompt) => prompt.scope === "generic")
+    .forEach((prompt) => {
+      tx.objectStore("cardPrompts").put({ id: `${id}|${prompt.id}`, cardId: id, promptId: prompt.id, weight: 1 });
+    });
+  await waitForTransaction(tx);
+  record("photo_upload", { cardId: id, setId: "photos", thumbnail: thumbDataUrl });
+  return hydrated;
+}
+
+async function compressImageFile(file) {
+  const sourceUrl = URL.createObjectURL(file);
+  const image = await loadImage(sourceUrl);
+  URL.revokeObjectURL(sourceUrl);
+  const imageCanvas = document.createElement("canvas");
+  const maxSide = 1400;
+  const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+  imageCanvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  imageCanvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const imageCtx = imageCanvas.getContext("2d");
+  imageCtx.drawImage(image, 0, 0, imageCanvas.width, imageCanvas.height);
+  const imageBlob = await canvasToBlob(imageCanvas, "image/jpeg", 0.86);
+
+  const thumbCanvas = document.createElement("canvas");
+  thumbCanvas.width = 192;
+  thumbCanvas.height = 256;
+  const thumbCtx = thumbCanvas.getContext("2d");
+  drawImageCover(thumbCtx, image, 0, 0, thumbCanvas.width, thumbCanvas.height);
+  const thumbDataUrl = thumbCanvas.toDataURL("image/jpeg", 0.76);
+  const imageElement = await loadImage(URL.createObjectURL(imageBlob));
+  return { imageBlob, thumbDataUrl, imageElement };
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
 }
 
 function roundedRect(ctx, x, y, w, h, r) {
@@ -696,16 +1001,19 @@ function handleTap(x, y) {
 function openModal(item) {
   state.selectedCard = item.card;
   state.selectedTags = new Set();
+  state.currentPromptIndex = 0;
+  state.answerSubmitted = false;
   answerInput.value = "";
   drawCardCanvas(focusCtx, focusCard.width, focusCard.height, item.card);
   state.selectedPrompts = selectPrompts(item.card, item.set, item.seed);
-  renderPromptChips(state.selectedPrompts);
+  renderCurrentPrompt();
   renderLiveTags("");
   cardModal.classList.add("open");
   cardModal.setAttribute("aria-hidden", "false");
   record("card_open", {
     cardId: item.card.id,
     setId: item.card.setId,
+    title: item.card.title,
     thumbnail: cardThumbnail(item.card),
   });
 }
@@ -719,18 +1027,32 @@ function selectPrompts(card, set, seed) {
   const cardPrompts = promptBank.filter((prompt) => prompt.scope === "card" && prompt.cardId === card.id);
   const setPrompts = promptBank.filter((prompt) => prompt.scope === "set" && prompt.setId === set.id);
   const genericPrompts = promptBank.filter((prompt) => prompt.scope === "generic");
-  const ordered = [...cardPrompts, ...setPrompts, ...stableShuffle(genericPrompts, seed)];
-  return [...new Map(ordered.map((prompt) => [prompt.id, prompt])).values()].slice(0, 4);
+  const ordered = [
+    ...stableShuffle(cardPrompts, seed + 11),
+    ...stableShuffle(setPrompts, seed + 23),
+    ...stableShuffle(genericPrompts, seed + 37),
+  ];
+  return [...new Map(ordered.map((prompt) => [prompt.id, prompt])).values()].slice(0, maxPromptsPerCard);
 }
 
-function renderPromptChips(prompts) {
+function renderCurrentPrompt() {
   promptLayer.innerHTML = "";
-  prompts.forEach((prompt) => {
-    const bubble = document.createElement("span");
-    bubble.className = "prompt-bubble";
-    bubble.textContent = prompt.text;
-    promptLayer.appendChild(bubble);
-  });
+  const prompt = getCurrentPrompt();
+  const bubble = document.createElement("span");
+  bubble.className = `prompt-bubble${state.answerSubmitted ? " answered" : ""}`;
+  bubble.textContent = prompt
+    ? `${state.currentPromptIndex + 1}/${state.selectedPrompts.length} ${prompt.text}`
+    : "已经完成";
+  promptLayer.appendChild(bubble);
+  submitAnswerButton.textContent = state.answerSubmitted
+    ? state.currentPromptIndex < state.selectedPrompts.length - 1
+      ? "继续"
+      : "完成"
+    : "提交";
+}
+
+function getCurrentPrompt() {
+  return state.selectedPrompts[state.currentPromptIndex] ?? null;
 }
 
 function renderLiveTags(text) {
@@ -754,6 +1076,7 @@ function renderLiveTags(text) {
         family: tag.family,
         cardId: state.selectedCard?.id ?? "unknown",
         setId: state.selectedCard?.setId ?? "unknown",
+        promptId: getCurrentPrompt()?.id,
       });
     });
     liveTagResult.appendChild(button);
@@ -769,9 +1092,7 @@ function generateTags(text) {
       rule.tags.slice(0, 2).forEach((label) => matches.push({ family: rule.family, label }));
     }
   });
-  const promptTags = state.selectedPrompts.flatMap((prompt) =>
-    (prompt.tags ?? []).map((label) => ({ family: inferFamily(label), label })),
-  );
+  const promptTags = (getCurrentPrompt()?.tags ?? []).map((label) => ({ family: inferFamily(label), label }));
   const fallback = [
     { family: "feeling", label: trimmed.slice(0, 8) },
     { family: "shift", label: "换个角度" },
@@ -792,16 +1113,32 @@ function uniqueTags(tags) {
 }
 
 function submitAnswer() {
+  if (state.answerSubmitted) {
+    if (state.currentPromptIndex < state.selectedPrompts.length - 1) {
+      state.currentPromptIndex += 1;
+      state.answerSubmitted = false;
+      answerInput.value = "";
+      renderCurrentPrompt();
+      renderLiveTags("");
+    } else {
+      closeModal();
+    }
+    return;
+  }
   const text = answerInput.value.trim();
+  const prompt = getCurrentPrompt();
   if (text) {
     record("answer", {
       cardId: state.selectedCard?.id ?? "unknown",
       setId: state.selectedCard?.setId ?? "unknown",
+      promptId: prompt?.id,
       text,
       thumbnail: cardThumbnail(state.selectedCard),
     });
   }
+  state.answerSubmitted = true;
   renderLiveTags(text);
+  renderCurrentPrompt();
 }
 
 function renderContentPanel() {
@@ -811,20 +1148,29 @@ function renderContentPanel() {
     const block = document.createElement("section");
     block.className = "group-block";
     block.innerHTML = `<p class="group-label">${group.name}</p>`;
-    if (!group.children.length) {
+    if (group.id === "photos") {
+      const upload = document.createElement("button");
+      upload.className = "photo-upload-button";
+      upload.type = "button";
+      upload.textContent = "＋ 上传 / 拍照";
+      upload.addEventListener("click", () => photoInput.click());
+      block.appendChild(upload);
+    }
+    if (group.id === "photos" && !photoSet.cards.length) {
       const empty = document.createElement("p");
       empty.className = "empty-state";
-      empty.textContent = "之后会显示拍照/上传的图片。";
+      empty.textContent = "上传后会进入无限画布。";
       block.appendChild(empty);
     }
     group.children.forEach((child) => {
       const button = document.createElement("button");
       button.className = `set-toggle${child.enabled ? " active" : ""}`;
       button.type = "button";
-      button.innerHTML = `<span>${child.name}<small>${child.description ?? `${child.words?.length ?? 0} words`}</small></span><span class="set-switch"></span>`;
+      const description = child.description ?? `${child.words?.length ?? child.cards?.length ?? 0} items`;
+      button.innerHTML = `<span>${child.name}<small>${description}</small></span><span class="set-switch"></span>`;
       button.addEventListener("click", () => {
         child.enabled = !child.enabled;
-        writeJson(visibilityStoreKey, Object.fromEntries([...projectionSets, ...wordGroups].map((item) => [item.id, item.enabled])));
+        saveVisibility();
         renderContentPanel();
         rebuildScene();
       });
@@ -832,6 +1178,13 @@ function renderContentPanel() {
     });
     rootEl.appendChild(block);
   });
+}
+
+function saveVisibility() {
+  writeJson(
+    visibilityStoreKey,
+    Object.fromEntries([...projectionSets, ...wordGroups, photoSet].map((item) => [item.id, item.enabled])),
+  );
 }
 
 function renderCalendar() {
@@ -867,7 +1220,7 @@ function renderCalendar() {
 function groupedRecords() {
   return records.reduce((acc, entry) => {
     if (!isCalendarRecord(entry)) return acc;
-    const day = formatRecordDay(entry.at);
+    const day = entry.dateKey ?? formatRecordDay(entry.at);
     acc[day] ??= [];
     acc[day].push(entry);
     return acc;
@@ -904,10 +1257,10 @@ function renderCalendarEntry(entry) {
 }
 
 function describeRecord(entry) {
-  if (entry.type === "answer") return `回答：${entry.payload.text}`;
-  if (entry.type === "tag") return `标签：${stripTagPrefix(entry.payload.label ?? entry.payload.tag)}`;
-  if (entry.type === "keyword") return `点亮：${entry.payload.text}`;
-  if (entry.type === "card_open") return `打开卡牌：${entry.payload.setId ?? "投射"}/${entry.payload.cardId ?? entry.payload.id ?? "未知卡牌"}`;
+  if (entry.type === "answer") return entry.payload.text;
+  if (entry.type === "tag") return stripTagPrefix(entry.payload.label ?? entry.payload.tag);
+  if (entry.type === "keyword") return entry.payload.text;
+  if (entry.type === "card_open") return entry.payload.title ?? entry.payload.cardTitle ?? entry.payload.cardId ?? entry.payload.id ?? "卡牌";
   return entry.type;
 }
 
@@ -1023,6 +1376,7 @@ document.getElementById("closeCardSetPanel").addEventListener("click", () => tog
 document.getElementById("closeCalendarPanel").addEventListener("click", () => togglePanel(calendarPanel));
 document.getElementById("closeModal").addEventListener("click", closeModal);
 document.getElementById("modalScrim").addEventListener("click", closeModal);
-document.getElementById("submitAnswer").addEventListener("click", submitAnswer);
+submitAnswerButton.addEventListener("click", submitAnswer);
+photoInput.addEventListener("change", handlePhotoUpload);
 answerInput.addEventListener("input", () => renderLiveTags(answerInput.value));
 window.addEventListener("resize", resize);

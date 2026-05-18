@@ -45,6 +45,15 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 #sceneRoot {
   position: fixed;
   inset: 0;
@@ -101,7 +110,8 @@ button {
 .pill-button,
 .primary-button,
 .tag-chip,
-.set-toggle {
+.set-toggle,
+.photo-upload-button {
   min-height: 44px;
   border: 1px solid var(--line);
   cursor: pointer;
@@ -241,6 +251,14 @@ button {
   transform: translateX(16px);
 }
 
+.photo-upload-button {
+  width: 100%;
+  border-radius: 10px;
+  background: rgba(52, 125, 112, 0.1);
+  color: #143c35;
+  font-weight: 740;
+}
+
 .calendar-list {
   display: grid;
   gap: 12px;
@@ -356,7 +374,7 @@ button {
   grid-template-rows: minmax(0, auto) auto auto;
   align-items: center;
   justify-items: center;
-  gap: 14px;
+  gap: 10px;
   overflow: hidden;
 }
 
@@ -372,7 +390,7 @@ button {
   position: relative;
   z-index: 2;
   width: min(68vw, 330px);
-  max-height: 45vh;
+  max-height: 42vh;
   aspect-ratio: 512 / 680;
   height: auto;
   border-radius: 18px;
@@ -392,7 +410,7 @@ button {
 }
 
 .prompt-bubble {
-  max-width: min(220px, 48vw);
+  max-width: min(420px, 92vw);
   padding: 10px 12px;
   border: 1px solid rgba(22, 32, 27, 0.12);
   border-radius: 999px;
@@ -403,6 +421,11 @@ button {
   line-height: 1.28;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+}
+
+.prompt-bubble.answered {
+  border-color: rgba(52, 125, 112, 0.28);
+  background: rgba(219, 236, 230, 0.9);
 }
 
 .response-dock {
@@ -420,7 +443,7 @@ button {
 
 textarea {
   width: 100%;
-  min-height: 92px;
+  min-height: 76px;
   resize: vertical;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -527,5 +550,9 @@ textarea:focus {
 
   .modal-stage {
     gap: 18px;
+  }
+
+  textarea {
+    min-height: 92px;
   }
 }
