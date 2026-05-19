@@ -424,6 +424,108 @@ button {
   object-fit: cover;
 }
 
+.day-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gallery-tile {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 252, 245, 0.76);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.gallery-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(22, 32, 27, 0.1);
+  border-radius: 8px;
+  background: rgba(219, 236, 230, 0.58);
+  object-fit: cover;
+}
+
+.gallery-title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gallery-tile small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.record-detail {
+  display: grid;
+  gap: 12px;
+}
+
+.record-detail-head {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.detail-back {
+  grid-column: 1 / -1;
+  width: max-content;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 252, 245, 0.82);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.detail-thumb {
+  width: 68px;
+  height: 68px;
+  border: 1px solid rgba(22, 32, 27, 0.1);
+  border-radius: 10px;
+  background: rgba(219, 236, 230, 0.58);
+  object-fit: cover;
+}
+
+.record-detail h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.record-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.record-group p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.record-group span {
+  padding: 7px 9px;
+  border: 1px solid rgba(22, 32, 27, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 252, 245, 0.72);
+  font-size: 13px;
+}
+
 .empty-state {
   margin: 0;
   color: var(--muted);
@@ -618,6 +720,13 @@ textarea:focus {
 .primary-button:disabled {
   cursor: not-allowed;
   background: rgba(22, 32, 27, 0.2);
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  border-color: rgba(22, 32, 27, 0.08);
+  background: rgba(22, 32, 27, 0.08);
+  color: rgba(22, 32, 27, 0.34);
 }
 
 .tag-result {

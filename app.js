@@ -326,7 +326,11 @@ const activeMeshes = new Map();
 const raycaster = new THREE.Raycaster();
 const pointerNdc = new THREE.Vector2();
 const reusableVector = new THREE.Vector3();
-const calendarState = { month: new Date(), selectedDay: formatRecordDay(new Date().toISOString()) };
+const calendarState = {
+  month: new Date(),
+  selectedDay: formatRecordDay(new Date().toISOString()),
+  detailCardKey: null,
+};
 
 const renderer = new THREE.WebGLRenderer({
   antialias: false,
@@ -1212,7 +1216,6 @@ function renderChoiceMode() {
   const canStay = session.selectedTags.size > 0;
   const isLast = session.currentPromptIndex >= session.prompts.length - 1;
   responseDock.innerHTML = `
-    <div class="response-status${canStay ? " visible" : ""}">收到回应</div>
     <div class="tag-result choice-tags" id="liveTagResult"></div>
     <div class="modal-actions">
       <button class="secondary-button" id="leaveCard" type="button">↙ 离开</button>
@@ -1239,22 +1242,26 @@ function renderChoiceMode() {
 
 function renderJournalMode() {
   const session = getActiveSession();
+  const hasDraft = session.answerText.trim().length > 0;
+  const hasResponse = session.hasResponse;
   responseDock.innerHTML = `
-    <div class="bottle-response${session.hasResponse ? " visible" : ""}">
+    <div class="bottle-response${hasResponse ? " visible" : ""}">
       <p>收到回应</p>
       <div class="tag-result bottle-tags" id="bottleTags"></div>
     </div>
-    <textarea id="answerInput" placeholder="把此刻投进瓶子里。"></textarea>
+    <textarea id="answerInput" placeholder="把此刻投进瓶子里。" ${hasResponse ? "readonly" : ""}></textarea>
     <div class="modal-actions three-actions">
-      <button class="secondary-button" id="exploreCard" type="button">⌁ 探索</button>
-      <button class="primary-button" id="castBottle" type="button">➶ 投出</button>
+      <button class="secondary-button" id="exploreCard" type="button" ${hasResponse ? "" : "disabled"}>⌁ 探索</button>
+      <button class="primary-button" id="castBottle" type="button" ${hasDraft && !hasResponse ? "" : "disabled"}>➶ 投出</button>
       <button class="secondary-button" id="keepBottle" type="button">◍ 收好</button>
     </div>
   `;
   const textarea = responseDock.querySelector("#answerInput");
+  const castButton = responseDock.querySelector("#castBottle");
   textarea.value = session.answerText;
   textarea.addEventListener("input", () => {
     session.answerText = textarea.value;
+    castButton.disabled = !session.answerText.trim() || session.hasResponse;
   });
   const tagRoot = responseDock.querySelector("#bottleTags");
   session.responseTags.forEach((tag) => {
@@ -1324,6 +1331,7 @@ function handleChoiceStay() {
 
 function handleJournalCast() {
   const session = getActiveSession();
+  if (!session.answerText.trim() || session.hasResponse) return;
   const prompt = getCurrentPrompt();
   session.hasResponse = true;
   session.responseTags = generateAiLikeTags(session.answerText, { card: session.card, prompt });
@@ -1345,6 +1353,7 @@ function handleJournalCast() {
 
 function handleJournalExplore() {
   const session = getActiveSession();
+  if (!session.hasResponse) return;
   const prompt = getCurrentPrompt();
   record("question_action", {
     mode: "journal",
@@ -1520,6 +1529,7 @@ function renderCalendar() {
   rootEl.querySelectorAll(".day-button").forEach((button) => {
     button.addEventListener("click", () => {
       calendarState.selectedDay = button.dataset.day;
+      calendarState.detailCardKey = null;
       renderCalendar();
     });
   });
@@ -1538,7 +1548,7 @@ function groupedRecords() {
 
 function isCalendarRecord(entry) {
   if (entry.type === "answer") return Boolean(entry.payload.text?.trim());
-  return ["tag", "keyword", "card_open"].includes(entry.type);
+  return ["tag", "keyword", "card_open", "question_action", "photo_upload"].includes(entry.type);
 }
 
 function renderDayDetail(entries) {
@@ -1548,9 +1558,122 @@ function renderDayDetail(entries) {
     detail.innerHTML += `<p class="empty-state">这一天还没有留下记录。</p>`;
     return;
   }
-  entries.slice().reverse().forEach((entry) => {
-    detail.appendChild(renderCalendarEntry(entry));
+  const groups = groupEntriesByCard(entries);
+  const selected = calendarState.detailCardKey ? groups.find((group) => group.key === calendarState.detailCardKey) : null;
+  if (selected) {
+    detail.appendChild(renderCardRecordDetail(selected));
+  } else {
+    detail.appendChild(renderDayGallery(groups));
+  }
+}
+
+function groupEntriesByCard(entries) {
+  const groups = new Map();
+  entries.forEach((entry) => {
+    const key = calendarCardKey(entry);
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        title: calendarEntryTitle(entry),
+        thumbnail: entry.payload.thumbnail ?? "",
+        entries: [],
+      });
+    }
+    const group = groups.get(key);
+    group.entries.push(entry);
+    group.thumbnail ||= entry.payload.thumbnail ?? "";
+    if (group.title === "文字" || group.title === "卡牌") group.title = calendarEntryTitle(entry);
   });
+  return [...groups.values()].sort((a, b) => latestTime(b) - latestTime(a));
+}
+
+function calendarCardKey(entry) {
+  const cardId = entry.payload.cardId ?? entry.payload.id;
+  if (cardId) return `card:${cardId}`;
+  if (entry.type === "keyword") return "text:keywords";
+  return "text:misc";
+}
+
+function calendarEntryTitle(entry) {
+  if (entry.type === "keyword") return "文字";
+  if (!entry.payload.cardId && !entry.payload.id) return "文字";
+  return entry.payload.title ?? entry.payload.cardTitle ?? entry.payload.cardId ?? entry.payload.id ?? "卡牌";
+}
+
+function latestTime(group) {
+  return Math.max(...group.entries.map((entry) => new Date(entry.at).getTime()));
+}
+
+function renderDayGallery(groups) {
+  const gallery = document.createElement("div");
+  gallery.className = "day-gallery";
+  groups.forEach((group) => {
+    const button = document.createElement("button");
+    button.className = "gallery-tile";
+    button.type = "button";
+    const thumb = document.createElement(group.thumbnail ? "img" : "div");
+    thumb.className = "gallery-thumb";
+    if (group.thumbnail) thumb.src = group.thumbnail;
+    const title = document.createElement("span");
+    title.className = "gallery-title";
+    title.textContent = group.title;
+    const meta = document.createElement("small");
+    meta.textContent = `${group.entries.length} 条`;
+    button.append(thumb, title, meta);
+    button.addEventListener("click", () => {
+      calendarState.detailCardKey = group.key;
+      renderCalendar();
+    });
+    gallery.appendChild(button);
+  });
+  return gallery;
+}
+
+function renderCardRecordDetail(group) {
+  const detail = document.createElement("section");
+  detail.className = "record-detail";
+  const header = document.createElement("div");
+  header.className = "record-detail-head";
+  const back = document.createElement("button");
+  back.className = "detail-back";
+  back.type = "button";
+  back.textContent = "← 返回";
+  back.addEventListener("click", () => {
+    calendarState.detailCardKey = null;
+    renderCalendar();
+  });
+  const thumb = document.createElement(group.thumbnail ? "img" : "div");
+  thumb.className = "detail-thumb";
+  if (group.thumbnail) thumb.src = group.thumbnail;
+  const title = document.createElement("h4");
+  title.textContent = group.title;
+  header.append(back, thumb, title);
+  detail.appendChild(header);
+
+  const sections = [
+    ["提交内容", group.entries.filter((entry) => entry.type === "answer")],
+    ["文字标签", group.entries.filter((entry) => entry.type === "tag")],
+    ["行动", group.entries.filter((entry) => ["question_action", "card_open", "photo_upload"].includes(entry.type))],
+    ["点亮文字", group.entries.filter((entry) => entry.type === "keyword")],
+  ];
+  sections.forEach(([label, sectionEntries]) => {
+    if (!sectionEntries.length) return;
+    const section = document.createElement("div");
+    section.className = "record-group";
+    const heading = document.createElement("p");
+    heading.textContent = label;
+    section.appendChild(heading);
+    sectionEntries
+      .slice()
+      .reverse()
+      .forEach((entry) => {
+        const item = document.createElement("span");
+        item.textContent = describeRecord(entry);
+        section.appendChild(item);
+      });
+    detail.appendChild(section);
+  });
+  return detail;
 }
 
 function renderCalendarEntry(entry) {
@@ -1569,12 +1692,27 @@ function describeRecord(entry) {
   if (entry.type === "answer") return entry.payload.text;
   if (entry.type === "tag") return stripTagPrefix(entry.payload.label ?? entry.payload.tag);
   if (entry.type === "keyword") return entry.payload.text;
-  if (entry.type === "card_open") return entry.payload.title ?? entry.payload.cardTitle ?? entry.payload.cardId ?? entry.payload.id ?? "卡牌";
+  if (entry.type === "question_action") return describeAction(entry.payload.action);
+  if (entry.type === "photo_upload") return "上传";
+  if (entry.type === "card_open") return "打开";
   return entry.type;
 }
 
 function stripTagPrefix(value = "") {
   return value.replace(/^相似：/, "").replace(/^灵感：/, "");
+}
+
+function describeAction(action) {
+  return (
+    {
+      stay: "停留",
+      release: "放手",
+      explore: "探索",
+      cast: "投出",
+      choice_select: "选择",
+      journal_collect: "收进瓶子",
+    }[action] ?? "行动"
+  );
 }
 
 function formatRecordDay(value) {
