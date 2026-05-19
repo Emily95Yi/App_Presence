@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import "./styles.css";
 
 const root = document.getElementById("sceneRoot");
 const cardModal = document.getElementById("cardModal");
@@ -510,13 +511,13 @@ animate();
 function createNumberedCardImages(setId, count, extension) {
   return Array.from({ length: count }, (_, index) => {
     const number = index + 1;
-    return `./assets/cards/${setId}/${setId}-${number}.${extension}`;
+    return `/assets/cards/${setId}/${setId}-${number}.${extension}`;
   });
 }
 
 async function loadStandardSemanticProfiles() {
   try {
-    const response = await fetch("./assets/cards/standard/semantic-profiles.json");
+    const response = await fetch("/assets/cards/standard/semantic-profiles.json");
     if (!response.ok) throw new Error(`Semantic profile fetch failed: ${response.status}`);
     return await response.json();
   } catch (error) {
@@ -2282,8 +2283,9 @@ async function handleJournalCast() {
     session.echoStatus = "loading";
     renderJournalMode();
     await wait(680);
-    session.responseTags = generateAiLikeTags(answerText, { card: session.card, prompt });
-    session.echoText = generateEchoText(answerText, { card: session.card, prompt }, session.responseTags);
+    const echo = await requestEcho(answerText, { card: session.card, prompt, mode: state.mode });
+    session.responseTags = echo.tags;
+    session.echoText = echo.echoText;
     session.hasResponse = true;
     session.echoStatus = "ready";
   } catch {
@@ -2349,6 +2351,42 @@ function generateChoiceTags(prompt, card) {
   const generated = generateAiLikeTags(baseText, { card, prompt });
   const promptTags = displayTags.map((label) => ({ family: inferFamily(label), label }));
   return uniqueTags([...promptTags, ...generated, ...defaultTags]).slice(0, 9);
+}
+
+async function requestEcho(answerText, context = {}) {
+  const fallbackTags = generateAiLikeTags(answerText, context);
+  const fallback = {
+    echoText: generateEchoText(answerText, context, fallbackTags),
+    tags: fallbackTags,
+    source: "local",
+  };
+  try {
+    const response = await fetch("/api/openai/echo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        answerText,
+        promptText: context.prompt?.text ?? "",
+        cardId: context.card?.id ?? "",
+        cardTitle: context.card?.title ?? "",
+        mode: context.mode ?? state.mode,
+      }),
+    });
+    if (!response.ok) return fallback;
+    const data = await response.json();
+    const tags = Array.isArray(data.tags)
+      ? data.tags
+          .map((tag) => (typeof tag === "string" ? { family: inferFamily(tag), label: tag } : tag))
+          .filter((tag) => tag?.label)
+      : fallbackTags;
+    return {
+      echoText: data.echoText || fallback.echoText,
+      tags: uniqueTags(tags).slice(0, 9),
+      source: data.source ?? "api",
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 function getPromptDisplayTags(prompt) {
