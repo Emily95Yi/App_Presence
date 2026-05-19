@@ -15,6 +15,12 @@ const calendarReview = document.getElementById("calendarReview");
 const calendarReviewDate = document.getElementById("calendarReviewDate");
 const calendarReviewDeck = document.getElementById("calendarReviewDeck");
 const calendarReviewDetail = document.getElementById("calendarReviewDetail");
+const weatherToggle = document.getElementById("weatherToggle");
+const weatherReview = document.getElementById("weatherReview");
+const weatherReviewTitle = document.getElementById("weatherReviewTitle");
+const weatherReviewCopy = document.getElementById("weatherReviewCopy");
+const weatherReviewDeck = document.getElementById("weatherReviewDeck");
+const weatherReviewDetail = document.getElementById("weatherReviewDetail");
 const photoInput = document.getElementById("photoInput");
 const choiceModeToggle = document.getElementById("choiceModeToggle");
 const journalModeToggle = document.getElementById("journalModeToggle");
@@ -25,6 +31,7 @@ const recordStoreKey = "presence.records.v1";
 const visibilityStoreKey = "presence.contentVisibility.v1";
 const userStoreKey = "presence.localUserId.v1";
 const modeStoreKey = "presence.mode.v1";
+const weatherStoreKey = "presence.weatherFragments.v1";
 const dbName = "presence.db.v1";
 const dbVersion = 1;
 const chunkSize = 92;
@@ -37,6 +44,9 @@ const velocityLerp = 0.16;
 const velocityDecay = 0.9;
 const initialCameraZ = 92;
 const maxPromptsPerCard = 3;
+const maxItemsPerChunk = 7;
+const flowBendStrength = 38;
+const flowJitterStrength = 24;
 
 const angelPairs = `
 Abundance|丰盛
@@ -59,7 +69,6 @@ Delight|喜悦
 Depth|深度
 Discernment|悟性
 Education|教育
-Efficiency|效率
 Enthusiasm|热忱
 Expansiveness|扩展
 Expectancy|期望
@@ -287,6 +296,17 @@ const resonanceTagRules = [
   { match: ["雾", "雨", "风", "傍晚"], tags: ["天气一样", "情绪在流动"] },
 ];
 
+const weatherSimilarityGroups = [
+  { key: "mist", family: "feeling", title: "像雾一样", match: ["雾", "模糊", "不清楚", "不确定", "没答案", "还没想好"] },
+  { key: "low", family: "feeling", title: "有点低低地漂着", match: ["累", "疲", "困", "闷", "空", "低能量", "酸涩", "躲"] },
+  { key: "seen", family: "relation", title: "想被轻轻看见", match: ["靠近", "看见", "抱", "陪", "接住", "支持"] },
+  { key: "body", family: "body", title: "身体还在轻声说", match: ["身体", "心", "胸", "胃", "肩", "呼吸"] },
+  { key: "weather", family: "feeling", title: "同一片天气", match: ["天气", "雨", "风", "傍晚", "海", "漂浮"] },
+  { key: "distance", family: "relation", title: "距离还在摇晃", match: ["距离", "边界", "退后", "离远", "保护", "亲密"] },
+  { key: "light", family: "shift", title: "一点亮还留着", match: ["光", "亮", "希望", "开始", "保留"] },
+  { key: "soft-stop", family: "related", title: "柔软的停顿", match: ["慢", "停留", "先放", "不解释", "没关系", "沉默"] },
+];
+
 const cardImageManifest = {
   standard: createNumberedCardImages("standard", 58, "png"),
   round: createNumberedCardImages("round", 68, "png"),
@@ -383,6 +403,11 @@ const state = {
   answerSubmitted: false,
   selectedTags: new Set(),
   lastChunkKey: "",
+  weatherEnabled: localStorage.getItem(weatherStoreKey) !== "off",
+  weatherWindowDays: 30,
+  weatherFragments: [],
+  activeWeatherId: null,
+  activeWeatherCardKey: null,
 };
 
 const chunkOffsets = makeChunkOffsets();
@@ -390,6 +415,8 @@ resize();
 renderModeToggle();
 renderContentPanel();
 renderCalendar();
+refreshWeatherFragments(false);
+renderWeatherButton();
 updateChunks(true);
 animate();
 
@@ -583,6 +610,7 @@ function record(type, payload) {
   writeJson(recordStoreKey, records);
   persistEvent(entry);
   renderCalendar();
+  refreshWeatherFragments();
 }
 
 async function persistEvent(entry) {
@@ -647,15 +675,137 @@ function getEnabledWords() {
   return wordGroups.filter((group) => group.enabled).flatMap((group) => group.words.map((word) => ({ ...word, groupId: group.id })));
 }
 
+function refreshWeatherFragments(shouldRebuild = true) {
+  const previousKey = state.weatherFragments.map((fragment) => fragment.id).join("|");
+  state.weatherFragments = buildWeatherFragments(30);
+  renderWeatherButton();
+  const nextKey = state.weatherFragments.map((fragment) => fragment.id).join("|");
+  if (shouldRebuild && previousKey !== nextKey) rebuildScene();
+}
+
+function buildWeatherFragments(windowDays) {
+  const cutoff = Date.now() - windowDays * 24 * 60 * 60 * 1000;
+  const buckets = new Map();
+  collectWeatherPieces(windowDays, cutoff).forEach((piece) => {
+    const bucketKey = weatherBucketKey(piece);
+    if (!buckets.has(bucketKey)) {
+      const softGroup = weatherSimilarityGroups.find((group) => bucketKey === `soft:${group.key}`);
+      buckets.set(bucketKey, {
+        key: bucketKey,
+        title: softGroup?.title ?? "",
+        family: softGroup?.family ?? piece.family ?? inferFamily(piece.label),
+        fragments: new Map(),
+        entries: new Map(),
+        days: new Set(),
+      });
+    }
+    const bucket = buckets.get(bucketKey);
+    bucket.fragments.set(piece.label, (bucket.fragments.get(piece.label) ?? 0) + 1);
+    bucket.entries.set(piece.entry.id, piece.entry);
+    bucket.days.add(piece.day);
+  });
+
+  return [...buckets.values()]
+    .filter((bucket) => bucket.entries.size >= 2 || bucket.days.size >= 2)
+    .sort((a, b) => b.days.size - a.days.size || b.entries.size - a.entries.size || a.key.localeCompare(b.key))
+    .slice(0, 5)
+    .map((bucket, index) => {
+      const fragments = [...bucket.fragments.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([label]) => label)
+        .slice(0, 5);
+      const title = bucket.title || fragments[0] || "轻轻停留";
+      return {
+        id: `weather-${windowDays}-${bucket.key}`,
+        title,
+        fragments,
+        relatedEntries: [...bucket.entries.values()].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()),
+        windowDays,
+        seed: hashString(`${windowDays}-${bucket.key}-${fragments.join("|")}`),
+        visualKind: ["shell", "paper", "tide"][index % 3],
+      };
+    });
+}
+
+function collectWeatherPieces(windowDays, cutoff) {
+  const pieces = [];
+  records.forEach((entry) => {
+    const at = new Date(entry.at).getTime();
+    if (!Number.isFinite(at) || at < cutoff || !isWeatherRecord(entry)) return;
+    const day = entry.dateKey ?? formatRecordDay(entry.at);
+    weatherLabelsForEntry(entry).forEach((tag) => {
+      const label = normalizeWeatherLabel(tag.label);
+      if (!label) return;
+      pieces.push({
+        label,
+        family: tag.family ?? inferFamily(label),
+        entry,
+        day,
+        windowDays,
+      });
+    });
+  });
+  return pieces;
+}
+
+function isWeatherRecord(entry) {
+  return ["tag", "keyword", "question_action", "answer"].includes(entry.type);
+}
+
+function weatherLabelsForEntry(entry) {
+  if (entry.type === "tag") {
+    return [{ label: entry.payload.label ?? entry.payload.tag ?? "", family: entry.payload.family }];
+  }
+  if (entry.type === "keyword") {
+    return [{ label: entry.payload.text ?? "", family: "related" }];
+  }
+  if (entry.type === "question_action") {
+    return (entry.payload.labels ?? []).map((label) => ({ label, family: inferFamily(label) }));
+  }
+  if (entry.type === "answer") {
+    return answerWeatherLabels(entry.payload.text ?? "");
+  }
+  return [];
+}
+
+function answerWeatherLabels(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const tags = generateAiLikeTags(trimmed).map((tag) => ({ label: tag.label, family: tag.family }));
+  const direct = trimmed.length <= 10 ? [{ label: trimmed, family: inferFamily(trimmed) }] : [];
+  return uniqueTags([...direct, ...tags]).slice(0, 4);
+}
+
+function normalizeWeatherLabel(value = "") {
+  return stripTagPrefix(value)
+    .replace(/[，。！？、,.!?]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 16);
+}
+
+function weatherBucketKey(piece) {
+  const softGroup = weatherSimilarityGroups.find((group) => group.match.some((word) => piece.label.includes(word)));
+  if (softGroup) return `soft:${softGroup.key}`;
+  return `${piece.family ?? inferFamily(piece.label)}:${piece.label}`;
+}
+
+function renderWeatherButton() {
+  weatherToggle.classList.toggle("active", state.weatherEnabled);
+  weatherToggle.classList.toggle("has-fragments", state.weatherFragments.length > 0);
+}
+
 function updateChunks(force = false) {
   const cx = Math.floor(state.basePos.x / chunkSize);
   const cy = Math.floor(state.basePos.y / chunkSize);
   const cz = Math.floor(state.basePos.z / chunkSize);
+  const weatherKey = state.weatherEnabled ? state.weatherFragments.map((item) => item.id).join("|") : "quiet";
   const enabledKey =
     [...getEnabledProjectionSets(), ...wordGroups.filter((group) => group.enabled), ...(photoSet.enabled ? [photoSet] : [])]
       .map((item) => item.id)
       .join("|") || "none";
-  const key = `${cx},${cy},${cz},${enabledKey}`;
+  const sceneKey = `${enabledKey},${weatherKey}`;
+  const key = `${cx},${cy},${cz},${sceneKey}`;
   if (!force && key === state.lastChunkKey) return;
   state.lastChunkKey = key;
 
@@ -681,60 +831,51 @@ function updateChunks(force = false) {
 }
 
 function generateChunkPlanesCached(cx, cy, cz) {
+  const weatherKey = state.weatherEnabled ? state.weatherFragments.map((item) => item.id).join("|") : "quiet";
   const enabledKey =
     [...getEnabledProjectionSets(), ...wordGroups.filter((group) => group.enabled), ...(photoSet.enabled ? [photoSet] : [])]
       .map((item) => item.id)
       .join("|") || "none";
-  const key = `${cx},${cy},${cz},${enabledKey}`;
+  const key = `${cx},${cy},${cz},${enabledKey},${weatherKey}`;
   if (planeCache.has(key)) return planeCache.get(key);
 
   const cards = getEnabledCards();
   const enabledWords = getEnabledWords();
+  const weatherFragments = state.weatherEnabled ? state.weatherFragments : [];
   const items = [];
   const seed = hashString(key);
-  for (let i = 0; i < 5; i += 1) {
-    const s = seed + i * 997;
-    const r = (n) => seededRandom(s + n);
-    const isCard = cards.length > 0 && (enabledWords.length === 0 || r(6) > 0.32);
-    const z = cz * chunkSize + r(2) * chunkSize - 18;
-    const base = {
-      id: `${key}-${i}`,
-      chunkKey: key,
-      position: new THREE.Vector3(
-        cx * chunkSize + (r(0) - 0.5) * chunkSize,
-        cy * chunkSize + (r(1) - 0.5) * chunkSize,
-        z,
-      ),
-      seed: s,
-      lit: false,
-    };
+  const streams = makeStreamAnchors(cx, cy, cz, seed);
+  const empty = isBreathingVoid(cx, cy, cz);
+  let itemIndex = 0;
 
-    if (isCard) {
-      const card = cards[Math.floor(r(5) * cards.length) % cards.length];
-      const set = [...projectionSets, photoSet].find((candidate) => candidate.id === card.setId) ?? photoSet;
-      const cardHeight = 17 + r(4) * 12;
-      const cardAspect = getCardAspect(card);
-      items.push({
-        ...base,
-        id: `${key}-${i}-${card.id}`,
-        kind: "card",
-        card,
-        set,
-        scale: new THREE.Vector3(clamp(cardHeight * cardAspect, 10, 30), cardHeight, 1),
+  streams.forEach((stream, streamIndex) => {
+    if (items.length >= maxItemsPerChunk) return;
+    const streamSeed = seed + streamIndex * 1543;
+    const r = (n) => seededRandom(streamSeed + n);
+    const rawCount = Math.floor(1.5 + r(11) * 3.8 + (stream.density > 0.72 ? r(12) * 2.4 : 0));
+    const count = empty ? Math.min(rawCount, r(13) > 0.62 ? 1 : 0) : Math.min(rawCount, maxItemsPerChunk - items.length);
+    for (let i = 0; i < count && items.length < maxItemsPerChunk; i += 1) {
+      const itemSeed = streamSeed + i * 997;
+      const item = makeStreamItem({
+        cards,
+        enabledWords,
+        weatherFragments,
+        stream,
+        key,
+        itemIndex,
+        itemSeed,
       });
-    } else if (enabledWords.length) {
-      const word = enabledWords[Math.floor(r(5) * enabledWords.length) % enabledWords.length];
-      const wordScale = getWordPlaneScale(word.text);
-      items.push({
-        ...base,
-        id: `${key}-${i}-${word.id}`,
-        kind: "word",
-        word,
-        text: word.text,
-        groupId: word.groupId,
-        scale: new THREE.Vector3(wordScale.width, wordScale.height, 1),
-      });
+      if (item) {
+        items.push(item);
+        itemIndex += 1;
+      }
     }
+  });
+
+  if (!items.length && isNearInitialView(cx, cy, cz)) {
+    const stream = streams[0] ?? makeFallbackStream(cx, cy, cz, seed);
+    const item = makeStreamItem({ cards, enabledWords, weatherFragments, stream, key, itemIndex: 0, itemSeed: seed + 4049 });
+    if (item) items.push(item);
   }
 
   planeCache.set(key, items);
@@ -742,8 +883,189 @@ function generateChunkPlanesCached(cx, cy, cz) {
   return items;
 }
 
+function makeStreamAnchors(cx, cy, cz, seed) {
+  if (isBreathingVoid(cx, cy, cz) && !isNearInitialView(cx, cy, cz) && seededRandom(seed + 71) > 0.42) return [];
+  const streamCount = isNearInitialView(cx, cy, cz) ? 2 : Math.floor(seededRandom(seed + 17) * 4);
+  return Array.from({ length: streamCount }, (_, index) => {
+    const s = seed + index * 2017;
+    const r = (n) => seededRandom(s + n);
+    const center = new THREE.Vector3(
+      cx * chunkSize + (r(1) - 0.5) * chunkSize,
+      cy * chunkSize + (r(2) - 0.5) * chunkSize,
+      cz * chunkSize + (r(3) - 0.5) * chunkSize,
+    );
+    const flow = flowAt(center.x, center.y, center.z, seed);
+    const angle = Math.atan2(flow.y, flow.x);
+    const semanticKeys = ["standard", "round", "relationship", "photos", "present", "angel", "mist", "seen", "weather", "body", "light"];
+    return {
+      id: `${cx}:${cy}:${cz}:${index}`,
+      center,
+      angle,
+      bend: (r(4) - 0.5) * flowBendStrength,
+      length: chunkSize * (0.86 + r(5) * 0.78),
+      semanticKey: semanticKeys[Math.floor(r(6) * semanticKeys.length) % semanticKeys.length],
+      density: r(7),
+      seed: s,
+      groupRotation: (r(8) - 0.5) * 0.32,
+    };
+  });
+}
+
+function flowAt(x, y, z, seed) {
+  const a = Math.sin(x * 0.011 + z * 0.006 + seed * 0.0001);
+  const b = Math.cos(y * 0.013 - z * 0.004 + seed * 0.00013);
+  const c = Math.sin((x + y) * 0.006 + seed * 0.00017);
+  const angle = a * 1.35 + b * 0.85 + c * 0.7;
+  return new THREE.Vector2(Math.cos(angle), Math.sin(angle)).normalize();
+}
+
+function placeAlongStream(stream, t, jitterSeed) {
+  const r = (n) => seededRandom(jitterSeed + n);
+  const u = (t - 0.5) * 2;
+  const dir = new THREE.Vector2(Math.cos(stream.angle), Math.sin(stream.angle));
+  const normal = new THREE.Vector2(-dir.y, dir.x);
+  const curve = Math.sin(u * Math.PI) * stream.bend;
+  const side = (r(1) - 0.5) * flowJitterStrength * (0.45 + Math.abs(u));
+  const depth = (r(2) - 0.5) * chunkSize * 0.5;
+  return new THREE.Vector3(
+    stream.center.x + dir.x * u * stream.length * 0.5 + normal.x * (curve + side),
+    stream.center.y + dir.y * u * stream.length * 0.5 + normal.y * (curve + side),
+    stream.center.z + depth,
+  );
+}
+
+function makeStreamItem({ cards, enabledWords, weatherFragments, stream, key, itemIndex, itemSeed }) {
+  const r = (n) => seededRandom(itemSeed + n);
+  const semanticKey = stream.semanticKey;
+  const t = (itemIndex + 0.35 + r(1) * 0.42) / (2 + Math.floor(stream.density * 5));
+  const position = placeAlongStream(stream, t % 1, itemSeed);
+  const base = {
+    id: `${key}-${stream.id}-${itemIndex}`,
+    chunkKey: key,
+    streamId: stream.id,
+    semanticKey,
+    flowRotation: stream.groupRotation + (r(2) - 0.5) * 0.18,
+    floatPhase: r(3) * Math.PI * 2,
+    floatAmp: 0.45 + r(4) * 1.4,
+    position,
+    seed: itemSeed,
+    lit: false,
+  };
+  const kind = chooseStreamKind({ cards, enabledWords, weatherFragments, semanticKey, seed: itemSeed });
+  if (kind === "card") return makeCardStreamItem(base, cards, semanticKey, itemSeed);
+  if (kind === "weather") return makeWeatherStreamItem(base, weatherFragments, itemSeed);
+  if (kind === "word") return makeWordStreamItem(base, enabledWords, semanticKey, itemSeed);
+  return null;
+}
+
+function chooseStreamKind({ cards, enabledWords, weatherFragments, semanticKey, seed }) {
+  const hasCards = cards.length > 0;
+  const hasWords = enabledWords.length > 0;
+  const hasWeather = weatherFragments.length > 0;
+  const r = seededRandom(seed + 23);
+  if (hasWeather && ["mist", "seen", "weather", "body", "light"].includes(semanticKey) && r > 0.48) return "weather";
+  if (hasWords && (semanticKey === "present" || semanticKey === "angel" || r < 0.34)) return "word";
+  if (hasCards) return "card";
+  if (hasWeather) return "weather";
+  if (hasWords) return "word";
+  return null;
+}
+
+function makeCardStreamItem(base, cards, semanticKey, seed) {
+  const matching = cards.filter((card) => getCardSemanticKey(card) === semanticKey);
+  const pool = matching.length ? matching : cards;
+  const card = pool[Math.floor(seededRandom(seed + 31) * pool.length) % pool.length];
+  const set = [...projectionSets, photoSet].find((candidate) => candidate.id === card.setId) ?? photoSet;
+  const cardHeight = 13.5 + seededRandom(seed + 37) * 13.5;
+  const cardAspect = getCardAspect(card);
+  return {
+    ...base,
+    id: `${base.id}-${card.id}`,
+    kind: "card",
+    card,
+    set,
+    semanticKey: getCardSemanticKey(card),
+    scale: new THREE.Vector3(clamp(cardHeight * cardAspect, 8.5, 29), cardHeight, 1),
+  };
+}
+
+function makeWordStreamItem(base, enabledWords, semanticKey, seed) {
+  const matching = enabledWords.filter((word) => getWordSemanticKey(word) === semanticKey);
+  const pool = matching.length ? matching : enabledWords;
+  const word = pool[Math.floor(seededRandom(seed + 41) * pool.length) % pool.length];
+  const wordScale = getWordPlaneScale(word.text);
+  return {
+    ...base,
+    id: `${base.id}-${word.id}`,
+    kind: "word",
+    word,
+    text: word.text,
+    groupId: word.groupId,
+    semanticKey: getWordSemanticKey(word),
+    scale: new THREE.Vector3(wordScale.width, wordScale.height, 1),
+  };
+}
+
+function makeWeatherStreamItem(base, weatherFragments, seed) {
+  if (!weatherFragments.length) return null;
+  const fragment = weatherFragments[Math.floor(seededRandom(seed + 53) * weatherFragments.length) % weatherFragments.length];
+  const scale = getWeatherPlaneScale(fragment.title, fragment.visualKind);
+  return {
+    ...base,
+    id: `${base.id}-${fragment.id}`,
+    kind: "weather",
+    fragment,
+    semanticKey: getWeatherSemanticKey(fragment),
+    scale: new THREE.Vector3(scale.width, scale.height, 1),
+  };
+}
+
+function getCardSemanticKey(card) {
+  return card?.setId ?? "card";
+}
+
+function getWordSemanticKey(word) {
+  return word?.groupId ?? word?.tags?.[0] ?? "word";
+}
+
+function getWeatherSemanticKey(fragment) {
+  if (!fragment) return "weather";
+  const matched = weatherSimilarityGroups.find((group) => fragment.id.includes(group.key) || fragment.fragments?.some((text) => group.match.some((word) => text.includes(word))));
+  return matched?.key ?? fragment.visualKind ?? "weather";
+}
+
+function isBreathingVoid(cx, cy, cz) {
+  if (isNearInitialView(cx, cy, cz)) return false;
+  return seededRandom(hashString(`${cx}:${cy}:${cz}:void`)) > 0.78;
+}
+
+function isNearInitialView(cx, cy, cz) {
+  return Math.abs(cx) <= 1 && Math.abs(cy) <= 1 && cz >= 0 && cz <= 2;
+}
+
+function makeFallbackStream(cx, cy, cz, seed) {
+  const center = new THREE.Vector3(cx * chunkSize, cy * chunkSize, cz * chunkSize);
+  const flow = flowAt(center.x, center.y, center.z, seed);
+  return {
+    id: `${cx}:${cy}:${cz}:fallback`,
+    center,
+    angle: Math.atan2(flow.y, flow.x),
+    bend: 0,
+    length: chunkSize,
+    semanticKey: "standard",
+    density: 0.58,
+    seed,
+    groupRotation: 0,
+  };
+}
+
 function createMesh(item) {
-  const texture = item.kind === "card" ? makeCardTexture(item.card) : makeWordTexture(item.text, false, item.seed);
+  const texture =
+    item.kind === "card"
+      ? makeCardTexture(item.card)
+      : item.kind === "weather"
+        ? makeWeatherTexture(item.fragment, item.seed)
+        : makeWordTexture(item.text, false, item.seed);
   const material = new THREE.MeshBasicMaterial({
     map: texture,
     transparent: true,
@@ -754,6 +1076,7 @@ function createMesh(item) {
   const mesh = new THREE.Mesh(planeGeometry, material);
   mesh.position.copy(item.position);
   mesh.scale.copy(item.scale);
+  mesh.rotation.z = item.flowRotation ?? 0;
   mesh.userData = item;
   mesh.visible = false;
   return mesh;
@@ -818,6 +1141,71 @@ function makeWordTexture(text, lit, seed) {
   return texture;
 }
 
+function makeWeatherTexture(fragment, seed) {
+  const key = `weather-${fragment.id}-${seed % 9}`;
+  if (textureCache.has(key)) return textureCache.get(key);
+  const canvas = document.createElement("canvas");
+  const size = getWeatherTextureSize(fragment.title);
+  canvas.width = size.width;
+  canvas.height = size.height;
+  const ctx = canvas.getContext("2d");
+  const kind = fragment.visualKind;
+  const colors = {
+    shell: ["rgba(255, 252, 245, 0.92)", "rgba(232, 213, 190, 0.72)", "rgba(52, 125, 112, 0.2)"],
+    paper: ["rgba(255, 252, 245, 0.9)", "rgba(219, 236, 230, 0.72)", "rgba(223, 162, 143, 0.18)"],
+    tide: ["rgba(255, 252, 245, 0.78)", "rgba(199, 215, 234, 0.64)", "rgba(52, 125, 112, 0.16)"],
+  }[kind];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((seededRandom(seed + 3) - 0.5) * 0.14);
+  ctx.shadowColor = "rgba(22, 32, 27, 0.14)";
+  ctx.shadowBlur = 28;
+  ctx.beginPath();
+  if (kind === "shell") {
+    ctx.moveTo(-canvas.width * 0.34, -canvas.height * 0.04);
+    ctx.bezierCurveTo(-canvas.width * 0.24, -canvas.height * 0.42, canvas.width * 0.25, -canvas.height * 0.46, canvas.width * 0.34, -canvas.height * 0.06);
+    ctx.bezierCurveTo(canvas.width * 0.4, canvas.height * 0.24, canvas.width * 0.12, canvas.height * 0.38, -canvas.width * 0.26, canvas.height * 0.24);
+    ctx.bezierCurveTo(-canvas.width * 0.38, canvas.height * 0.18, -canvas.width * 0.42, canvas.height * 0.08, -canvas.width * 0.34, -canvas.height * 0.04);
+  } else if (kind === "paper") {
+    ctx.moveTo(-canvas.width * 0.36, -canvas.height * 0.28);
+    ctx.lineTo(canvas.width * 0.3, -canvas.height * 0.34);
+    ctx.quadraticCurveTo(canvas.width * 0.4, -canvas.height * 0.1, canvas.width * 0.34, canvas.height * 0.28);
+    ctx.lineTo(-canvas.width * 0.3, canvas.height * 0.34);
+    ctx.quadraticCurveTo(-canvas.width * 0.44, canvas.height * 0.04, -canvas.width * 0.36, -canvas.height * 0.28);
+  } else {
+    ctx.moveTo(-canvas.width * 0.38, -canvas.height * 0.06);
+    ctx.bezierCurveTo(-canvas.width * 0.18, -canvas.height * 0.34, canvas.width * 0.18, -canvas.height * 0.28, canvas.width * 0.38, -canvas.height * 0.02);
+    ctx.bezierCurveTo(canvas.width * 0.18, canvas.height * 0.3, -canvas.width * 0.14, canvas.height * 0.34, -canvas.width * 0.38, canvas.height * 0.06);
+    ctx.bezierCurveTo(-canvas.width * 0.32, canvas.height * 0.02, -canvas.width * 0.32, -canvas.height * 0.02, -canvas.width * 0.38, -canvas.height * 0.06);
+  }
+  const gradient = ctx.createRadialGradient(0, -canvas.height * 0.12, 12, 0, 0, canvas.width * 0.44);
+  gradient.addColorStop(0, colors[0]);
+  gradient.addColorStop(0.72, colors[1]);
+  gradient.addColorStop(1, colors[2]);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "rgba(22, 32, 27, 0.12)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.fillStyle = "rgba(22, 32, 27, 0.72)";
+  ctx.font = `${size.lines.length > 1 ? 700 : 760} ${size.lines.length > 1 ? 30 : 34}px Inter, system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const lineHeight = size.lines.length > 1 ? 38 : 42;
+  const startY = canvas.height / 2 - ((size.lines.length - 1) * lineHeight) / 2;
+  size.lines.forEach((line, index) => {
+    ctx.fillText(line, canvas.width / 2, startY + index * lineHeight, canvas.width - 92);
+  });
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  textureCache.set(key, texture);
+  return texture;
+}
+
 function getWordTextureSize(text) {
   const chars = [...text];
   const lines = chars.length > 15 ? splitTextLines(chars, 2) : [text];
@@ -839,6 +1227,18 @@ function splitTextLines(chars, maxLines) {
 function getWordPlaneScale(text) {
   const size = getWordTextureSize(text);
   const height = size.lines.length > 1 ? 8.6 : 6.6;
+  return { width: height * (size.width / size.height), height };
+}
+
+function getWeatherTextureSize(text) {
+  const chars = [...text];
+  const lines = chars.length > 9 ? splitTextLines(chars, 2) : [text];
+  return { width: 520, height: lines.length > 1 ? 250 : 210, lines };
+}
+
+function getWeatherPlaneScale(text, visualKind) {
+  const size = getWeatherTextureSize(text);
+  const height = visualKind === "tide" ? 10.2 : 9.2;
   return { width: height * (size.width / size.height), height };
 }
 
@@ -1122,9 +1522,21 @@ function updateMeshVisibility() {
   const cx = Math.floor(state.basePos.x / chunkSize);
   const cy = Math.floor(state.basePos.y / chunkSize);
   const cz = Math.floor(state.basePos.z / chunkSize);
+  const now = performance.now() * 0.001;
   activeMeshes.forEach((mesh) => {
     const item = mesh.userData;
-    reusableVector.copy(item.position);
+    const flow = flowAt(item.position.x, item.position.y, item.position.z, item.seed ?? 1);
+    const phase = now * 0.24 + (item.floatPhase ?? 0);
+    const floatAmp = item.floatAmp ?? 0;
+    const streamDrift = Math.sin(phase) * floatAmp;
+    const sideDrift = Math.cos(phase * 0.72) * floatAmp * 0.38;
+    mesh.position.set(
+      item.position.x + flow.x * streamDrift - flow.y * sideDrift,
+      item.position.y + flow.y * streamDrift + flow.x * sideDrift,
+      item.position.z + Math.sin(phase * 0.62) * floatAmp * 0.42,
+    );
+    mesh.rotation.z = (item.flowRotation ?? 0) + Math.sin(phase * 0.5) * 0.035;
+    reusableVector.copy(mesh.position);
     const dist = Math.max(
       Math.abs(Math.floor(reusableVector.x / chunkSize) - cx),
       Math.abs(Math.floor(reusableVector.y / chunkSize) - cy),
@@ -1135,8 +1547,12 @@ function updateMeshVisibility() {
     const gridFade = dist <= renderDistance ? 1 : Math.max(0, 1 - (dist - renderDistance) / chunkFadeMargin);
     const depthFade =
       absDepth <= depthFadeStart ? 1 : Math.max(0, 1 - (absDepth - depthFadeStart) / (depthFadeEnd - depthFadeStart));
+    reusableVector.copy(mesh.position).project(camera);
+    const edgeDistance = Math.max(Math.abs(reusableVector.x), Math.abs(reusableVector.y));
+    const edgeFade = edgeDistance < 0.72 ? 1 : clamp(1 - (edgeDistance - 0.72) / 0.34, 0, 1);
     const tooCloseWord = item.kind === "word" && relativeDepth < 24;
-    const target = relativeDepth > -26 && !tooCloseWord ? Math.min(gridFade, depthFade * depthFade) : 0;
+    const depthSoftness = item.kind === "weather" ? depthFade : depthFade * depthFade;
+    const target = relativeDepth > -26 && !tooCloseWord ? Math.min(gridFade, depthSoftness, edgeFade) : 0;
     mesh.material.opacity += (target - mesh.material.opacity) * 0.16;
     mesh.material.depthWrite = mesh.material.opacity > 0.98;
     mesh.visible = mesh.material.opacity > 0.012;
@@ -1183,9 +1599,16 @@ function handleTap(x, y) {
   raycaster.setFromCamera(pointerNdc, camera);
   const hits = raycaster.intersectObjects([...activeMeshes.values()].filter((mesh) => mesh.visible), false);
   const visibleHits = hits.filter((entry) => entry.object.material.opacity > 0.24);
-  const hit = visibleHits.find((entry) => entry.object.userData.kind === "card") ?? visibleHits[0];
+  const hit =
+    visibleHits.find((entry) => entry.object.userData.kind === "weather") ??
+    visibleHits.find((entry) => entry.object.userData.kind === "card") ??
+    visibleHits[0];
   if (!hit) return;
   const item = hit.object.userData;
+  if (item.kind === "weather") {
+    openWeatherReview(item.fragment);
+    return;
+  }
   if (item.kind === "word") {
     item.lit = true;
     hit.object.material.map = makeWordTexture(item.text, true, item.seed);
@@ -1375,7 +1798,7 @@ function renderJournalMode() {
       <span class="sea-glow"></span>
       <span class="paper-drift"></span>
     </div>
-    <p class="journal-boundary">这里不会分析你，也不会替你下结论。它只是帮你把刚才的话轻轻整理一下。</p>
+    <p class="journal-boundary">这里不会替你说明什么，也不会把你推向结论。它只是帮你把刚才的话轻轻放一放。</p>
     <textarea id="answerInput" placeholder="把此刻的一句话放进瓶子里。" ${hasResponse || isWaiting ? "readonly" : ""}></textarea>
     <div class="echo-status${isWaiting || hasError ? " visible" : ""}" id="echoStatus">
       ${hasError ? "这次回声没有顺利漂回来，可以稍后再试一次。" : "海面正在把话带回来……"}
@@ -1683,6 +2106,145 @@ function saveVisibility() {
     visibilityStoreKey,
     Object.fromEntries([...projectionSets, ...wordGroups, photoSet].map((item) => [item.id, item.enabled])),
   );
+}
+
+function openWeatherReview(fragment = null) {
+  const fragments = buildWeatherFragments(state.weatherWindowDays);
+  const active = fragment && fragments.find((item) => item.id === fragment.id) ? fragment : fragments[0];
+  state.activeWeatherId = active?.id ?? null;
+  state.activeWeatherCardKey = null;
+  weatherReview.classList.add("open");
+  weatherReview.setAttribute("aria-hidden", "false");
+  renderWeatherReview();
+}
+
+function closeWeatherReview() {
+  weatherReview.classList.remove("open");
+  weatherReview.setAttribute("aria-hidden", "true");
+  state.activeWeatherId = null;
+  state.activeWeatherCardKey = null;
+}
+
+function renderWeatherReview() {
+  const fragments = buildWeatherFragments(state.weatherWindowDays);
+  const active = fragments.find((fragment) => fragment.id === state.activeWeatherId) ?? fragments[0] ?? null;
+  state.activeWeatherId = active?.id ?? null;
+  weatherReview.querySelectorAll(".weather-window-option").forEach((button) => {
+    button.classList.toggle("active", Number(button.dataset.days) === state.weatherWindowDays);
+  });
+  weatherReviewTitle.textContent = active?.title ?? "这些词最近轻轻聚在一起了";
+  weatherReviewCopy.textContent = active
+    ? `有些感觉似乎还停留在这里：${active.fragments.slice(0, 4).join("、")}`
+    : "最近还没有反复漂回来的碎片。";
+  renderWeatherReviewDeck(fragments, active);
+  renderWeatherReviewDetail(active);
+}
+
+function renderWeatherReviewDeck(fragments, active) {
+  weatherReviewDeck.innerHTML = "";
+  if (!fragments.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "最近还没有反复漂回来的碎片。";
+    weatherReviewDeck.appendChild(empty);
+    return;
+  }
+  fragments.forEach((fragment, index) => {
+    const button = document.createElement("button");
+    button.className = `weather-fragment-card${fragment.id === active?.id ? " active" : ""}`;
+    button.type = "button";
+    button.style.setProperty("--tilt", `${((index % 5) - 2) * 2.8}deg`);
+    button.dataset.kind = fragment.visualKind;
+    const title = document.createElement("strong");
+    title.textContent = fragment.title;
+    const text = document.createElement("span");
+    text.textContent = fragment.fragments.slice(0, 3).join("、");
+    button.append(title, text);
+    button.addEventListener("click", () => {
+      state.activeWeatherId = fragment.id;
+      state.activeWeatherCardKey = null;
+      renderWeatherReview();
+    });
+    weatherReviewDeck.appendChild(button);
+  });
+}
+
+function renderWeatherReviewDetail(fragment) {
+  weatherReviewDetail.innerHTML = "";
+  if (!fragment) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "最近还没有反复漂回来的碎片。";
+    weatherReviewDetail.appendChild(empty);
+    return;
+  }
+  const intro = document.createElement("p");
+  intro.className = "weather-detail-title";
+  intro.textContent = "曾经靠近过它的片刻";
+  weatherReviewDetail.appendChild(intro);
+
+  const groups = groupEntriesByCard(fragment.relatedEntries);
+  if (!state.activeWeatherCardKey) state.activeWeatherCardKey = groups[0]?.key ?? null;
+  const deck = document.createElement("div");
+  deck.className = "weather-moment-deck";
+  groups.slice(0, 8).forEach((group, index) => {
+    const button = document.createElement("button");
+    button.className = `weather-moment-card${group.key === state.activeWeatherCardKey ? " active" : ""}`;
+    button.type = "button";
+    button.style.setProperty("--tilt", `${((index % 7) - 3) * 1.7}deg`);
+    button.append(createReviewCardVisual(group));
+    button.addEventListener("click", () => {
+      state.activeWeatherCardKey = group.key;
+      renderWeatherReviewDetail(fragment);
+    });
+    deck.appendChild(button);
+  });
+  weatherReviewDetail.appendChild(deck);
+
+  const activeGroup = groups.find((group) => group.key === state.activeWeatherCardKey) ?? groups[0];
+  const detail = document.createElement("div");
+  detail.className = "weather-moment-detail";
+  if (activeGroup) {
+    appendWeatherRecordSections(detail, activeGroup.entries);
+  } else {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "这些碎片还没有靠近任何卡片。";
+    detail.appendChild(empty);
+  }
+  weatherReviewDetail.appendChild(detail);
+}
+
+function appendWeatherRecordSections(rootEl, entries) {
+  const answers = entries.filter((entry) => entry.type === "answer" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim());
+  const labels = collectRecordLabels(entries);
+  const words = entries.filter((entry) => entry.type === "keyword").map((entry) => entry.payload.text ?? "点亮的文字");
+  [
+    ["留下的话", answers],
+    ["轻轻靠近的词", labels],
+    ["点亮过的文字", words],
+  ].forEach(([label, values]) => {
+    if (!values.length) return;
+    const section = document.createElement("div");
+    section.className = "weather-record-group";
+    const heading = document.createElement("p");
+    heading.textContent = label;
+    section.appendChild(heading);
+    uniqueRecordValues(values)
+      .slice(0, 6)
+      .forEach((value) => {
+        const item = document.createElement("span");
+        item.textContent = value;
+        section.appendChild(item);
+      });
+    rootEl.appendChild(section);
+  });
+  if (!rootEl.children.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "这里只留下很轻的一点触碰。";
+    rootEl.appendChild(empty);
+  }
 }
 
 function renderCalendar() {
@@ -2112,12 +2674,27 @@ document.getElementById("calendarToggle").addEventListener("click", () => {
   renderCalendar();
   togglePanel(calendarPanel);
 });
+weatherToggle.addEventListener("click", () => {
+  state.weatherEnabled = !state.weatherEnabled;
+  localStorage.setItem(weatherStoreKey, state.weatherEnabled ? "on" : "off");
+  renderWeatherButton();
+  rebuildScene();
+});
 choiceModeToggle.addEventListener("click", () => setMode("choice"));
 journalModeToggle.addEventListener("click", () => setMode("journal"));
 document.getElementById("closeCardSetPanel").addEventListener("click", () => togglePanel(cardSetPanel));
 document.getElementById("closeCalendarPanel").addEventListener("click", () => togglePanel(calendarPanel));
 document.getElementById("closeCalendarReview").addEventListener("click", closeCalendarReview);
 document.getElementById("calendarReviewScrim").addEventListener("click", closeCalendarReview);
+document.getElementById("closeWeatherReview").addEventListener("click", closeWeatherReview);
+document.getElementById("weatherReviewScrim").addEventListener("click", closeWeatherReview);
+weatherReview.querySelectorAll(".weather-window-option").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.weatherWindowDays = Number(button.dataset.days);
+    state.activeWeatherCardKey = null;
+    renderWeatherReview();
+  });
+});
 document.getElementById("closeModal").addEventListener("click", closeModal);
 document.getElementById("modalScrim").addEventListener("click", closeModal);
 prevCardButton.addEventListener("click", () => moveActiveCard(-1));

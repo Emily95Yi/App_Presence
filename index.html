@@ -31,6 +31,9 @@
           <button id="calendarToggle" class="icon-button" type="button" aria-label="日历">
             <span class="calendar-icon" aria-hidden="true"></span>
           </button>
+          <button id="weatherToggle" class="icon-button weather-button active" type="button" aria-label="最近漂来的碎片">
+            <span class="weather-icon" aria-hidden="true"></span>
+          </button>
         </nav>
       </header>
 
@@ -59,6 +62,26 @@
           </header>
           <div id="calendarReviewDeck" class="review-deck" aria-label="日期卡牌"></div>
           <section id="calendarReviewDetail" class="review-detail" aria-live="polite"></section>
+        </div>
+      </section>
+
+      <section class="weather-review" id="weatherReview" aria-hidden="true">
+        <div class="weather-review-scrim" id="weatherReviewScrim"></div>
+        <div class="weather-review-stage" role="dialog" aria-modal="true" aria-label="漂来的碎片">
+          <header class="weather-review-head">
+            <div>
+              <p class="weather-kicker">最近海面似乎常漂来这些碎片</p>
+              <h2 id="weatherReviewTitle">这些词最近轻轻聚在一起了</h2>
+            </div>
+            <button id="closeWeatherReview" class="icon-button" type="button" aria-label="关闭漂来的碎片">×</button>
+          </header>
+          <div class="weather-window-switch" role="group" aria-label="漂来的时间">
+            <button class="weather-window-option active" data-days="30" type="button">近 30 日</button>
+            <button class="weather-window-option" data-days="7" type="button">近 7 日</button>
+          </div>
+          <p id="weatherReviewCopy" class="weather-review-copy">有些感觉似乎还停留在这里</p>
+          <div id="weatherReviewDeck" class="weather-review-deck" aria-label="曾经靠近过它的片刻"></div>
+          <section id="weatherReviewDetail" class="weather-review-detail" aria-live="polite"></section>
         </div>
       </section>
 
