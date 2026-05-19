@@ -11,6 +11,10 @@ const liveTagResult = document.getElementById("liveTagResult");
 const responseDock = document.getElementById("responseDock");
 const cardSetPanel = document.getElementById("cardSetPanel");
 const calendarPanel = document.getElementById("calendarPanel");
+const calendarReview = document.getElementById("calendarReview");
+const calendarReviewDate = document.getElementById("calendarReviewDate");
+const calendarReviewDeck = document.getElementById("calendarReviewDeck");
+const calendarReviewDetail = document.getElementById("calendarReviewDetail");
 const photoInput = document.getElementById("photoInput");
 const choiceModeToggle = document.getElementById("choiceModeToggle");
 const journalModeToggle = document.getElementById("journalModeToggle");
@@ -236,12 +240,12 @@ const promptBank = [
   { id: "g-unsaid", text: "它像哪句没说出口的话？", scope: "generic", tags: ["没说出口", "关系"] },
   { id: "g-body", text: "身体里哪个地方和它有一点像？", scope: "generic", tags: ["身体", "感受"] },
   { id: "g-distance", text: "你想离它近一点，还是远一点？", scope: "generic", tags: ["距离", "靠近"] },
-  { id: "mist-soft", text: "这片雾里，有什么还不需要清楚？", scope: "set", setId: "mist", tags: ["模糊", "不确定"] },
-  { id: "mist-card-1", text: "哪一块正在慢慢散开？", scope: "card", cardId: "mist-1", tags: ["散开", "雾"] },
-  { id: "light-small", text: "这点光像一个开始，还是一个结束？", scope: "set", setId: "light", tags: ["光", "开始"] },
-  { id: "light-card-2", text: "如果只保留一点亮，它在哪里？", scope: "card", cardId: "light-2", tags: ["亮", "保留"] },
-  { id: "night-quiet", text: "夜色里什么声音变小了？", scope: "set", setId: "night", tags: ["安静", "夜"] },
-  { id: "night-card-3", text: "这张卡想让你躲一会儿，还是出来一点？", scope: "card", cardId: "night-3", tags: ["躲起来", "出来"] },
+  { id: "standard-soft", text: "这张卡里，有什么还不需要马上清楚？", scope: "set", setId: "standard", tags: ["模糊", "不确定"] },
+  { id: "standard-card-1", text: "你第一眼停住的地方，像什么感受？", scope: "card", cardId: "standard-1", tags: ["停住", "感受"] },
+  { id: "round-small", text: "这个圆里，什么正在慢慢靠近？", scope: "set", setId: "round", tags: ["圆", "靠近"] },
+  { id: "round-card-2", text: "如果只保留一点亮，它在哪里？", scope: "card", cardId: "round-2", tags: ["亮", "保留"] },
+  { id: "relationship-quiet", text: "这段关系里，什么声音变小了？", scope: "set", setId: "relationship", tags: ["安静", "关系"] },
+  { id: "relationship-card-3", text: "这张卡想让你靠近一点，还是退后一点？", scope: "card", cardId: "relationship-3", tags: ["靠近", "退后"] },
 ];
 
 const tagRules = [
@@ -283,10 +287,16 @@ const resonanceTagRules = [
   { match: ["雾", "雨", "风", "傍晚"], tags: ["天气一样", "情绪在流动"] },
 ];
 
+const cardImageManifest = {
+  standard: createNumberedCardImages("standard", 58, "png"),
+  round: createNumberedCardImages("round", 68, "png"),
+  relationship: createNumberedCardImages("relationship", 30, "png"),
+};
+
 const projectionSets = [
-  makeCardSet("mist", "雾面", "模糊、不确定、还没说清", ["#dbece6", "#c7d7ea", "#efd77e", "#dfa28f"], 1100),
-  makeCardSet("light", "微光", "一点亮、开始、慢慢靠近", ["#f3df91", "#cfe5db", "#f2b9a1", "#fff4c2"], 2200),
-  makeCardSet("night", "夜色", "安静、躲藏、低声停留", ["#d7c4d7", "#b9c5d9", "#e6d8c7", "#a8b5aa"], 3300),
+  makeCardSet("standard", "标准", "标准投射卡，58 张", ["#dbece6", "#c7d7ea", "#efd77e", "#dfa28f"], 1100),
+  makeCardSet("round", "圆", "圆形意象卡，68 张", ["#f3df91", "#cfe5db", "#f2b9a1", "#fff4c2"], 2200),
+  makeCardSet("relationship", "关系", "关系投射卡，30 张", ["#d7c4d7", "#b9c5d9", "#e6d8c7", "#a8b5aa"], 3300),
 ];
 
 const localUserId = getOrCreateLocalUserId();
@@ -330,6 +340,8 @@ const calendarState = {
   month: new Date(),
   selectedDay: formatRecordDay(new Date().toISOString()),
   detailCardKey: null,
+  reviewGroups: [],
+  reviewActiveKey: null,
 };
 
 const renderer = new THREE.WebGLRenderer({
@@ -381,20 +393,31 @@ renderCalendar();
 updateChunks(true);
 animate();
 
+function createNumberedCardImages(setId, count, extension) {
+  return Array.from({ length: count }, (_, index) => {
+    const number = index + 1;
+    return `./assets/cards/${setId}/${setId}-${number}.${extension}`;
+  });
+}
+
 function makeCardSet(id, name, description, colors, seedBase) {
+  const imagePaths = cardImageManifest[id] ?? [];
   return {
     id,
     name,
     description,
     colors,
     enabled: true,
-    cards: Array.from({ length: 8 }, (_, index) => ({
+    cards: imagePaths.map((src, index) => ({
       id: `${id}-${index + 1}`,
       setId: id,
       title: `${name} ${index + 1}`,
       seed: seedBase + index * 137,
       kind: "projection",
-      src: null,
+      src,
+      imageStatus: "idle",
+      width: null,
+      height: null,
       promptIds: index === 0 ? [`${id}-card-1`] : [],
     })),
   };
@@ -697,13 +720,11 @@ function generateChunkPlanesCached(cx, cy, cz) {
         kind: "card",
         card,
         set,
-        scale:
-          card.kind === "photo"
-            ? new THREE.Vector3(clamp(cardHeight * cardAspect, 10, 30), cardHeight, 1)
-            : new THREE.Vector3(13 + r(3) * 12, 18 + r(4) * 15, 1),
+        scale: new THREE.Vector3(clamp(cardHeight * cardAspect, 10, 30), cardHeight, 1),
       });
     } else if (enabledWords.length) {
       const word = enabledWords[Math.floor(r(5) * enabledWords.length) % enabledWords.length];
+      const wordScale = getWordPlaneScale(word.text);
       items.push({
         ...base,
         id: `${key}-${i}-${word.id}`,
@@ -711,7 +732,7 @@ function generateChunkPlanesCached(cx, cy, cz) {
         word,
         text: word.text,
         groupId: word.groupId,
-        scale: new THREE.Vector3(11 + Math.min(16, word.text.length * 1.28), 6.8, 1),
+        scale: new THREE.Vector3(wordScale.width, wordScale.height, 1),
       });
     }
   }
@@ -741,6 +762,15 @@ function createMesh(item) {
 function makeCardTexture(card) {
   const key = `card-${card.id}`;
   if (textureCache.has(key)) return textureCache.get(key);
+  ensureCardImage(card);
+  if (card.kind === "projection" && card.imageElement) {
+    const texture = new THREE.Texture(card.imageElement);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 2;
+    texture.needsUpdate = true;
+    textureCache.set(key, texture);
+    return texture;
+  }
   const canvas = document.createElement("canvas");
   const size = getCardCanvasSize(card);
   canvas.width = size.width;
@@ -757,34 +787,69 @@ function makeWordTexture(text, lit, seed) {
   const key = `word-${text}-${lit}-${seed % 6}`;
   if (textureCache.has(key)) return textureCache.get(key);
   const canvas = document.createElement("canvas");
-  canvas.width = 620;
-  canvas.height = 190;
+  const size = getWordTextureSize(text);
+  canvas.width = size.width;
+  canvas.height = size.height;
   const ctx = canvas.getContext("2d");
   const colors = ["#dbece6", "#efd77e", "#c7d7ea", "#dfa28f", "#d7c4d7", "#e9e1c7"];
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.shadowColor = lit ? "rgba(52, 125, 112, 0.34)" : "rgba(22, 32, 27, 0.14)";
-  ctx.shadowBlur = lit ? 28 : 18;
-  roundedRect(ctx, 30, 44, canvas.width - 60, 102, 51);
+  ctx.shadowBlur = lit ? 24 : 16;
+  roundedRect(ctx, 28, 26, canvas.width - 56, canvas.height - 52, 32);
   ctx.fillStyle = lit ? "#f3d56e" : colors[Math.abs(seed) % colors.length];
   ctx.fill();
   ctx.strokeStyle = lit ? "rgba(52, 125, 112, 0.52)" : "rgba(22, 32, 27, 0.14)";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.fillStyle = palette.ink;
-  ctx.font = `${text.length > 16 ? "650 34px" : "740 42px"} Inter, system-ui, sans-serif`;
+  const fontSize = size.lines.length > 1 ? 32 : 39;
+  ctx.font = `${text.length > 18 ? "680" : "740"} ${fontSize}px Inter, system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(text, canvas.width / 2, 96, canvas.width - 92);
+  const lineHeight = fontSize * 1.22;
+  const startY = canvas.height / 2 - ((size.lines.length - 1) * lineHeight) / 2;
+  size.lines.forEach((line, index) => {
+    ctx.fillText(line, canvas.width / 2, startY + index * lineHeight, canvas.width - 92);
+  });
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   textureCache.set(key, texture);
   return texture;
 }
 
+function getWordTextureSize(text) {
+  const chars = [...text];
+  const lines = chars.length > 15 ? splitTextLines(chars, 2) : [text];
+  const longest = Math.max(...lines.map((line) => [...line].length), 6);
+  const width = clamp(260 + longest * 30, 430, 820);
+  const height = lines.length > 1 ? 240 : 178;
+  return { width, height, lines };
+}
+
+function splitTextLines(chars, maxLines) {
+  const midpoint = Math.ceil(chars.length / maxLines);
+  const lines = [];
+  for (let i = 0; i < chars.length; i += midpoint) {
+    lines.push(chars.slice(i, i + midpoint).join(""));
+  }
+  return lines.slice(0, maxLines);
+}
+
+function getWordPlaneScale(text) {
+  const size = getWordTextureSize(text);
+  const height = size.lines.length > 1 ? 8.6 : 6.6;
+  return { width: height * (size.width / size.height), height };
+}
+
 function drawCardCanvas(ctx, width, height, card) {
   if (card.kind === "photo") {
     drawPhotoCardCanvas(ctx, width, height, card);
+    return;
+  }
+  ensureCardImage(card);
+  if (card.imageElement) {
+    drawProjectionImageCardCanvas(ctx, width, height, card);
     return;
   }
   const set = projectionSets.find((candidate) => candidate.id === card.setId) ?? projectionSets[0];
@@ -808,7 +873,7 @@ function drawCardCanvas(ctx, width, height, card) {
   roundedRect(ctx, 68, 68, width - 136, height - 136, 20);
   ctx.fillStyle = gradient;
   ctx.fill();
-  ctx.globalAlpha = set.id === "night" ? 0.42 : 0.48;
+  ctx.globalAlpha = set.id === "relationship" ? 0.42 : 0.48;
   ctx.fillStyle = "rgba(22, 32, 27, 0.82)";
   for (let i = 0; i < 6; i += 1) {
     const px = width / 2 + Math.sin(seed * (i + 1)) * width * 0.24;
@@ -821,7 +886,6 @@ function drawCardCanvas(ctx, width, height, card) {
 }
 
 function getCardAspect(card) {
-  if (card.kind !== "photo") return 512 / 680;
   const image = card.imageElement;
   const width = card.width ?? image?.naturalWidth ?? 512;
   const height = card.height ?? image?.naturalHeight ?? 680;
@@ -829,12 +893,62 @@ function getCardAspect(card) {
 }
 
 function getCardCanvasSize(card) {
-  if (card.kind !== "photo") return { width: 512, height: 680 };
   const aspect = getCardAspect(card);
   const longSide = 720;
   return aspect >= 1
     ? { width: longSide, height: Math.round(longSide / aspect) }
     : { width: Math.round(longSide * aspect), height: longSide };
+}
+
+function ensureCardImage(card) {
+  if (card.kind !== "projection" || !card.src || card.imageElement || card.imageStatus === "loading" || card.imageStatus === "failed") {
+    return;
+  }
+  card.imageStatus = "loading";
+  const image = new Image();
+  image.addEventListener("load", () => {
+    card.imageElement = image;
+    card.width = image.naturalWidth;
+    card.height = image.naturalHeight;
+    card.imageStatus = "loaded";
+    textureCache.delete(`card-${card.id}`);
+    refreshActiveCardVisual(card);
+    rebuildScene();
+  });
+  image.addEventListener("error", () => {
+    card.imageStatus = "failed";
+  });
+  image.src = card.src;
+}
+
+function refreshActiveCardVisual(card) {
+  if (state.selectedCard?.id !== card.id) return;
+  const size = getCardCanvasSize(card);
+  focusCard.width = size.width;
+  focusCard.height = size.height;
+  focusCard.style.aspectRatio = `${size.width} / ${size.height}`;
+  drawCardCanvas(focusCtx, focusCard.width, focusCard.height, card);
+}
+
+function drawProjectionImageCardCanvas(ctx, width, height, card) {
+  ctx.clearRect(0, 0, width, height);
+  ctx.save();
+  ctx.shadowColor = "rgba(22, 32, 27, 0.24)";
+  ctx.shadowBlur = 24;
+  roundedRect(ctx, 10, 10, width - 20, height - 20, 28);
+  ctx.fillStyle = palette.paper;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "rgba(22, 32, 27, 0.14)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  const pad = Math.max(10, Math.min(width, height) * 0.028);
+  roundedRect(ctx, pad, pad, width - pad * 2, height - pad * 2, 22);
+  ctx.clip();
+  ctx.fillStyle = palette.paper;
+  ctx.fillRect(pad, pad, width - pad * 2, height - pad * 2);
+  drawImageContain(ctx, card.imageElement, pad, pad, width - pad * 2, height - pad * 2);
+  ctx.restore();
 }
 
 function drawPhotoCardCanvas(ctx, width, height, card) {
@@ -884,11 +998,16 @@ function drawImageCover(ctx, image, x, y, width, height) {
 function cardThumbnail(card) {
   if (!card) return "";
   if (card.thumbDataUrl) return card.thumbDataUrl;
+  if (card.kind === "projection" && card.src) return card.src;
   const canvas = document.createElement("canvas");
   canvas.width = 96;
   canvas.height = 128;
   drawCardCanvas(canvas.getContext("2d"), canvas.width, canvas.height, card);
-  return canvas.toDataURL("image/png");
+  try {
+    return canvas.toDataURL("image/png");
+  } catch {
+    return "";
+  }
 }
 
 async function handlePhotoUpload(event) {
@@ -1101,6 +1220,9 @@ function createCardSession(card) {
     collectedTags: new Set(),
     answerText: "",
     responseTags: [],
+    echoText: "",
+    echoStatus: "idle",
+    echoError: "",
     hasResponse: false,
   };
 }
@@ -1244,16 +1366,31 @@ function renderJournalMode() {
   const session = getActiveSession();
   const hasDraft = session.answerText.trim().length > 0;
   const hasResponse = session.hasResponse;
+  const isWaiting = session.echoStatus === "floating" || session.echoStatus === "loading";
+  const hasError = session.echoStatus === "error";
+  const isLast = session.currentPromptIndex >= session.prompts.length - 1;
+  responseDock.dataset.echo = session.echoStatus;
   responseDock.innerHTML = `
-    <div class="bottle-response${hasResponse ? " visible" : ""}">
-      <p>收到回应</p>
-      <div class="tag-result bottle-tags" id="bottleTags"></div>
+    <div class="journal-sea" aria-hidden="true">
+      <span class="sea-glow"></span>
+      <span class="paper-drift"></span>
     </div>
-    <textarea id="answerInput" placeholder="把此刻投进瓶子里。" ${hasResponse ? "readonly" : ""}></textarea>
-    <div class="modal-actions three-actions">
-      <button class="secondary-button" id="exploreCard" type="button" ${hasResponse ? "" : "disabled"}>⌁ 探索</button>
-      <button class="primary-button" id="castBottle" type="button" ${hasDraft && !hasResponse ? "" : "disabled"}>➶ 投出</button>
-      <button class="secondary-button" id="keepBottle" type="button">◍ 收好</button>
+    <p class="journal-boundary">这里不会分析你，也不会替你下结论。它只是帮你把刚才的话轻轻整理一下。</p>
+    <textarea id="answerInput" placeholder="把此刻的一句话放进瓶子里。" ${hasResponse || isWaiting ? "readonly" : ""}></textarea>
+    <div class="echo-status${isWaiting || hasError ? " visible" : ""}" id="echoStatus">
+      ${hasError ? "这次回声没有顺利漂回来，可以稍后再试一次。" : "海面正在把话带回来……"}
+    </div>
+    <div class="bottle-response${hasResponse ? " visible" : ""}">
+      <p class="echo-title">漂来的回声碎片</p>
+      <p class="echo-text" id="echoText"></p>
+      <p class="echo-prompt">哪些部分贴近你？</p>
+      <div class="tag-result bottle-tags" id="bottleTags"></div>
+      <p class="bottle-hint" id="bottleHint">拾起回声碎片装进漂流瓶。</p>
+    </div>
+    <div class="modal-actions journal-actions${hasResponse ? " has-echo" : ""}${hasResponse && isLast ? " final-question" : ""}">
+      ${hasResponse && !isLast ? '<button class="secondary-button" id="exploreCard" type="button">再等会儿</button>' : ""}
+      ${!hasResponse ? `<button class="primary-button" id="castBottle" type="button" ${hasDraft && !isWaiting ? "" : "disabled"}>留下这些</button>` : ""}
+      <button class="secondary-button" id="keepBottle" type="button">收好离开</button>
     </div>
   `;
   const textarea = responseDock.querySelector("#answerInput");
@@ -1261,24 +1398,37 @@ function renderJournalMode() {
   textarea.value = session.answerText;
   textarea.addEventListener("input", () => {
     session.answerText = textarea.value;
-    castButton.disabled = !session.answerText.trim() || session.hasResponse;
+    if (castButton) {
+      castButton.disabled = !session.answerText.trim() || session.hasResponse || session.echoStatus === "floating" || session.echoStatus === "loading";
+    }
   });
+  const echoText = responseDock.querySelector("#echoText");
+  if (echoText) echoText.textContent = session.echoText;
   const tagRoot = responseDock.querySelector("#bottleTags");
   session.responseTags.forEach((tag) => {
     const button = document.createElement("button");
-    button.className = `tag-chip${session.collectedTags.has(tag.label) ? " active collected" : ""}`;
+    button.className = `tag-chip echo-chip${session.collectedTags.has(tag.label) ? " active collected" : ""}`;
     button.dataset.family = tag.family;
     button.type = "button";
     button.textContent = tag.label;
     button.addEventListener("click", () => {
+      if (session.collectedTags.has(tag.label)) return;
       session.collectedTags.add(tag.label);
       record("tag", tagPayload(tag, "journal_collect"));
       renderJournalMode();
     });
     tagRoot.appendChild(button);
   });
-  responseDock.querySelector("#castBottle").addEventListener("click", handleJournalCast);
-  responseDock.querySelector("#exploreCard").addEventListener("click", handleJournalExplore);
+  if (!session.responseTags.length && hasResponse) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "这次只有很轻的一点回声。";
+    tagRoot.appendChild(empty);
+  }
+  responseDock.querySelector("#castBottle")?.addEventListener("click", () => {
+    handleJournalCast();
+  });
+  responseDock.querySelector("#exploreCard")?.addEventListener("click", handleJournalExplore);
   responseDock.querySelector("#keepBottle").addEventListener("click", closeModal);
 }
 
@@ -1329,12 +1479,13 @@ function handleChoiceStay() {
   syncActiveCard();
 }
 
-function handleJournalCast() {
+async function handleJournalCast() {
   const session = getActiveSession();
-  if (!session.answerText.trim() || session.hasResponse) return;
+  if (!session.answerText.trim() || session.hasResponse || session.echoStatus === "floating" || session.echoStatus === "loading") return;
   const prompt = getCurrentPrompt();
-  session.hasResponse = true;
-  session.responseTags = generateAiLikeTags(session.answerText, { card: session.card, prompt });
+  const answerText = session.answerText.trim();
+  session.echoStatus = "floating";
+  session.echoError = "";
   if (session.answerText.trim()) {
     record("answer", {
       mode: "journal",
@@ -1343,10 +1494,24 @@ function handleJournalCast() {
       setId: session.card.setId,
       promptId: prompt?.id,
       questionId: prompt?.id,
-      text: session.answerText.trim(),
+      text: answerText,
       thumbnail: cardThumbnail(session.card),
       photoBatchId: state.activeBatchId,
     });
+  }
+  renderJournalMode();
+  try {
+    await wait(420);
+    session.echoStatus = "loading";
+    renderJournalMode();
+    await wait(680);
+    session.responseTags = generateAiLikeTags(answerText, { card: session.card, prompt });
+    session.echoText = generateEchoText(answerText, { card: session.card, prompt }, session.responseTags);
+    session.hasResponse = true;
+    session.echoStatus = "ready";
+  } catch {
+    session.echoStatus = "error";
+    session.echoError = "这次回声没有顺利漂回来，可以稍后再试一次。";
   }
   renderJournalMode();
 }
@@ -1372,8 +1537,15 @@ function handleJournalExplore() {
   session.answerText = "";
   session.responseTags = [];
   session.collectedTags = new Set();
+  session.echoText = "";
+  session.echoError = "";
+  session.echoStatus = "idle";
   session.hasResponse = false;
   syncActiveCard();
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function generateTags(text) {
@@ -1407,6 +1579,14 @@ function generateAiLikeTags(input, context = {}) {
   const opposite = collectRuleTags(text, oppositeTagRules, "opposite", ["反过来", "松开一点", "换个方向"]).slice(0, 3);
   const resonance = collectRuleTags(text, resonanceTagRules, "resonance", ["同一种需要", "相似感受", "被轻轻接住"]).slice(0, 3);
   return uniqueTags([...related, ...opposite, ...resonance]).slice(0, 9);
+}
+
+function generateEchoText(input, context = {}, tags = []) {
+  const promptText = context.prompt?.text ? `在“${context.prompt.text}”旁边，` : "";
+  const picked = tags.slice(0, 3).map((tag) => stripTagPrefix(tag.label));
+  const fragments = picked.length ? picked.join("、") : "一点还没完全说清的感受";
+  const inputHint = input.length > 18 ? "这句话" : `“${input}”`;
+  return `${promptText}${inputHint}像是把${fragments}轻轻放在海面上。它不急着给出答案，只是在提醒你：这些细小的感觉，也可以先被看见。`;
 }
 
 function collectRuleTags(text, rules, family, fallback) {
@@ -1513,27 +1693,47 @@ function renderCalendar() {
   const first = new Date(year, month, 1);
   const days = new Date(year, month + 1, 0).getDate();
   const groups = groupedRecords();
-  const monthLabel = `${year}-${String(month + 1).padStart(2, "0")}`;
-  let html = `<div class="calendar-headline"><p class="panel-title">${monthLabel}</p></div><div class="month-grid">`;
+  const monthLabel = String(month + 1).padStart(2, "0");
+  let html = `
+    <div class="calendar-headline">
+      <button class="calendar-nav-button" id="prevMonth" type="button" aria-label="上个月">‹</button>
+      <div class="calendar-month-title" aria-label="${year}-${monthLabel}">
+        <span>${year}</span>
+        <strong>${monthLabel}</strong>
+      </div>
+      <button class="calendar-nav-button" id="nextMonth" type="button" aria-label="下个月">›</button>
+    </div>
+    <div class="month-grid">
+  `;
   ["日", "一", "二", "三", "四", "五", "六"].forEach((day) => {
     html += `<span class="weekday">${day}</span>`;
   });
   for (let i = 0; i < first.getDay(); i += 1) html += `<span></span>`;
   for (let day = 1; day <= days; day += 1) {
     const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const className = `day-button${groups[key]?.length ? " has-record" : ""}${calendarState.selectedDay === key ? " selected" : ""}`;
-    html += `<button class="${className}" data-day="${key}" type="button">${day}</button>`;
+    const hasRecord = Boolean(groups[key]?.length);
+    const className = `day-button${hasRecord ? " has-record" : " no-record"}${calendarState.selectedDay === key ? " selected" : ""}`;
+    html += `<button class="${className}" data-day="${key}" type="button" ${hasRecord ? "" : "disabled"}>${day}</button>`;
   }
-  html += `</div><section class="day-detail" id="dayDetail"></section>`;
+  html += `</div>`;
   rootEl.innerHTML = html;
-  rootEl.querySelectorAll(".day-button").forEach((button) => {
+  rootEl.querySelector("#prevMonth").addEventListener("click", () => {
+    calendarState.month = new Date(year, month - 1, 1);
+    renderCalendar();
+  });
+  rootEl.querySelector("#nextMonth").addEventListener("click", () => {
+    calendarState.month = new Date(year, month + 1, 1);
+    renderCalendar();
+  });
+  rootEl.querySelectorAll(".day-button.has-record").forEach((button) => {
     button.addEventListener("click", () => {
       calendarState.selectedDay = button.dataset.day;
       calendarState.detailCardKey = null;
+      const entries = groups[calendarState.selectedDay] ?? [];
       renderCalendar();
+      if (entries.length) openCalendarReview(calendarState.selectedDay, entries);
     });
   });
-  renderDayDetail(groups[calendarState.selectedDay] ?? []);
 }
 
 function groupedRecords() {
@@ -1551,22 +1751,6 @@ function isCalendarRecord(entry) {
   return ["tag", "keyword", "card_open", "question_action", "photo_upload"].includes(entry.type);
 }
 
-function renderDayDetail(entries) {
-  const detail = document.getElementById("dayDetail");
-  detail.innerHTML = `<h3>${calendarState.selectedDay}</h3>`;
-  if (!entries.length) {
-    detail.innerHTML += `<p class="empty-state">这一天还没有留下记录。</p>`;
-    return;
-  }
-  const groups = groupEntriesByCard(entries);
-  const selected = calendarState.detailCardKey ? groups.find((group) => group.key === calendarState.detailCardKey) : null;
-  if (selected) {
-    detail.appendChild(renderCardRecordDetail(selected));
-  } else {
-    detail.appendChild(renderDayGallery(groups));
-  }
-}
-
 function groupEntriesByCard(entries) {
   const groups = new Map();
   entries.forEach((entry) => {
@@ -1576,26 +1760,33 @@ function groupEntriesByCard(entries) {
         key,
         title: calendarEntryTitle(entry),
         thumbnail: entry.payload.thumbnail ?? "",
+        card: findCardById(entry.payload.cardId ?? entry.payload.id),
         entries: [],
       });
     }
     const group = groups.get(key);
     group.entries.push(entry);
     group.thumbnail ||= entry.payload.thumbnail ?? "";
+    if (!group.card) group.card = findCardById(entry.payload.cardId ?? entry.payload.id);
     if (group.title === "文字" || group.title === "卡牌") group.title = calendarEntryTitle(entry);
   });
   return [...groups.values()].sort((a, b) => latestTime(b) - latestTime(a));
 }
 
+function findCardById(cardId) {
+  if (!cardId) return null;
+  return [...projectionSets.flatMap((set) => set.cards), ...photoSet.cards].find((card) => card.id === cardId) ?? null;
+}
+
 function calendarCardKey(entry) {
+  if (entry.type === "keyword") return `keyword:${entry.payload.wordId ?? entry.payload.text ?? entry.id}`;
   const cardId = entry.payload.cardId ?? entry.payload.id;
   if (cardId) return `card:${cardId}`;
-  if (entry.type === "keyword") return "text:keywords";
   return "text:misc";
 }
 
 function calendarEntryTitle(entry) {
-  if (entry.type === "keyword") return "文字";
+  if (entry.type === "keyword") return entry.payload.text ?? "点亮的文字";
   if (!entry.payload.cardId && !entry.payload.id) return "文字";
   return entry.payload.title ?? entry.payload.cardTitle ?? entry.payload.cardId ?? entry.payload.id ?? "卡牌";
 }
@@ -1604,29 +1795,143 @@ function latestTime(group) {
   return Math.max(...group.entries.map((entry) => new Date(entry.at).getTime()));
 }
 
-function renderDayGallery(groups) {
-  const gallery = document.createElement("div");
-  gallery.className = "day-gallery";
-  groups.forEach((group) => {
+function openCalendarReview(day, entries) {
+  const groups = groupEntriesByCard(entries);
+  calendarState.reviewGroups = groups;
+  calendarState.reviewActiveKey = groups[0]?.key ?? null;
+  calendarReviewDate.textContent = day;
+  calendarReview.classList.add("open");
+  calendarReview.setAttribute("aria-hidden", "false");
+  renderCalendarReview();
+}
+
+function closeCalendarReview() {
+  calendarReview.classList.remove("open");
+  calendarReview.setAttribute("aria-hidden", "true");
+  calendarState.reviewGroups = [];
+  calendarState.reviewActiveKey = null;
+}
+
+function renderCalendarReview() {
+  const groups = calendarState.reviewGroups;
+  calendarReviewDeck.innerHTML = "";
+  if (!groups.length) {
+    calendarReviewDetail.innerHTML = `<p class="empty-state">这一天还没有留下记录。</p>`;
+    return;
+  }
+  groups.forEach((group, index) => {
     const button = document.createElement("button");
-    button.className = "gallery-tile";
+    button.className = `review-card${group.key === calendarState.reviewActiveKey ? " active" : ""}`;
+    if (group.key.startsWith("keyword:")) button.classList.add("shell-review-card");
     button.type = "button";
-    const thumb = document.createElement(group.thumbnail ? "img" : "div");
-    thumb.className = "gallery-thumb";
-    if (group.thumbnail) thumb.src = group.thumbnail;
-    const title = document.createElement("span");
-    title.className = "gallery-title";
-    title.textContent = group.title;
-    const meta = document.createElement("small");
-    meta.textContent = `${group.entries.length} 条`;
-    button.append(thumb, title, meta);
+    button.style.setProperty("--tilt", `${((index % 7) - 3) * 2.4}deg`);
+    button.style.setProperty("--rise", `${Math.abs((index % 5) - 2) * 7}px`);
+    const visual = createReviewCardVisual(group);
+    button.append(visual);
     button.addEventListener("click", () => {
-      calendarState.detailCardKey = group.key;
-      renderCalendar();
+      calendarState.reviewActiveKey = group.key;
+      renderCalendarReview();
+      button.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
-    gallery.appendChild(button);
+    calendarReviewDeck.appendChild(button);
   });
-  return gallery;
+  const activeGroup = groups.find((group) => group.key === calendarState.reviewActiveKey) ?? groups[0];
+  renderCalendarReviewDetail(activeGroup);
+}
+
+function createReviewCardVisual(group) {
+  if (group.key.startsWith("keyword:")) {
+    const shell = document.createElement("div");
+    shell.className = "review-shell-card";
+    shell.textContent = keywordGroupText(group);
+    return shell;
+  }
+  if (group.card) {
+    const image = document.createElement("img");
+    const size = getCardCanvasSize(group.card);
+    image.src = group.card.kind === "projection" && group.card.src ? group.card.src : cardPreviewDataUrl(group.card);
+    image.alt = "";
+    image.style.aspectRatio = `${size.width} / ${size.height}`;
+    return image;
+  }
+  if (group.thumbnail) {
+    const image = document.createElement("img");
+    image.src = group.thumbnail;
+    image.alt = "";
+    return image;
+  }
+  const textCard = document.createElement("div");
+  textCard.className = "review-text-card";
+  textCard.textContent = keywordGroupText(group);
+  return textCard;
+}
+
+function keywordGroupText(group) {
+  return group.entries.find((entry) => entry.type === "keyword")?.payload.text ?? group.title ?? "点亮的文字";
+}
+
+function cardPreviewDataUrl(card) {
+  if (card.kind === "projection" && card.src) return card.src;
+  const canvas = document.createElement("canvas");
+  const size = getCardCanvasSize(card);
+  canvas.width = size.width;
+  canvas.height = size.height;
+  drawCardCanvas(canvas.getContext("2d"), canvas.width, canvas.height, card);
+  try {
+    return canvas.toDataURL("image/png");
+  } catch {
+    return "";
+  }
+}
+
+function renderCalendarReviewDetail(group) {
+  const questions = uniqueRecordValues(group.entries.map((entry) => promptTextForRecord(entry)).filter(Boolean));
+  const answers = group.entries.filter((entry) => entry.type === "answer" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim());
+  const labels = collectRecordLabels(group.entries);
+  calendarReviewDetail.innerHTML = "";
+  [
+    ["设问", questions],
+    ["输入", answers],
+    ["标签", labels],
+    ["点亮文字", group.entries.filter((entry) => entry.type === "keyword").map((entry) => entry.payload.text ?? "点亮的文字")],
+  ].forEach(([label, values]) => {
+    if (!values.length) return;
+    const section = document.createElement("div");
+    section.className = "review-record-group";
+    const heading = document.createElement("p");
+    heading.textContent = label;
+    section.appendChild(heading);
+    values.forEach((value) => {
+      const item = document.createElement("span");
+      item.textContent = value;
+      section.appendChild(item);
+    });
+    calendarReviewDetail.appendChild(section);
+  });
+  if (!calendarReviewDetail.children.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "这张卡还没有留下可回看的输入或标签。";
+    calendarReviewDetail.appendChild(empty);
+  }
+}
+
+function promptTextForRecord(entry) {
+  const promptId = entry.payload.questionId ?? entry.payload.promptId;
+  return promptBank.find((prompt) => prompt.id === promptId)?.text ?? "";
+}
+
+function collectRecordLabels(entries) {
+  const labels = [];
+  entries.forEach((entry) => {
+    if (entry.type === "tag") labels.push(stripTagPrefix(entry.payload.label ?? entry.payload.tag ?? ""));
+    if (entry.type === "question_action") labels.push(...(entry.payload.labels ?? []));
+  });
+  return uniqueRecordValues(labels.filter(Boolean));
+}
+
+function uniqueRecordValues(values) {
+  return [...new Set(values)];
 }
 
 function renderCardRecordDetail(group) {
@@ -1674,18 +1979,6 @@ function renderCardRecordDetail(group) {
     detail.appendChild(section);
   });
   return detail;
-}
-
-function renderCalendarEntry(entry) {
-  const row = document.createElement("div");
-  row.className = "calendar-entry";
-  const thumb = document.createElement(entry.payload.thumbnail ? "img" : "div");
-  thumb.className = "entry-thumb";
-  if (entry.payload.thumbnail) thumb.src = entry.payload.thumbnail;
-  const text = document.createElement("span");
-  text.textContent = describeRecord(entry);
-  row.append(thumb, text);
-  return row;
 }
 
 function describeRecord(entry) {
@@ -1823,6 +2116,8 @@ choiceModeToggle.addEventListener("click", () => setMode("choice"));
 journalModeToggle.addEventListener("click", () => setMode("journal"));
 document.getElementById("closeCardSetPanel").addEventListener("click", () => togglePanel(cardSetPanel));
 document.getElementById("closeCalendarPanel").addEventListener("click", () => togglePanel(calendarPanel));
+document.getElementById("closeCalendarReview").addEventListener("click", closeCalendarReview);
+document.getElementById("calendarReviewScrim").addEventListener("click", closeCalendarReview);
 document.getElementById("closeModal").addEventListener("click", closeModal);
 document.getElementById("modalScrim").addEventListener("click", closeModal);
 prevCardButton.addEventListener("click", () => moveActiveCard(-1));
