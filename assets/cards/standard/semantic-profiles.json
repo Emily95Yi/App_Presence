@@ -1,0 +1,3328 @@
+{
+  "standard-1": {
+    "id": "standard-1",
+    "sourceTitle": "01（拧 / 绳子）",
+    "visualLayer": {
+      "visualFeatures": [
+        "metal",
+        "screw",
+        "connection",
+        "tension",
+        "bright-background",
+        "close-up"
+      ],
+      "composition": [
+        "horizontal-link",
+        "mechanical-focus"
+      ],
+      "motion": [
+        "tightening",
+        "holding"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "attachment",
+        "pressure",
+        "stability",
+        "constraint",
+        "holding-together"
+      ],
+      "energyLevel": 0.68,
+      "emotionalTemperature": "sharp-warm",
+      "socialFeeling": "structural"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "bond",
+        "fixing",
+        "tension",
+        "joining",
+        "fastening"
+      ]
+    },
+    "observationPerspectives": [
+      "这里更像连接，还是限制？",
+      "有什么东西正在被拧紧？",
+      "如果松开一点，会发生什么？",
+      "这里真正固定住的是什么？"
+    ]
+  },
+  "standard-2": {
+    "id": "standard-2",
+    "sourceTitle": "2（超人 / 火炬）",
+    "visualLayer": {
+      "visualFeatures": [
+        "cloaked-figure",
+        "torch",
+        "back-facing",
+        "bright-flame",
+        "dramatic-red",
+        "solitary-figure"
+      ],
+      "composition": [
+        "centered-figure",
+        "back-to-viewer",
+        "light-in-darkness"
+      ],
+      "motion": [
+        "striding",
+        "leading",
+        "departing"
+      ],
+      "colorMood": [
+        "deep-red",
+        "flame-yellow",
+        "cold-blue",
+        "contrasting"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "departure",
+        "direction",
+        "solitude",
+        "agency",
+        "unknown-destination",
+        "carrying-light"
+      ],
+      "energyLevel": 0.78,
+      "emotionalTemperature": "intense-warm",
+      "socialFeeling": "solitary-forward"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "guide",
+        "pioneer",
+        "departure",
+        "illumination",
+        "unknown-path"
+      ]
+    },
+    "observationPerspectives": [
+      "这里是在离开，还是在引领？",
+      "他举起的光是为了自己，还是为了别人？",
+      "背对着的是什么？",
+      "如果能看到他的脸，你会先注意哪里？"
+    ]
+  },
+  "standard-3": {
+    "id": "standard-3",
+    "sourceTitle": "3（日历 / 手表）",
+    "visualLayer": {
+      "visualFeatures": [
+        "calendar",
+        "sleeping-face",
+        "wristwatch",
+        "numbers",
+        "grid-structure",
+        "close-up-profile"
+      ],
+      "composition": [
+        "vertical-split",
+        "time-above-body-below",
+        "face-beneath-schedule"
+      ],
+      "motion": [
+        "stillness",
+        "resting",
+        "time-passing"
+      ],
+      "colorMood": [
+        "cool-white",
+        "muted-blue",
+        "warm-skin",
+        "red-accent"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "exhaustion",
+        "overwhelm",
+        "avoidance",
+        "time-pressure",
+        "surrender-to-rest",
+        "dissociation"
+      ],
+      "energyLevel": 0.2,
+      "emotionalTemperature": "cool-heavy",
+      "socialFeeling": "withdrawal"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "deadline",
+        "time",
+        "escape",
+        "sleep-as-refuge",
+        "scheduled-life"
+      ]
+    },
+    "observationPerspectives": [
+      "这里是在休息，还是在躲避？",
+      "日历上有什么日期特别重要？",
+      "那块手表还在走吗？",
+      "睡着之前，这个人在想什么？"
+    ]
+  },
+  "standard-4": {
+    "id": "standard-4",
+    "sourceTitle": "4（破碎 / 玻璃）",
+    "visualLayer": {
+      "visualFeatures": [
+        "broken-object",
+        "scattered-fragments",
+        "falling",
+        "hands-below",
+        "narrow-space",
+        "light-from-above"
+      ],
+      "composition": [
+        "vertical-drop",
+        "fragmentation",
+        "figure-beneath"
+      ],
+      "motion": [
+        "shattering",
+        "falling",
+        "dispersing"
+      ],
+      "colorMood": [
+        "earth-brown",
+        "cold-blue",
+        "white-light",
+        "muted-shadow"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "rupture",
+        "helplessness",
+        "shock",
+        "aftermath",
+        "witnessing",
+        "loss"
+      ],
+      "energyLevel": 0.55,
+      "emotionalTemperature": "cold-shock",
+      "socialFeeling": "caught-beneath"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "collapse",
+        "breakage",
+        "impact",
+        "irreversibility",
+        "debris"
+      ]
+    },
+    "observationPerspectives": [
+      "这里已经发生了，还是正在发生？",
+      "那双手在试图接住什么？",
+      "碎掉之前，它是什么？",
+      "这里还有什么是完整的？"
+    ]
+  },
+  "standard-5": {
+    "id": "standard-5",
+    "sourceTitle": "7（纸币 / 手）",
+    "visualLayer": {
+      "visualFeatures": [
+        "banknotes",
+        "hands",
+        "close-up",
+        "exchange",
+        "paper-texture",
+        "green-currency"
+      ],
+      "composition": [
+        "tight-crop",
+        "two-hands-meeting",
+        "object-centered"
+      ],
+      "motion": [
+        "passing",
+        "receiving",
+        "transacting"
+      ],
+      "colorMood": [
+        "cool-gray",
+        "olive-green",
+        "skin-tone",
+        "muted"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "transaction",
+        "exchange",
+        "value",
+        "urgency",
+        "calculation",
+        "transfer"
+      ],
+      "energyLevel": 0.6,
+      "emotionalTemperature": "cool-precise",
+      "socialFeeling": "between-two"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "value",
+        "exchange",
+        "agreement",
+        "resource",
+        "passage"
+      ]
+    },
+    "observationPerspectives": [
+      "这里更像是给出，还是拿走？",
+      "这笔交换是自愿的吗？",
+      "钱在这里代表的是什么？",
+      "这两双手之间还有什么正在流动？"
+    ]
+  },
+  "standard-6": {
+    "id": "standard-6",
+    "sourceTitle": "8（卡牌 / 抽取）",
+    "visualLayer": {
+      "visualFeatures": [
+        "aerial-view",
+        "blue-rectangles",
+        "grid-pattern",
+        "figure-below",
+        "open-field",
+        "scattered-objects"
+      ],
+      "composition": [
+        "top-down-perspective",
+        "grid-repetition",
+        "figure-at-edge"
+      ],
+      "motion": [
+        "surveying",
+        "stillness",
+        "contemplation"
+      ],
+      "colorMood": [
+        "sandy-yellow",
+        "muted-blue",
+        "gray-sky",
+        "cool-distance"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "detachment",
+        "overview",
+        "isolation",
+        "deliberation",
+        "distance",
+        "quiet-assessment"
+      ],
+      "energyLevel": 0.3,
+      "emotionalTemperature": "cool-neutral",
+      "socialFeeling": "observer-outside"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "mapping",
+        "inventory",
+        "arrangement",
+        "witness",
+        "separation"
+      ]
+    },
+    "observationPerspectives": [
+      "站在这里看，和站在里面看，有什么不同？",
+      "这些方块像是选项，还是已经完成的事？",
+      "这里有什么东西还没被拾起？",
+      "那个角落的人物在等什么？"
+    ]
+  },
+  "standard-7": {
+    "id": "standard-7",
+    "sourceTitle": "12（双手 / 握住）",
+    "visualLayer": {
+      "visualFeatures": [
+        "hands",
+        "open-palms",
+        "reaching-upward",
+        "intertwined",
+        "warm-light",
+        "human-body"
+      ],
+      "composition": [
+        "upward-gesture",
+        "diagonal-cross",
+        "center-focus"
+      ],
+      "motion": [
+        "lifting",
+        "offering",
+        "reaching"
+      ],
+      "colorMood": [
+        "warm-orange",
+        "deep-red",
+        "golden-yellow",
+        "earthy"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "surrender",
+        "offering",
+        "vulnerability",
+        "longing",
+        "openness",
+        "appeal"
+      ],
+      "energyLevel": 0.65,
+      "emotionalTemperature": "warm-intense",
+      "socialFeeling": "outward-reaching"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "supplication",
+        "gift",
+        "prayer",
+        "reception",
+        "contact"
+      ]
+    },
+    "observationPerspectives": [
+      "这里更像在给出，还是在等待？",
+      "这双手想要碰到什么？",
+      "有什么东西正在被托举起来？",
+      "这里是在请求，还是在回应？"
+    ]
+  },
+  "standard-8": {
+    "id": "standard-8",
+    "sourceTitle": "13（弹吉他的人）",
+    "visualLayer": {
+      "visualFeatures": [
+        "musician",
+        "instrument",
+        "hands",
+        "performance",
+        "bright-colors",
+        "human-expression"
+      ],
+      "composition": [
+        "diagonal-instrument",
+        "active-gesture"
+      ],
+      "motion": [
+        "rhythmic",
+        "vibrating"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "expression",
+        "release",
+        "presence",
+        "performance",
+        "emotion-through-action"
+      ],
+      "energyLevel": 0.72,
+      "emotionalTemperature": "warm",
+      "socialFeeling": "outward-expression"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "music",
+        "voice",
+        "performance",
+        "communication",
+        "resonance"
+      ]
+    },
+    "observationPerspectives": [
+      "这里更像表达，还是倾诉？",
+      "什么东西正在被发出来？",
+      "这里只有声音，还是也有沉默？",
+      "如果不需要被听懂，它还会继续弹吗？"
+    ]
+  },
+  "standard-9": {
+    "id": "standard-9",
+    "sourceTitle": "14（漩涡 / 水波）",
+    "visualLayer": {
+      "visualFeatures": [
+        "water",
+        "circular-motion",
+        "ripples",
+        "depth-center",
+        "open-surface",
+        "soft-boundaries"
+      ],
+      "composition": [
+        "center-pull",
+        "expanding-rings",
+        "repetition"
+      ],
+      "motion": [
+        "slow-rotation",
+        "inward-drift"
+      ],
+      "colorMood": [
+        "muted-blue",
+        "green-gray",
+        "cool"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "absorption",
+        "pulling-inward",
+        "quiet-instability",
+        "repetition",
+        "immersion",
+        "depth"
+      ],
+      "energyLevel": 0.35,
+      "emotionalTemperature": "cool",
+      "socialFeeling": "internal"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "whirlpool",
+        "cycle",
+        "echo",
+        "submersion",
+        "center"
+      ]
+    },
+    "observationPerspectives": [
+      "这里好像有什么一直没有散开",
+      "你会停在边缘，还是靠近中心？",
+      "这里像正在卷入，还是慢慢展开？",
+      "什么东西正在反复出现？"
+    ]
+  },
+  "standard-10": {
+    "id": "standard-10",
+    "sourceTitle": "15（驴 / 负重）",
+    "visualLayer": {
+      "visualFeatures": [
+        "animal",
+        "burden",
+        "desert",
+        "carrying",
+        "earth-tone",
+        "head-lowered"
+      ],
+      "composition": [
+        "forward-weight",
+        "asymmetrical-load"
+      ],
+      "motion": [
+        "slow-walking",
+        "endurance"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "persistence",
+        "fatigue",
+        "continuing",
+        "acceptance",
+        "weight",
+        "duty"
+      ],
+      "energyLevel": 0.4,
+      "emotionalTemperature": "warm-dry",
+      "socialFeeling": "solitary-endurance"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "journey",
+        "burden",
+        "transport",
+        "survival",
+        "continuation"
+      ]
+    },
+    "observationPerspectives": [
+      "这里真正沉重的是哪一部分？",
+      "它像是在坚持，还是只是继续往前？",
+      "有什么东西已经背了很久？",
+      "这里还有余力吗？"
+    ]
+  },
+  "standard-11": {
+    "id": "standard-11",
+    "sourceTitle": "18（楼梯 / 门 / 光）",
+    "visualLayer": {
+      "visualFeatures": [
+        "stairs",
+        "door",
+        "light",
+        "vertical-path",
+        "threshold",
+        "enclosed-space"
+      ],
+      "composition": [
+        "upward-direction",
+        "distant-goal"
+      ],
+      "motion": [
+        "ascending",
+        "approaching"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "transition",
+        "hesitation",
+        "possibility",
+        "approach",
+        "distance-to-arrival"
+      ],
+      "energyLevel": 0.55,
+      "emotionalTemperature": "mixed",
+      "socialFeeling": "individual-crossing"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "threshold",
+        "passage",
+        "invitation",
+        "unknown-room",
+        "change"
+      ]
+    },
+    "observationPerspectives": [
+      "这里更像离开，还是进入？",
+      "你会停在楼梯上，还是继续往前？",
+      "门后面的东西让人靠近，还是犹豫？",
+      "你会先看向门，还是路程？"
+    ]
+  },
+  "standard-12": {
+    "id": "standard-12",
+    "sourceTitle": "16（卧室 / 空床）",
+    "visualLayer": {
+      "visualFeatures": [
+        "bed",
+        "green-bedcover",
+        "nightstand",
+        "lamp",
+        "window",
+        "potted-plant"
+      ],
+      "composition": [
+        "bed-filling-frame",
+        "domestic-interior",
+        "no-occupant"
+      ],
+      "motion": [
+        "stillness",
+        "waiting",
+        "recently-made-or-left"
+      ],
+      "colorMood": [
+        "deep-green",
+        "cool-blue",
+        "warm-orange-lamp",
+        "quiet-domestic"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "absence",
+        "rest",
+        "intimacy-without-presence",
+        "waiting-to-be-occupied",
+        "familiar-solitude",
+        "contained-life"
+      ],
+      "energyLevel": 0.18,
+      "emotionalTemperature": "warm-still",
+      "socialFeeling": "space-for-one"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "rest",
+        "private-world",
+        "the-body-that-was-here",
+        "night",
+        "return"
+      ]
+    },
+    "observationPerspectives": [
+      "这张床，今晚有人睡吗？",
+      "灯开着还是关着？",
+      "这个房间属于一个人，还是曾经属于两个人？",
+      "躺下去之前，这个人会想什么？"
+    ]
+  },
+  "standard-13": {
+    "id": "standard-13",
+    "sourceTitle": "20（绑缚 / 木桩）",
+    "visualLayer": {
+      "visualFeatures": [
+        "wooden-post",
+        "rope-wrapped",
+        "repeated-binding",
+        "vertical-structure",
+        "close-up",
+        "no-human-figure"
+      ],
+      "composition": [
+        "centered-vertical",
+        "repetitive-coiling",
+        "contained-frame"
+      ],
+      "motion": [
+        "held-in-place",
+        "wound-tight",
+        "stillness-under-tension"
+      ],
+      "colorMood": [
+        "warm-beige",
+        "dark-rope",
+        "muted-wood",
+        "flat-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "constraint",
+        "binding",
+        "held-fast",
+        "repetition-of-control",
+        "tension",
+        "unable-to-move"
+      ],
+      "energyLevel": 0.5,
+      "emotionalTemperature": "cool-tight",
+      "socialFeeling": "alone-and-bound"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "restraint",
+        "repetition",
+        "fixation",
+        "the-thing-that-holds",
+        "knot"
+      ]
+    },
+    "observationPerspectives": [
+      "这里是谁绑的，又是为什么？",
+      "绳子绕了这么多圈——是怕松开，还是怕逃走？",
+      "木桩感觉到了吗？",
+      "如果解开一圈，会发生什么？"
+    ]
+  },
+  "standard-14": {
+    "id": "standard-14",
+    "sourceTitle": "21（餐馆 / 一人）",
+    "visualLayer": {
+      "visualFeatures": [
+        "bar-counter",
+        "hunched-figure",
+        "bartender",
+        "bottles-on-shelf",
+        "bar-stools",
+        "another-patron"
+      ],
+      "composition": [
+        "diagonal-counter",
+        "figures-at-different-distances",
+        "reflected-bottles"
+      ],
+      "motion": [
+        "leaning-in",
+        "slow-drinking",
+        "low-energy-presence"
+      ],
+      "colorMood": [
+        "warm-tan",
+        "muted-blue",
+        "faded-red",
+        "dim-interior"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "heaviness",
+        "numbing",
+        "anonymous-company",
+        "low-withdrawal",
+        "in-between-state",
+        "unspoken"
+      ],
+      "energyLevel": 0.28,
+      "emotionalTemperature": "warm-dim",
+      "socialFeeling": "together-but-absent"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "refuge",
+        "habit",
+        "dissolving",
+        "ritual-of-forgetting",
+        "anonymous-witness"
+      ]
+    },
+    "observationPerspectives": [
+      "那个弯腰的人，在想什么？",
+      "酒杯里还剩多少？",
+      "旁边的人，知道彼此存在吗？",
+      "这里是结束一天，还是逃开某件事？"
+    ]
+  },
+  "standard-15": {
+    "id": "standard-15",
+    "sourceTitle": "22（钥匙 / 门锁）",
+    "visualLayer": {
+      "visualFeatures": [
+        "key",
+        "keyhole",
+        "door-edge",
+        "hand-inserting",
+        "golden-key",
+        "two-locks"
+      ],
+      "composition": [
+        "horizontal-threshold",
+        "key-meeting-lock",
+        "tight-crop"
+      ],
+      "motion": [
+        "inserting",
+        "unlocking",
+        "about-to-open"
+      ],
+      "colorMood": [
+        "warm-terracotta",
+        "pale-cream",
+        "golden-yellow",
+        "leaf-green"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "access",
+        "anticipation",
+        "permission",
+        "hesitation",
+        "arrival",
+        "belonging"
+      ],
+      "energyLevel": 0.55,
+      "emotionalTemperature": "warm-contained",
+      "socialFeeling": "private-crossing"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "access",
+        "secret",
+        "entry",
+        "ownership",
+        "the-right-key"
+      ]
+    },
+    "observationPerspectives": [
+      "这把钥匙是自己的，还是借来的？",
+      "门后面是家，还是陌生的地方？",
+      "两把锁里，哪一把更先被看见？",
+      "钥匙靠近锁孔的那一刻，你会先看哪里？"
+    ]
+  },
+  "standard-16": {
+    "id": "standard-16",
+    "sourceTitle": "23（窗前 / 等待）",
+    "visualLayer": {
+      "visualFeatures": [
+        "figure-at-window",
+        "moon",
+        "clouds",
+        "robed-silhouette",
+        "framed-sky",
+        "night-scene"
+      ],
+      "composition": [
+        "figure-inside-frame",
+        "window-as-picture",
+        "back-to-viewer"
+      ],
+      "motion": [
+        "standing-still",
+        "gazing-out",
+        "waiting"
+      ],
+      "colorMood": [
+        "deep-blue",
+        "golden-moon",
+        "warm-brown",
+        "cool-night"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "longing",
+        "vigil",
+        "contemplation",
+        "waiting-for-something",
+        "inner-distance",
+        "nocturnal-solitude"
+      ],
+      "energyLevel": 0.28,
+      "emotionalTemperature": "cool-still",
+      "socialFeeling": "interior-facing-out"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "moon-as-witness",
+        "window-as-membrane",
+        "night-watch",
+        "the-unseen-thing-waited-for",
+        "threshold"
+      ]
+    },
+    "observationPerspectives": [
+      "他在等什么，还是等谁？",
+      "月亮看见了他，他看见了月亮吗？",
+      "这里是无法入睡，还是不想入睡？",
+      "窗外的世界，让他感到更近，还是更远？"
+    ]
+  },
+  "standard-17": {
+    "id": "standard-17",
+    "sourceTitle": "07（猫 / 防御）",
+    "visualLayer": {
+      "visualFeatures": [
+        "snarling-cat",
+        "fangs",
+        "mountain-backdrop",
+        "cave-shadow",
+        "golden-fur",
+        "red-mouth"
+      ],
+      "composition": [
+        "centered-creature",
+        "frontal-confrontation",
+        "shadow-behind"
+      ],
+      "motion": [
+        "threatening",
+        "guarding",
+        "confronting"
+      ],
+      "colorMood": [
+        "golden-ochre",
+        "dark-brown",
+        "sky-blue",
+        "red-accent"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "threat",
+        "primal-fear",
+        "raw-instinct",
+        "territorial",
+        "confrontation",
+        "warning"
+      ],
+      "energyLevel": 0.85,
+      "emotionalTemperature": "hot-aggressive",
+      "socialFeeling": "face-to-face"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "guardian",
+        "shadow-self",
+        "instinct",
+        "boundary-keeper",
+        "untamed-force"
+      ]
+    },
+    "observationPerspectives": [
+      "它在保护什么，还是在阻挡什么？",
+      "你会靠近，还是后退？",
+      "这头野兽是外面的，还是里面的？",
+      "它的愤怒，来自恐惧吗？"
+    ]
+  },
+  "standard-18": {
+    "id": "standard-18",
+    "sourceTitle": "29（海鸥 / 飞翔）",
+    "visualLayer": {
+      "visualFeatures": [
+        "bird-in-flight",
+        "open-wings",
+        "sky",
+        "upward-view",
+        "solitary-bird",
+        "soft-clouds"
+      ],
+      "composition": [
+        "bird-centered",
+        "sky-filling-frame",
+        "below-looking-up"
+      ],
+      "motion": [
+        "soaring",
+        "gliding",
+        "effortless-ascent"
+      ],
+      "colorMood": [
+        "pale-blue",
+        "soft-white",
+        "dark-gray-bird",
+        "open-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "freedom",
+        "release",
+        "longing-to-rise",
+        "effortlessness",
+        "above-it-all",
+        "expansion"
+      ],
+      "energyLevel": 0.65,
+      "emotionalTemperature": "cool-light",
+      "socialFeeling": "solitary-freedom"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "flight",
+        "liberation",
+        "perspective-from-above",
+        "the-open-sky",
+        "departure-from-ground"
+      ]
+    },
+    "observationPerspectives": [
+      "它要飞去哪里？",
+      "从地上看它，和成为它，哪个更让你想要？",
+      "这只鸟更像在离开，还是在展开？",
+      "翅膀张开的那一刻，它在想什么？"
+    ]
+  },
+  "standard-19": {
+    "id": "standard-19",
+    "sourceTitle": "30（拱门 / 握手）",
+    "visualLayer": {
+      "visualFeatures": [
+        "archway",
+        "two-blue-figures",
+        "handshake",
+        "glowing-center",
+        "circular-form-above",
+        "green-ground"
+      ],
+      "composition": [
+        "arch-as-frame",
+        "figures-facing-each-other",
+        "light-at-meeting-point"
+      ],
+      "motion": [
+        "meeting",
+        "greeting",
+        "ceremony"
+      ],
+      "colorMood": [
+        "cobalt-blue",
+        "golden-light",
+        "earth-tan",
+        "grass-green"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "encounter",
+        "formality",
+        "recognition",
+        "bond",
+        "sacred-meeting",
+        "mutual-presence"
+      ],
+      "energyLevel": 0.58,
+      "emotionalTemperature": "warm-ceremonial",
+      "socialFeeling": "two-becoming-connected"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "covenant",
+        "threshold",
+        "meeting",
+        "witness",
+        "union"
+      ]
+    },
+    "observationPerspectives": [
+      "这次握手，是开始，还是确认？",
+      "拱门是谁建的？",
+      "两个人是平等的，还是有一方更需要这次握手？",
+      "光从哪里来？"
+    ]
+  },
+  "standard-20": {
+    "id": "standard-20",
+    "sourceTitle": "31（遮脸 / 哭泣）",
+    "visualLayer": {
+      "visualFeatures": [
+        "hand-covering-face",
+        "partial-eyes-visible",
+        "warm-background",
+        "close-up-portrait",
+        "dark-hair",
+        "pale-hand"
+      ],
+      "composition": [
+        "face-obscured",
+        "hand-as-barrier",
+        "intimate-distance"
+      ],
+      "motion": [
+        "hiding",
+        "containing",
+        "breaking"
+      ],
+      "colorMood": [
+        "deep-orange",
+        "burnt-red",
+        "cool-gray-hand",
+        "warm-intensity"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "grief",
+        "shame",
+        "self-concealment",
+        "overflow",
+        "not-wanting-to-be-seen",
+        "raw-emotion"
+      ],
+      "energyLevel": 0.62,
+      "emotionalTemperature": "hot-contained",
+      "socialFeeling": "turned-inward"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "hiding-face",
+        "tears",
+        "the-hand-as-wall",
+        "private-collapse",
+        "unspeakable"
+      ]
+    },
+    "observationPerspectives": [
+      "这里是不想被看见，还是不知道怎么开口？",
+      "手遮住的，是脸，还是别的什么？",
+      "这个人旁边，有没有人？",
+      "哭完之后，他会做什么？"
+    ]
+  },
+  "standard-21": {
+    "id": "standard-21",
+    "sourceTitle": "32（办公桌 / 空椅）",
+    "visualLayer": {
+      "visualFeatures": [
+        "empty-desk",
+        "swivel-chair",
+        "filing-cabinets",
+        "telephone",
+        "papers",
+        "figure-at-edge"
+      ],
+      "composition": [
+        "aerial-angle",
+        "chair-vacant",
+        "desk-as-center"
+      ],
+      "motion": [
+        "stillness",
+        "recently-left",
+        "waiting-for-return"
+      ],
+      "colorMood": [
+        "muted-green",
+        "cool-gray",
+        "warm-tan",
+        "institutional-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "absence",
+        "routine",
+        "bureaucratic-weight",
+        "someone-was-here",
+        "institutional-entrapment",
+        "quiet-dread"
+      ],
+      "energyLevel": 0.22,
+      "emotionalTemperature": "cool-flat",
+      "socialFeeling": "vacancy"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "work",
+        "the-empty-seat",
+        "system",
+        "daily-return",
+        "invisible-occupant"
+      ]
+    },
+    "observationPerspectives": [
+      "坐在这里的人，现在在哪里？",
+      "桌上的那张纸写着什么？",
+      "这里是有人离开了，还是还没到？",
+      "如果你每天坐在这里，你会感觉到什么？"
+    ]
+  },
+  "standard-22": {
+    "id": "standard-22",
+    "sourceTitle": "34（海滩 / 空旷）",
+    "visualLayer": {
+      "visualFeatures": [
+        "empty-beach",
+        "shoreline",
+        "ocean",
+        "lone-tree",
+        "sand",
+        "overcast-sky"
+      ],
+      "composition": [
+        "diagonal-shore",
+        "vast-negative-space",
+        "single-tree-at-edge"
+      ],
+      "motion": [
+        "waves-approaching",
+        "stillness",
+        "open-expanse"
+      ],
+      "colorMood": [
+        "warm-sand",
+        "vivid-blue",
+        "pale-gray-sky",
+        "clean-empty"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "spaciousness",
+        "solitude",
+        "open-breathing",
+        "absence-of-demand",
+        "elemental-quiet",
+        "being-small"
+      ],
+      "energyLevel": 0.25,
+      "emotionalTemperature": "cool-open",
+      "socialFeeling": "no-one-here"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "edge",
+        "emptiness-as-gift",
+        "the-land-meets-sea",
+        "alone-with-elements",
+        "open-horizon"
+      ]
+    },
+    "observationPerspectives": [
+      "这片海滩更空，还是更开阔？",
+      "那棵树在角落里，是偶然，还是一直在那里？",
+      "如果你站在这里，你会脱鞋吗？",
+      "浪过来又退去，带走了什么？"
+    ]
+  },
+  "standard-23": {
+    "id": "standard-23",
+    "sourceTitle": "35（尺子 / 图表）",
+    "visualLayer": {
+      "visualFeatures": [
+        "ruler",
+        "graph-paper",
+        "fluctuating-line",
+        "hand-holding-ruler",
+        "measurement",
+        "close-up"
+      ],
+      "composition": [
+        "diagonal-ruler",
+        "graph-in-background",
+        "hand-at-center"
+      ],
+      "motion": [
+        "measuring",
+        "analyzing",
+        "tracking"
+      ],
+      "colorMood": [
+        "warm-yellow",
+        "cool-green-grid",
+        "deep-red-line",
+        "precise"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "control",
+        "analysis",
+        "measurement-tension",
+        "wanting-to-understand",
+        "precision",
+        "evaluation"
+      ],
+      "energyLevel": 0.55,
+      "emotionalTemperature": "cool-precise",
+      "socialFeeling": "task-focused"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "measurement",
+        "progress",
+        "volatility",
+        "trying-to-make-sense",
+        "the-line-that-keeps-moving"
+      ]
+    },
+    "observationPerspectives": [
+      "这条线在上升，还是在下降？",
+      "用尺子量，能量出你想知道的东西吗？",
+      "数字背后，还有什么没有被量到？",
+      "如果不再测量，会发生什么？"
+    ]
+  },
+  "standard-24": {
+    "id": "standard-24",
+    "sourceTitle": "37（火车 / 挥手）",
+    "visualLayer": {
+      "visualFeatures": [
+        "train-window",
+        "two-figures-waving",
+        "one-inside-one-outside",
+        "yellow-green-train",
+        "raised-hands",
+        "moving-vehicle"
+      ],
+      "composition": [
+        "glass-as-divide",
+        "mirrored-gesture",
+        "departure-moment"
+      ],
+      "motion": [
+        "train-pulling-away",
+        "waving",
+        "last-moment"
+      ],
+      "colorMood": [
+        "yellow-green",
+        "cool-gray",
+        "warm-blue",
+        "muted-platform"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "farewell",
+        "separation",
+        "mirrored-longing",
+        "the-last-second",
+        "glass-between",
+        "bittersweet"
+      ],
+      "energyLevel": 0.68,
+      "emotionalTemperature": "warm-sharp",
+      "socialFeeling": "two-sides-of-leaving"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "departure",
+        "barrier",
+        "echo",
+        "the-wave-that-stays",
+        "transit"
+      ]
+    },
+    "observationPerspectives": [
+      "你是车里的那个，还是站台上的那个？",
+      "两只手举起来的理由，一样吗？",
+      "玻璃两边，谁更难受？",
+      "火车开走之后，那只手会放下来吗？"
+    ]
+  },
+  "standard-25": {
+    "id": "standard-25",
+    "sourceTitle": "38（彩虹 / 桥）",
+    "visualLayer": {
+      "visualFeatures": [
+        "rainbow",
+        "bridge",
+        "winding-river",
+        "open-landscape",
+        "two-arches",
+        "green-fields"
+      ],
+      "composition": [
+        "double-arc",
+        "river-as-path",
+        "bridge-below-rainbow"
+      ],
+      "motion": [
+        "spanning",
+        "flowing",
+        "connecting"
+      ],
+      "colorMood": [
+        "full-spectrum",
+        "vivid-green",
+        "sky-blue",
+        "open-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "hope",
+        "crossing",
+        "after-the-storm",
+        "possibility",
+        "beauty-and-passage",
+        "promise"
+      ],
+      "energyLevel": 0.6,
+      "emotionalTemperature": "warm-expansive",
+      "socialFeeling": "open-to-all"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "bridge",
+        "arc-of-hope",
+        "crossing",
+        "connection",
+        "renewal"
+      ]
+    },
+    "observationPerspectives": [
+      "桥和彩虹，哪个更让你想靠近？",
+      "河流通向哪里？",
+      "彩虹出现之前，这里经历了什么？",
+      "你会选择过桥，还是在这里停一会儿？"
+    ]
+  },
+  "standard-26": {
+    "id": "standard-26",
+    "sourceTitle": "39（太阳）",
+    "visualLayer": {
+      "visualFeatures": [
+        "oversized-sun",
+        "low-horizon",
+        "open-landscape",
+        "golden-orb",
+        "minimal-ground",
+        "pale-sky"
+      ],
+      "composition": [
+        "sun-dominating-frame",
+        "earth-as-thin-strip",
+        "centered-mass"
+      ],
+      "motion": [
+        "rising-or-setting",
+        "radiating",
+        "hovering"
+      ],
+      "colorMood": [
+        "golden-yellow",
+        "pale-blue",
+        "olive-green",
+        "luminous"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "overwhelm",
+        "awe",
+        "warmth",
+        "exposure",
+        "presence-of-something-larger",
+        "suspended-time"
+      ],
+      "energyLevel": 0.55,
+      "emotionalTemperature": "warm-expansive",
+      "socialFeeling": "solitary-under-vastness"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "source",
+        "exposure",
+        "day-beginning-or-ending",
+        "primal-light",
+        "the-unavoidable"
+      ]
+    },
+    "observationPerspectives": [
+      "这是日出，还是日落？",
+      "太阳这么大，站在下面是什么感觉？",
+      "光让人感到温暖，还是让人无处可躲？",
+      "这个时刻，你想一个人待着，还是需要有人在旁边？"
+    ]
+  },
+  "standard-27": {
+    "id": "standard-27",
+    "sourceTitle": "40（死路 / 墙）",
+    "visualLayer": {
+      "visualFeatures": [
+        "dead-end-sign",
+        "brick-wall",
+        "empty-road",
+        "yellow-sign",
+        "blocked-path",
+        "no-figure"
+      ],
+      "composition": [
+        "wall-as-terminus",
+        "sign-on-right",
+        "road-leading-nowhere"
+      ],
+      "motion": [
+        "stopped",
+        "no-forward",
+        "arrived-at-end"
+      ],
+      "colorMood": [
+        "cool-gray",
+        "brick-red",
+        "warning-yellow",
+        "flat-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "blocked",
+        "finality",
+        "frustration",
+        "forced-stop",
+        "no-way-through",
+        "reassessment"
+      ],
+      "energyLevel": 0.42,
+      "emotionalTemperature": "cold-flat",
+      "socialFeeling": "alone-at-wall"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "dead-end",
+        "wall",
+        "limit",
+        "turning-back",
+        "the-path-that-closes"
+      ]
+    },
+    "observationPerspectives": [
+      "来到这里之前，走了多久？",
+      "墙的那边，有没有可能还有什么？",
+      "死路和终点，有什么不同？",
+      "从这里，你会往哪个方向转？"
+    ]
+  },
+  "standard-28": {
+    "id": "standard-28",
+    "sourceTitle": "42（祭奠 / 神秘）",
+    "visualLayer": {
+      "visualFeatures": [
+        "birthday-cake",
+        "candles",
+        "geometric-circle-above",
+        "arch-frame",
+        "layered-cake",
+        "golden-symbol"
+      ],
+      "composition": [
+        "cake-at-center",
+        "symbol-overhead",
+        "ceremonial-arrangement"
+      ],
+      "motion": [
+        "anticipation",
+        "about-to-blow",
+        "ritual-pause"
+      ],
+      "colorMood": [
+        "golden-yellow",
+        "deep-blue",
+        "magenta",
+        "sky-aqua"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "celebration",
+        "marking-time",
+        "wish",
+        "ritual-of-age",
+        "collective-attention",
+        "the-moment-before"
+      ],
+      "energyLevel": 0.62,
+      "emotionalTemperature": "warm-ceremonial",
+      "socialFeeling": "gathered-around"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "passage-of-time",
+        "wish",
+        "cycle",
+        "flame",
+        "cosmic-witness"
+      ]
+    },
+    "observationPerspectives": [
+      "蜡烛还没吹灭——愿望想好了吗？",
+      "那个圆形符号在守护什么？",
+      "这个生日，是值得庆祝的，还是沉重的？",
+      "烛光灭了之后，会剩下什么？"
+    ]
+  },
+  "standard-29": {
+    "id": "standard-29",
+    "sourceTitle": "43（海边 / 并肩）",
+    "visualLayer": {
+      "visualFeatures": [
+        "two-figures",
+        "backs-to-viewer",
+        "ocean",
+        "shoulders-touching",
+        "blue-and-green",
+        "beach"
+      ],
+      "composition": [
+        "figures-centered",
+        "horizon-ahead",
+        "shared-gaze"
+      ],
+      "motion": [
+        "standing-still",
+        "facing-together",
+        "quiet-presence"
+      ],
+      "colorMood": [
+        "deep-ocean-blue",
+        "warm-sand",
+        "teal-green",
+        "open-sky"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "companionship",
+        "shared-silence",
+        "facing-the-same-thing",
+        "closeness",
+        "wordless-understanding",
+        "contentment"
+      ],
+      "energyLevel": 0.4,
+      "emotionalTemperature": "warm-open",
+      "socialFeeling": "two-as-one"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "witness",
+        "horizon",
+        "togetherness",
+        "the-sea-as-shared-unknown",
+        "parallel-presence"
+      ]
+    },
+    "observationPerspectives": [
+      "他们在看什么？",
+      "肩膀碰着肩膀，是习惯，还是此刻特别需要？",
+      "如果其中一个人转身离开，另一个会怎样？",
+      "海，对他们来说意味着什么？"
+    ]
+  },
+  "standard-30": {
+    "id": "standard-30",
+    "sourceTitle": "44（绿灯 / 出发）",
+    "visualLayer": {
+      "visualFeatures": [
+        "traffic-light",
+        "green-go",
+        "open-road",
+        "receding-horizon",
+        "trees-flanking",
+        "overcast-sky"
+      ],
+      "composition": [
+        "road-vanishing-point",
+        "signal-in-foreground",
+        "open-ahead"
+      ],
+      "motion": [
+        "permission-to-move",
+        "forward",
+        "release"
+      ],
+      "colorMood": [
+        "cool-blue-gray",
+        "vivid-green",
+        "dark-road",
+        "open-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "permission",
+        "readiness",
+        "open-possibility",
+        "momentum",
+        "release-from-waiting",
+        "forward-pull"
+      ],
+      "energyLevel": 0.7,
+      "emotionalTemperature": "cool-energized",
+      "socialFeeling": "individual-moving"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "go",
+        "clearance",
+        "path-ahead",
+        "permission",
+        "momentum"
+      ]
+    },
+    "observationPerspectives": [
+      "灯变绿了——你准备好了吗？",
+      "这条路通向哪里？",
+      "等这个绿灯，等了多久？",
+      "出发之后，还会回来吗？"
+    ]
+  },
+  "standard-31": {
+    "id": "standard-31",
+    "sourceTitle": "45（操场 / 滑梯）",
+    "visualLayer": {
+      "visualFeatures": [
+        "slide",
+        "child-on-slide",
+        "swing-set",
+        "sandy-ground",
+        "green-lawn",
+        "two-children"
+      ],
+      "composition": [
+        "slide-diagonal",
+        "swing-in-background",
+        "children-in-motion"
+      ],
+      "motion": [
+        "sliding-down",
+        "swinging",
+        "free-play"
+      ],
+      "colorMood": [
+        "vivid-green",
+        "warm-sand",
+        "pink-red",
+        "clear-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "joy",
+        "freedom",
+        "bodily-trust",
+        "carefree",
+        "uncomplicated-pleasure",
+        "childhood-ease"
+      ],
+      "energyLevel": 0.72,
+      "emotionalTemperature": "warm-bright",
+      "socialFeeling": "parallel-play"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "descent-without-fear",
+        "play",
+        "childhood",
+        "letting-go",
+        "momentum"
+      ]
+    },
+    "observationPerspectives": [
+      "滑下去的那一刻，身体记得什么？",
+      "秋千上的那个孩子，在等着滑梯，还是满足于荡着？",
+      "这种无所顾虑，去哪里了？",
+      "如果现在让你也滑下去，你会吗？"
+    ]
+  },
+  "standard-32": {
+    "id": "standard-32",
+    "sourceTitle": "48（树林 / 深处）",
+    "visualLayer": {
+      "visualFeatures": [
+        "forest",
+        "tree-trunks",
+        "canopy",
+        "depth-receding",
+        "dappled-light",
+        "no-path"
+      ],
+      "composition": [
+        "vertical-repetition",
+        "layered-depth",
+        "enclosed-frame"
+      ],
+      "motion": [
+        "stillness",
+        "slow-breathing",
+        "quiet-presence"
+      ],
+      "colorMood": [
+        "vivid-green",
+        "warm-brown",
+        "cool-shadow",
+        "filtered-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "immersion",
+        "shelter",
+        "disorientation",
+        "solitude",
+        "timelessness",
+        "being-held"
+      ],
+      "energyLevel": 0.25,
+      "emotionalTemperature": "cool-green",
+      "socialFeeling": "wordless-presence"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "wilderness",
+        "interior",
+        "depth",
+        "hiding",
+        "the-unseen-path"
+      ]
+    },
+    "observationPerspectives": [
+      "这里让人想走进去，还是想停在外面看？",
+      "树与树之间，有什么东西藏着？",
+      "这片林子是安静的，还是沉默的？",
+      "如果站远一点，会先看到什么？"
+    ]
+  },
+  "standard-33": {
+    "id": "standard-33",
+    "sourceTitle": "52（行驶 / 让步）",
+    "visualLayer": {
+      "visualFeatures": [
+        "yield-sign",
+        "car",
+        "road",
+        "intersection",
+        "dashboard-view",
+        "first-person-perspective"
+      ],
+      "composition": [
+        "driver-pov",
+        "sign-ahead",
+        "road-diverging"
+      ],
+      "motion": [
+        "approaching",
+        "slowing",
+        "deciding"
+      ],
+      "colorMood": [
+        "sandy-yellow",
+        "muted-blue",
+        "bright-green",
+        "warning-yellow"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "pause",
+        "caution",
+        "decision-point",
+        "yielding",
+        "anticipation",
+        "navigation"
+      ],
+      "energyLevel": 0.45,
+      "emotionalTemperature": "alert-neutral",
+      "socialFeeling": "individual-at-junction"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "crossroads",
+        "permission",
+        "priority",
+        "waiting",
+        "right-of-way"
+      ]
+    },
+    "observationPerspectives": [
+      "这里是主动让，还是被要求停下？",
+      "路口的另一边是什么？",
+      "你会在这里等多久？",
+      "谁先走，谁后走——这件事重要吗？"
+    ]
+  },
+  "standard-34": {
+    "id": "standard-34",
+    "sourceTitle": "53（独树 / 花田）",
+    "visualLayer": {
+      "visualFeatures": [
+        "solitary-tree",
+        "red-flowers",
+        "open-field",
+        "sky",
+        "exposed-roots",
+        "bright-green"
+      ],
+      "composition": [
+        "tree-at-center-distance",
+        "flowers-in-foreground",
+        "open-horizon"
+      ],
+      "motion": [
+        "stillness",
+        "rooted",
+        "quietly-growing"
+      ],
+      "colorMood": [
+        "vivid-yellow-green",
+        "deep-red",
+        "sky-blue",
+        "clean-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "solitude",
+        "groundedness",
+        "quiet-vitality",
+        "openness",
+        "gentle-presence",
+        "self-sufficiency"
+      ],
+      "energyLevel": 0.38,
+      "emotionalTemperature": "warm-open",
+      "socialFeeling": "present-without-needing"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "roots",
+        "standing-alone",
+        "bloom",
+        "field-as-space",
+        "quiet-persistence"
+      ]
+    },
+    "observationPerspectives": [
+      "这棵树和周围的距离有多远？",
+      "花和树，谁更需要这片土地？",
+      "根露出来，是脆弱，还是诚实？",
+      "如果你站在这里，你会靠近树，还是留在花里？"
+    ]
+  },
+  "standard-35": {
+    "id": "standard-35",
+    "sourceTitle": "85（人群 / 圈外）",
+    "visualLayer": {
+      "visualFeatures": [
+        "group-of-figures",
+        "one-figure-apart",
+        "cluster-and-outsider",
+        "colorful-crowd",
+        "backs-and-profile",
+        "urban-setting"
+      ],
+      "composition": [
+        "group-left-individual-right",
+        "gap-between",
+        "diagonal-divide"
+      ],
+      "motion": [
+        "group-engaged-together",
+        "one-observing",
+        "stillness-at-edge"
+      ],
+      "colorMood": [
+        "warm-tan",
+        "vivid-blue-green-yellow",
+        "muted-right-side",
+        "contrast-of-belonging"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "exclusion",
+        "observation",
+        "longing",
+        "not-quite-in",
+        "invisible-border",
+        "watching-from-outside"
+      ],
+      "energyLevel": 0.38,
+      "emotionalTemperature": "cool-quiet",
+      "socialFeeling": "edge-of-belonging"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "circle",
+        "outsider",
+        "the-gap",
+        "belonging",
+        "invisible-wall"
+      ]
+    },
+    "observationPerspectives": [
+      "那个独自站着的人，想进去吗？",
+      "人群里的人知道他在那里吗？",
+      "这个距离，是主动保持的，还是被留下的？",
+      "如果你走过去，他们会让出一个位置吗？"
+    ]
+  },
+  "standard-36": {
+    "id": "standard-36",
+    "sourceTitle": "59（赛跑）",
+    "visualLayer": {
+      "visualFeatures": [
+        "two-runners",
+        "track",
+        "race-numbers",
+        "aerial-view",
+        "full-stride",
+        "parallel-lanes"
+      ],
+      "composition": [
+        "diagonal-track",
+        "two-figures-level",
+        "top-down-perspective"
+      ],
+      "motion": [
+        "sprinting",
+        "competing",
+        "maximum-effort"
+      ],
+      "colorMood": [
+        "cool-gray-track",
+        "vivid-green",
+        "white-uniforms",
+        "kinetic"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "competition",
+        "parallel-striving",
+        "neck-and-neck",
+        "effort",
+        "the-gap-between",
+        "drive"
+      ],
+      "energyLevel": 0.85,
+      "emotionalTemperature": "hot-focused",
+      "socialFeeling": "competing-alongside"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "race",
+        "comparison",
+        "parallel-paths",
+        "finish-line-unseen",
+        "maximum-output"
+      ]
+    },
+    "observationPerspectives": [
+      "你是5号，还是2号？",
+      "这两个人，认识彼此吗？",
+      "跑步是为了赢，还是为了别的什么？",
+      "终点在哪里——这张卡里看不到。"
+    ]
+  },
+  "standard-37": {
+    "id": "standard-37",
+    "sourceTitle": "61（浴室）",
+    "visualLayer": {
+      "visualFeatures": [
+        "bathroom",
+        "bathtub",
+        "window-with-curtain",
+        "potted-plant",
+        "personal-objects",
+        "green-walls"
+      ],
+      "composition": [
+        "interior-depth",
+        "window-as-focal-point",
+        "objects-scattered"
+      ],
+      "motion": [
+        "stillness",
+        "domestic-pause",
+        "private-space"
+      ],
+      "colorMood": [
+        "deep-green",
+        "warm-yellow",
+        "cool-blue",
+        "lived-in"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "privacy",
+        "refuge",
+        "intimate-solitude",
+        "small-comforts",
+        "the-body-at-rest",
+        "domestic-containment"
+      ],
+      "energyLevel": 0.22,
+      "emotionalTemperature": "warm-enclosed",
+      "socialFeeling": "self-only"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "cleansing",
+        "private-world",
+        "threshold-of-self",
+        "ritual-of-body",
+        "small-sanctuary"
+      ]
+    },
+    "observationPerspectives": [
+      "这个浴室里，有人刚离开，还是还没进来？",
+      "窗台上的那朵花，谁在照料它？",
+      "这里让你想做什么？",
+      "这个空间属于谁？"
+    ]
+  },
+  "standard-38": {
+    "id": "standard-38",
+    "sourceTitle": "63（层叠 / 自我）",
+    "visualLayer": {
+      "visualFeatures": [
+        "layered-silhouettes",
+        "concentric-figures",
+        "red-to-purple-gradient",
+        "single-form-multiplied",
+        "no-face",
+        "blue-background"
+      ],
+      "composition": [
+        "nested-figures",
+        "innermost-as-core",
+        "expanding-outward"
+      ],
+      "motion": [
+        "radiating",
+        "echoing",
+        "expanding-or-contracting"
+      ],
+      "colorMood": [
+        "deep-blue",
+        "vivid-red",
+        "magenta-purple",
+        "layered-warmth"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "multiplicity-of-self",
+        "depth",
+        "layers-of-identity",
+        "inner-core",
+        "echo",
+        "self-containment"
+      ],
+      "energyLevel": 0.58,
+      "emotionalTemperature": "warm-deep",
+      "socialFeeling": "self-within-self"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "inner-self",
+        "layers",
+        "aura",
+        "the-self-that-radiates",
+        "depth-of-person"
+      ]
+    },
+    "observationPerspectives": [
+      "最里面那个，是真实的自己吗？",
+      "这些层，是保护，还是距离？",
+      "从外面看进去，和从里面看出去，感觉一样吗？",
+      "如果剥掉一层，下面是什么颜色？"
+    ]
+  },
+  "standard-39": {
+    "id": "standard-39",
+    "sourceTitle": "64（水壶 / 倾倒）",
+    "visualLayer": {
+      "visualFeatures": [
+        "pitcher",
+        "glass",
+        "pouring-water",
+        "hand-holding",
+        "blue-tones",
+        "close-up"
+      ],
+      "composition": [
+        "diagonal-pour",
+        "vessel-to-vessel",
+        "tight-crop"
+      ],
+      "motion": [
+        "pouring",
+        "filling",
+        "transferring"
+      ],
+      "colorMood": [
+        "cool-blue",
+        "warm-sand",
+        "translucent",
+        "gentle"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "giving",
+        "nourishment",
+        "care",
+        "sufficiency",
+        "gentle-transfer",
+        "replenishment"
+      ],
+      "energyLevel": 0.38,
+      "emotionalTemperature": "cool-gentle",
+      "socialFeeling": "one-giving-to-another"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "nourishment",
+        "generosity",
+        "flow",
+        "filling-what-is-empty",
+        "care-as-action"
+      ]
+    },
+    "observationPerspectives": [
+      "壶里还剩多少？",
+      "这杯水是为谁倒的？",
+      "倒水这个动作，是习惯，还是此刻特别想做？",
+      "如果壶空了，然后呢？"
+    ]
+  },
+  "standard-40": {
+    "id": "standard-40",
+    "sourceTitle": "65（写字 / 空白页）",
+    "visualLayer": {
+      "visualFeatures": [
+        "hand-holding-pencil",
+        "blank-paper",
+        "close-up",
+        "writing-gesture",
+        "yellow-pencil",
+        "nothing-written-yet"
+      ],
+      "composition": [
+        "hand-centered",
+        "paper-as-open-field",
+        "pencil-tip-at-edge"
+      ],
+      "motion": [
+        "about-to-write",
+        "pausing",
+        "beginning"
+      ],
+      "colorMood": [
+        "warm-skin",
+        "cool-white",
+        "yellow-pencil",
+        "neutral-ground"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "hesitation",
+        "potential",
+        "the-moment-before",
+        "intention",
+        "blank-as-possibility",
+        "blank-as-pressure"
+      ],
+      "energyLevel": 0.48,
+      "emotionalTemperature": "neutral-suspended",
+      "socialFeeling": "private-act"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "the-unwritten",
+        "beginning",
+        "voice-not-yet-spoken",
+        "choice",
+        "commitment"
+      ]
+    },
+    "observationPerspectives": [
+      "纸上还没有写什么——这是自由，还是困难？",
+      "这支笔想写的，和应该写的，是同一件事吗？",
+      "如果写了，就收不回来了——还写吗？",
+      "这张纸是给谁看的？"
+    ]
+  },
+  "standard-41": {
+    "id": "standard-41",
+    "sourceTitle": "66（图书馆 / 阅读）",
+    "visualLayer": {
+      "visualFeatures": [
+        "library",
+        "bookshelves",
+        "seated-figures",
+        "reading",
+        "back-facing",
+        "shared-space"
+      ],
+      "composition": [
+        "depth-perspective",
+        "figures-scattered",
+        "books-as-backdrop"
+      ],
+      "motion": [
+        "stillness",
+        "absorption",
+        "quiet-activity"
+      ],
+      "colorMood": [
+        "warm-wood",
+        "muted-green",
+        "red-accent",
+        "soft-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "concentration",
+        "solitude-in-company",
+        "containment",
+        "sanctuary",
+        "parallel-presence"
+      ],
+      "energyLevel": 0.25,
+      "emotionalTemperature": "warm-quiet",
+      "socialFeeling": "together-alone"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "knowledge",
+        "refuge",
+        "inner-world",
+        "accumulated-time",
+        "shared-silence"
+      ]
+    },
+    "observationPerspectives": [
+      "这里的安静更靠近你，还是离你远一点？",
+      "那个最近的人在读什么？",
+      "这里有多少个各自的世界？",
+      "如果你坐进去，你会选哪个位置？"
+    ]
+  },
+  "standard-42": {
+    "id": "standard-42",
+    "sourceTitle": "67（舞蹈 / 牵手）",
+    "visualLayer": {
+      "visualFeatures": [
+        "two-figures",
+        "dynamic-movement",
+        "raised-arms",
+        "red-and-green",
+        "open-field",
+        "contact-point"
+      ],
+      "composition": [
+        "diagonal-bodies",
+        "hands-meeting-above",
+        "opposing-colors"
+      ],
+      "motion": [
+        "spinning",
+        "leaping",
+        "pushing-pulling"
+      ],
+      "colorMood": [
+        "vivid-red",
+        "deep-green",
+        "warm-yellow",
+        "high-contrast"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "conflict",
+        "play",
+        "connection-through-tension",
+        "aliveness",
+        "contest",
+        "mutual-energy"
+      ],
+      "energyLevel": 0.88,
+      "emotionalTemperature": "hot-kinetic",
+      "socialFeeling": "two-in-motion"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "contest",
+        "dance",
+        "opposition",
+        "contact",
+        "the-line-between-fight-and-play"
+      ]
+    },
+    "observationPerspectives": [
+      "这里更像在打架，还是在跳舞？",
+      "他们之间有恨意，还是有喜悦？",
+      "那个接触点，是推开，还是抓住？",
+      "如果没有对方，这个动作还会发生吗？"
+    ]
+  },
+  "standard-43": {
+    "id": "standard-43",
+    "sourceTitle": "68（蜷缩 / 角落）",
+    "visualLayer": {
+      "visualFeatures": [
+        "figure-curled-up",
+        "corner-of-room",
+        "minimal-space",
+        "knees-to-chest",
+        "alone",
+        "no-face-visible"
+      ],
+      "composition": [
+        "figure-small-in-frame",
+        "corner-as-container",
+        "maximum-withdrawal"
+      ],
+      "motion": [
+        "collapsed-inward",
+        "holding-self",
+        "motionless"
+      ],
+      "colorMood": [
+        "cool-gray",
+        "muted-blue",
+        "empty-white",
+        "flat-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "collapse",
+        "self-protection",
+        "overwhelm",
+        "wanting-to-disappear",
+        "containment",
+        "deep-withdrawal"
+      ],
+      "energyLevel": 0.12,
+      "emotionalTemperature": "cold-still",
+      "socialFeeling": "total-retreat"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "corner-as-last-refuge",
+        "self-as-shell",
+        "the-smallest-space",
+        "invisible",
+        "held-by-nothing"
+      ]
+    },
+    "observationPerspectives": [
+      "这个角落是被找到的，还是逃进来的？",
+      "蜷着身体，是为了让自己小一点，还是暖一点？",
+      "这里已经多久了？",
+      "如果有人走进来，这个人会希望被看见，还是希望对方假装没看到？"
+    ]
+  },
+  "standard-44": {
+    "id": "standard-44",
+    "sourceTitle": "71（钩子 / 水下）",
+    "visualLayer": {
+      "visualFeatures": [
+        "fish-hook",
+        "underwater",
+        "fish-swimming",
+        "submerged-figure",
+        "rope-descending",
+        "blue-water"
+      ],
+      "composition": [
+        "hook-at-center",
+        "figure-below",
+        "fish-surrounding"
+      ],
+      "motion": [
+        "sinking",
+        "drifting",
+        "luring"
+      ],
+      "colorMood": [
+        "deep-blue",
+        "muted-aqua",
+        "dark-silhouette",
+        "cool-immersion"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "entrapment",
+        "lure",
+        "suspension",
+        "underwater-silence",
+        "vulnerability",
+        "being-drawn-in"
+      ],
+      "energyLevel": 0.35,
+      "emotionalTemperature": "cold-deep",
+      "socialFeeling": "submerged-alone"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "bait",
+        "trap",
+        "depth",
+        "surrender",
+        "the-unseen-pull"
+      ]
+    },
+    "observationPerspectives": [
+      "钩子在等谁？",
+      "水里的人是在游，还是在沉？",
+      "那些鱼知道钩子在那里吗？",
+      "从水面往下看，和从水里往上看，哪个更让人不安？"
+    ]
+  },
+  "standard-45": {
+    "id": "standard-45",
+    "sourceTitle": "73（星空 / 月夜）",
+    "visualLayer": {
+      "visualFeatures": [
+        "crescent-moon",
+        "scattered-stars",
+        "dark-sky",
+        "clouded-texture",
+        "dim-ground",
+        "no-human-figure"
+      ],
+      "composition": [
+        "sky-dominating",
+        "stars-scattered",
+        "ground-as-thin-base"
+      ],
+      "motion": [
+        "stillness",
+        "slow-turning",
+        "night-breathing"
+      ],
+      "colorMood": [
+        "deep-gray-blue",
+        "golden-yellow-stars",
+        "dark-ground",
+        "quiet-luminance"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "vastness",
+        "quiet-awe",
+        "nighttime-solitude",
+        "being-small-under-sky",
+        "mystery",
+        "peace"
+      ],
+      "energyLevel": 0.22,
+      "emotionalTemperature": "cool-deep",
+      "socialFeeling": "alone-with-universe"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "night",
+        "witness",
+        "infinity",
+        "scattered-light",
+        "the-world-at-rest"
+      ]
+    },
+    "observationPerspectives": [
+      "你会数这些星星吗？",
+      "月亮这么小，是刚升起，还是快落了？",
+      "站在这个夜里，你想到的是什么？",
+      "这种黑暗，是让人安心，还是让人不安？"
+    ]
+  },
+  "standard-46": {
+    "id": "standard-46",
+    "sourceTitle": "74（餐盘 / 食物）",
+    "visualLayer": {
+      "visualFeatures": [
+        "single-plate",
+        "meal-set",
+        "empty-table",
+        "cutlery",
+        "water-glass",
+        "salt-pepper"
+      ],
+      "composition": [
+        "top-down-angle",
+        "one-place-setting",
+        "centered-meal"
+      ],
+      "motion": [
+        "stillness",
+        "waiting-to-be-eaten",
+        "prepared-but-alone"
+      ],
+      "colorMood": [
+        "warm-beige",
+        "muted-blue",
+        "cool-gray",
+        "soft-light"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "solitude",
+        "care-without-company",
+        "routine",
+        "quiet-longing",
+        "self-sufficiency",
+        "absence"
+      ],
+      "energyLevel": 0.2,
+      "emotionalTemperature": "warm-hollow",
+      "socialFeeling": "one-seat-only"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "nourishment",
+        "aloneness",
+        "ritual",
+        "the-empty-chair",
+        "prepared-for-no-one"
+      ]
+    },
+    "observationPerspectives": [
+      "这顿饭是为自己准备的，还是有人没来？",
+      "桌上还有什么没有出现？",
+      "一个人吃饭，这里是习惯，还是今天特别？",
+      "吃完之后，盘子会被谁收走？"
+    ]
+  },
+  "standard-47": {
+    "id": "standard-47",
+    "sourceTitle": "75（路口 / 两人）",
+    "visualLayer": {
+      "visualFeatures": [
+        "two-figures",
+        "dirt-road",
+        "green-field",
+        "signpost",
+        "distance-between",
+        "faceless-near-figure"
+      ],
+      "composition": [
+        "near-and-far",
+        "road-as-divide",
+        "one-facing-viewer-one-walking-away"
+      ],
+      "motion": [
+        "diverging",
+        "one-still-one-moving",
+        "parting"
+      ],
+      "colorMood": [
+        "vivid-green",
+        "sky-blue",
+        "muted-path",
+        "warm-blue-figures"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "separation",
+        "watching-someone-leave",
+        "ambivalence",
+        "distance-growing",
+        "unspoken-farewell",
+        "staying-behind"
+      ],
+      "energyLevel": 0.42,
+      "emotionalTemperature": "cool-open",
+      "socialFeeling": "two-going-different-ways"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "parting",
+        "the-one-who-stays",
+        "the-one-who-goes",
+        "crossroads",
+        "gap"
+      ]
+    },
+    "observationPerspectives": [
+      "你是近处的那个，还是走远的那个？",
+      "他们之间说过再见吗？",
+      "那个路牌指向哪里？",
+      "这条路，两个人曾经一起走过吗？"
+    ]
+  },
+  "standard-48": {
+    "id": "standard-48",
+    "sourceTitle": "76（壁炉 / 火焰）",
+    "visualLayer": {
+      "visualFeatures": [
+        "fireplace",
+        "open-flames",
+        "mantelpiece",
+        "patterned-rug",
+        "domestic-interior",
+        "no-person"
+      ],
+      "composition": [
+        "fireplace-centered",
+        "symmetrical-frame",
+        "fire-as-focal-point"
+      ],
+      "motion": [
+        "flickering",
+        "burning",
+        "warming"
+      ],
+      "colorMood": [
+        "deep-orange-red",
+        "cool-gray-stone",
+        "white-wall",
+        "warm-glow"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "warmth",
+        "domestic-safety",
+        "gathering-place",
+        "comfort",
+        "presence-without-people",
+        "ancient-ritual"
+      ],
+      "energyLevel": 0.42,
+      "emotionalTemperature": "warm-deep",
+      "socialFeeling": "space-waiting-to-be-shared"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "hearth",
+        "center-of-home",
+        "fire-as-life",
+        "gathering",
+        "warmth-offered"
+      ]
+    },
+    "observationPerspectives": [
+      "坐在这里的人，去哪里了？",
+      "这个火，是刚点上，还是快要熄灭？",
+      "如果你坐在这里，你会想起什么？",
+      "炉火的声音，是安慰，还是让人更想说话？"
+    ]
+  },
+  "standard-49": {
+    "id": "standard-49",
+    "sourceTitle": "77（拥抱 / 紧密）",
+    "visualLayer": {
+      "visualFeatures": [
+        "two-figures-embracing",
+        "arms-around-each-other",
+        "close-contact",
+        "backs-and-shoulders",
+        "no-faces",
+        "warm-tones"
+      ],
+      "composition": [
+        "intertwined-bodies",
+        "filling-the-frame",
+        "no-background"
+      ],
+      "motion": [
+        "holding",
+        "being-held",
+        "stillness-in-contact"
+      ],
+      "colorMood": [
+        "warm-brown",
+        "deep-green",
+        "terracotta",
+        "quiet-warmth"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "comfort",
+        "relief",
+        "mutual-holding",
+        "wordless-closeness",
+        "being-received",
+        "safety"
+      ],
+      "energyLevel": 0.55,
+      "emotionalTemperature": "warm-deep",
+      "socialFeeling": "two-as-shelter"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "embrace",
+        "shelter",
+        "reunion",
+        "the-body-as-home",
+        "wordless-understanding"
+      ]
+    },
+    "observationPerspectives": [
+      "这个拥抱，是久别重逢，还是舍不得放开？",
+      "两个人，谁抱得更紧？",
+      "这里有没有眼泪？",
+      "如果放开，下一个动作会是什么？"
+    ]
+  },
+  "standard-50": {
+    "id": "standard-50",
+    "sourceTitle": "78（乌龟 / 壳）",
+    "visualLayer": {
+      "visualFeatures": [
+        "turtle",
+        "shell-pattern",
+        "sandy-ground",
+        "aerial-view",
+        "slow-movement",
+        "solitary-animal"
+      ],
+      "composition": [
+        "top-down-angle",
+        "shell-filling-frame",
+        "creature-in-open-space"
+      ],
+      "motion": [
+        "slow-crawling",
+        "carrying-home",
+        "deliberate-pace"
+      ],
+      "colorMood": [
+        "warm-terracotta",
+        "sandy-beige",
+        "cool-gray-above",
+        "earthy"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "self-protection",
+        "slow-persistence",
+        "carrying-own-home",
+        "patience",
+        "withdrawal",
+        "resilience"
+      ],
+      "energyLevel": 0.25,
+      "emotionalTemperature": "warm-slow",
+      "socialFeeling": "self-contained"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "shell-as-home",
+        "protection",
+        "ancient-pace",
+        "carrying",
+        "retreat"
+      ]
+    },
+    "observationPerspectives": [
+      "壳是保护，还是负担？",
+      "它要去哪里，不着急吗？",
+      "如果可以把壳放下，它会放吗？",
+      "这种慢，是选择，还是天性？"
+    ]
+  },
+  "standard-51": {
+    "id": "standard-51",
+    "sourceTitle": "79（教室 / 黑板）",
+    "visualLayer": {
+      "visualFeatures": [
+        "blackboard",
+        "teacher-at-front",
+        "students-from-behind",
+        "classroom",
+        "green-walls",
+        "back-of-heads"
+      ],
+      "composition": [
+        "frontal-authority",
+        "backs-of-students",
+        "power-at-distance"
+      ],
+      "motion": [
+        "listening",
+        "being-taught",
+        "directed-attention"
+      ],
+      "colorMood": [
+        "dark-gray-board",
+        "vivid-green",
+        "warm-tan",
+        "institutional"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "instruction",
+        "compliance",
+        "boredom",
+        "directed-focus",
+        "hierarchy",
+        "waiting-to-understand"
+      ],
+      "energyLevel": 0.3,
+      "emotionalTemperature": "cool-flat",
+      "socialFeeling": "many-facing-one"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "knowledge-transfer",
+        "authority",
+        "formation",
+        "the-blank-board",
+        "rows-of-backs"
+      ]
+    },
+    "observationPerspectives": [
+      "黑板上写着什么，还是什么都没有？",
+      "坐在那里的人，在听吗？",
+      "这里谁是真正的主角？",
+      "如果你也坐在里面，你会坐哪里？"
+    ]
+  },
+  "standard-52": {
+    "id": "standard-52",
+    "sourceTitle": "81（法庭 / 审问）",
+    "visualLayer": {
+      "visualFeatures": [
+        "judges-panel",
+        "single-figure-below",
+        "elevated-bench",
+        "official-emblem",
+        "back-of-head",
+        "institutional-space"
+      ],
+      "composition": [
+        "power-asymmetry",
+        "three-against-one",
+        "viewer-as-defendant"
+      ],
+      "motion": [
+        "stillness",
+        "being-watched",
+        "awaiting-verdict"
+      ],
+      "colorMood": [
+        "deep-blue",
+        "golden-emblem",
+        "muted-tan",
+        "formal-dark"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "judgment",
+        "vulnerability",
+        "powerlessness",
+        "exposure",
+        "formality",
+        "waiting-to-be-decided"
+      ],
+      "energyLevel": 0.4,
+      "emotionalTemperature": "cold-formal",
+      "socialFeeling": "one-facing-many"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "authority",
+        "verdict",
+        "accountability",
+        "hierarchy",
+        "scrutiny"
+      ]
+    },
+    "observationPerspectives": [
+      "坐在那里的人，有话想说吗？",
+      "三个人里，哪一个眼神最重？",
+      "这里的判决，已经决定了吗？",
+      "如果你是那个背影，你感觉到的是什么？"
+    ]
+  },
+  "standard-53": {
+    "id": "standard-53",
+    "sourceTitle": "82（镜子 / 手持）",
+    "visualLayer": {
+      "visualFeatures": [
+        "hand-mirror",
+        "held-grip",
+        "reflective-surface",
+        "oval-frame",
+        "green-background",
+        "empty-reflection"
+      ],
+      "composition": [
+        "centered-object",
+        "hand-at-bottom",
+        "mirror-facing-viewer"
+      ],
+      "motion": [
+        "holding-up",
+        "presenting",
+        "waiting-to-reflect"
+      ],
+      "colorMood": [
+        "deep-red",
+        "leaf-green",
+        "pale-blue",
+        "contrasting"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "self-examination",
+        "confrontation",
+        "invitation",
+        "vanity",
+        "curiosity",
+        "ambivalence"
+      ],
+      "energyLevel": 0.5,
+      "emotionalTemperature": "cool-neutral",
+      "socialFeeling": "self-facing"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "reflection",
+        "self-image",
+        "truth",
+        "distortion",
+        "witness"
+      ]
+    },
+    "observationPerspectives": [
+      "镜子里现在照出的是什么？",
+      "这里更像在看，还是在被看？",
+      "如果不想看，你会把它放下吗？",
+      "镜子里的那个人，你认识吗？"
+    ]
+  },
+  "standard-54": {
+    "id": "standard-54",
+    "sourceTitle": "83（铲子 / 等待）",
+    "visualLayer": {
+      "visualFeatures": [
+        "shovel",
+        "leaning-against-wall",
+        "grass",
+        "yellow-wall",
+        "window-above",
+        "solitary-tool"
+      ],
+      "composition": [
+        "diagonal-lean",
+        "tool-at-rest",
+        "interior-exterior-boundary"
+      ],
+      "motion": [
+        "stillness",
+        "pause-between-tasks",
+        "waiting"
+      ],
+      "colorMood": [
+        "warm-yellow",
+        "vivid-green",
+        "steel-gray",
+        "earthy"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "pause",
+        "readiness",
+        "labor-interrupted",
+        "quiet-solitude",
+        "anticipation",
+        "ownership"
+      ],
+      "energyLevel": 0.3,
+      "emotionalTemperature": "warm-still",
+      "socialFeeling": "absent-presence"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "work",
+        "interruption",
+        "tool-as-extension",
+        "ground",
+        "cultivation"
+      ]
+    },
+    "observationPerspectives": [
+      "这把铲子刚用完，还是还没开始？",
+      "它靠在那里等谁？",
+      "地和墙之间，有什么东西正在生长？",
+      "这里的工作，是自愿的吗？"
+    ]
+  },
+  "standard-55": {
+    "id": "standard-55",
+    "sourceTitle": "84（老人 / 伸手）",
+    "visualLayer": {
+      "visualFeatures": [
+        "elderly-figure",
+        "long-coat",
+        "outstretched-hand",
+        "snow-ground",
+        "warm-background",
+        "worn-posture"
+      ],
+      "composition": [
+        "full-figure-centered",
+        "hand-extended-sideways",
+        "solitary-stance"
+      ],
+      "motion": [
+        "reaching-out",
+        "standing-still",
+        "waiting-for-response"
+      ],
+      "colorMood": [
+        "warm-terracotta",
+        "gray-coat",
+        "white-snow",
+        "faded-muted"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "vulnerability",
+        "appeal",
+        "dignity-in-need",
+        "endurance",
+        "longing-for-contact",
+        "exposure"
+      ],
+      "energyLevel": 0.32,
+      "emotionalTemperature": "cold-warm",
+      "socialFeeling": "reaching-toward-absence"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "asking",
+        "survival",
+        "age",
+        "the-extended-hand",
+        "winter"
+      ]
+    },
+    "observationPerspectives": [
+      "这只手伸向谁？",
+      "他在等待，还是已经等了很久？",
+      "这里的冷，是天气的，还是别的什么？",
+      "如果你经过，你会停下吗？"
+    ]
+  },
+  "standard-56": {
+    "id": "standard-56",
+    "sourceTitle": "86（剪刀 / 切割）",
+    "visualLayer": {
+      "visualFeatures": [
+        "scissors",
+        "gripping-hand",
+        "cutting-motion",
+        "sharp-blades",
+        "red-blue-split",
+        "close-up"
+      ],
+      "composition": [
+        "vertical-blade",
+        "diagonal-background-split",
+        "hand-at-center"
+      ],
+      "motion": [
+        "cutting",
+        "separating",
+        "decisive-action"
+      ],
+      "colorMood": [
+        "crimson-red",
+        "deep-blue",
+        "silver-white",
+        "high-contrast"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "severance",
+        "decision",
+        "precision",
+        "tension",
+        "finality",
+        "control"
+      ],
+      "energyLevel": 0.8,
+      "emotionalTemperature": "sharp-cold",
+      "socialFeeling": "unilateral"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "cutting-ties",
+        "division",
+        "choice",
+        "boundary",
+        "irreversibility"
+      ]
+    },
+    "observationPerspectives": [
+      "正在被剪断的是什么？",
+      "这里更像结束，还是分开？",
+      "剪下去之后，两边各留下什么？",
+      "这个动作是犹豫过的，还是早就决定了？"
+    ]
+  },
+  "standard-57": {
+    "id": "standard-57",
+    "sourceTitle": "87（暴风雨 / 闪电）",
+    "visualLayer": {
+      "visualFeatures": [
+        "storm",
+        "lightning",
+        "heavy-rain",
+        "dark-sky",
+        "earth-strip",
+        "water-below"
+      ],
+      "composition": [
+        "diagonal-rain",
+        "lightning-slash",
+        "layered-ground"
+      ],
+      "motion": [
+        "striking",
+        "pouring",
+        "turbulence"
+      ],
+      "colorMood": [
+        "charcoal-gray",
+        "electric-yellow",
+        "olive-green",
+        "deep-blue"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "intensity",
+        "disruption",
+        "release",
+        "fear",
+        "awe",
+        "uncontrollable-force"
+      ],
+      "energyLevel": 0.9,
+      "emotionalTemperature": "cold-electric",
+      "socialFeeling": "exposed"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "crisis",
+        "rupture",
+        "revelation",
+        "purge",
+        "raw-power"
+      ]
+    },
+    "observationPerspectives": [
+      "这里更像破坏，还是释放？",
+      "闪电劈下来之后，会留下什么？",
+      "你在风暴里面，还是在看着它？",
+      "这场雨还要下多久？"
+    ]
+  },
+  "standard-58": {
+    "id": "standard-58",
+    "sourceTitle": "88（小丑 / 面具）",
+    "visualLayer": {
+      "visualFeatures": [
+        "clown-face",
+        "painted-smile",
+        "red-hair",
+        "yellow-costume",
+        "black-hat",
+        "crowd-behind"
+      ],
+      "composition": [
+        "frontal-portrait",
+        "face-filling-frame",
+        "audience-as-backdrop"
+      ],
+      "motion": [
+        "performing",
+        "holding-expression",
+        "frozen-smile"
+      ],
+      "colorMood": [
+        "bright-yellow",
+        "deep-red",
+        "black-accent",
+        "pastel-crowd"
+      ]
+    },
+    "emotionalLayer": {
+      "emotionalVectors": [
+        "performance",
+        "concealment",
+        "distance-behind-smile",
+        "obligation-to-joy",
+        "distance",
+        "ambivalence"
+      ],
+      "energyLevel": 0.58,
+      "emotionalTemperature": "warm-hollow",
+      "socialFeeling": "visible-but-unseen"
+    },
+    "symbolicField": {
+      "symbolicElements": [
+        "mask",
+        "performance-self",
+        "hidden-face",
+        "crowd-pleasing",
+        "the-role-that-stays-on"
+      ]
+    },
+    "observationPerspectives": [
+      "这个笑容，是给谁的？",
+      "面具下面，还有哪一层？",
+      "这里更像自然出现，还是被摆出来？",
+      "如果没有观众，他还会这样吗？"
+    ]
+  }
+}

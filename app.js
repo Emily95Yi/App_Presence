@@ -32,6 +32,7 @@ const visibilityStoreKey = "presence.contentVisibility.v1";
 const userStoreKey = "presence.localUserId.v1";
 const modeStoreKey = "presence.mode.v1";
 const weatherStoreKey = "presence.weatherFragments.v1";
+const recentSemanticPromptStoreKey = "presence.recentSemanticPrompts.v1";
 const dbName = "presence.db.v1";
 const dbVersion = 1;
 const chunkSize = 92;
@@ -121,6 +122,22 @@ Vision|愿景
 Willingness|意愿
 Wisdom|智慧
 `;
+
+const angelTranslationMap = new Map(
+  [
+    ...angelPairs
+      .trim()
+      .split("\n")
+      .map((line) => {
+        const [en, zh] = line.split("|");
+        return [en.toLowerCase(), zh];
+      }),
+    ["boredom", "有点空"],
+    ["alert-neutral", "轻轻警觉"],
+    ["alert", "警觉"],
+    ["neutral", "中性"],
+  ].map(([en, zh]) => [en.toLowerCase(), zh]),
+);
 
 const relationshipWords = `
 获得正能量
@@ -213,12 +230,9 @@ const wordGroups = [
     words: angelPairs
       .trim()
       .split("\n")
-      .flatMap((line, index) => {
+      .map((line, index) => {
         const [en, zh] = line.split("|");
-        return [
-          { id: `angel-en-${index}`, text: en, language: "en", tags: ["天使"] },
-          { id: `angel-zh-${index}`, text: zh, language: "zh", tags: ["天使"] },
-        ];
+        return { id: `angel-zh-${index}`, text: zh, language: "zh", sourceText: en, tags: ["天使"] };
       }),
   },
   {
@@ -255,6 +269,75 @@ const promptBank = [
   { id: "round-card-2", text: "如果只保留一点亮，它在哪里？", scope: "card", cardId: "round-2", tags: ["亮", "保留"] },
   { id: "relationship-quiet", text: "这段关系里，什么声音变小了？", scope: "set", setId: "relationship", tags: ["安静", "关系"] },
   { id: "relationship-card-3", text: "这张卡想让你靠近一点，还是退后一点？", scope: "card", cardId: "relationship-3", tags: ["靠近", "退后"] },
+];
+
+const supplementalObservationPerspectives = [
+  {
+    id: "semantic-nearest",
+    text: "这里离你最近的是什么？",
+    compatibleVectors: ["distance", "openness", "contact", "vulnerability", "waiting"],
+    compatibleVisualFeatures: ["open-space", "hands", "center-focus", "small-human-figure", "close-up"],
+    intensity: 0.35,
+    tone: "gentle-attention",
+    modeCompatibility: ["choice", "journal"],
+    avoidRecentKey: "nearest",
+    displayTags: ["距离", "靠近", "看见"],
+  },
+  {
+    id: "semantic-edge",
+    text: "好像有什么停在边缘",
+    compatibleVectors: ["waiting", "uncertainty", "distance", "hesitation", "quiet-assessment"],
+    compatibleVisualFeatures: ["figure-at-edge", "open-space", "soft-boundaries", "narrow-space", "corner"],
+    intensity: 0.28,
+    tone: "ambiguous",
+    modeCompatibility: ["choice", "journal"],
+    avoidRecentKey: "edge",
+    displayTags: ["边缘", "等待", "留白"],
+  },
+  {
+    id: "semantic-slower",
+    text: "如果这里慢一点，会发生什么？",
+    compatibleVectors: ["stillness", "wandering", "waiting", "repetition", "deliberation"],
+    compatibleVisualFeatures: ["slow-rotation", "drifting", "stillness", "open-surface", "soft-boundaries"],
+    intensity: 0.3,
+    tone: "soft-imaginal",
+    modeCompatibility: ["choice", "journal"],
+    avoidRecentKey: "slower",
+    displayTags: ["慢一点", "停留", "流动"],
+  },
+  {
+    id: "semantic-first-look",
+    text: "你会先看向哪里？",
+    compatibleVectors: ["overview", "distance", "uncertainty", "openness", "direction"],
+    compatibleVisualFeatures: ["center-focus", "light-from-above", "grid-pattern", "back-facing", "open-field"],
+    intensity: 0.22,
+    tone: "observational",
+    modeCompatibility: ["choice", "journal"],
+    avoidRecentKey: "first-look",
+    displayTags: ["第一眼", "位置", "观察"],
+  },
+  {
+    id: "semantic-light",
+    text: "哪一点光还在留着？",
+    compatibleVectors: ["warmth", "carrying-light", "direction", "openness", "stillness"],
+    compatibleVisualFeatures: ["warm-light", "bright-flame", "light-from-above", "golden-yellow", "white-light"],
+    intensity: 0.36,
+    tone: "gentle-attention",
+    modeCompatibility: ["choice", "journal"],
+    avoidRecentKey: "light",
+    displayTags: ["光线", "保留", "靠近"],
+  },
+  {
+    id: "semantic-complete",
+    text: "这里还有什么是完整的？",
+    compatibleVectors: ["rupture", "aftermath", "uncertainty", "tension", "stillness"],
+    compatibleVisualFeatures: ["broken-object", "scattered-fragments", "fragmented-objects", "fragmentation", "debris"],
+    intensity: 0.48,
+    tone: "quiet-precise",
+    modeCompatibility: ["choice", "journal"],
+    avoidRecentKey: "complete",
+    displayTags: ["完整", "碎片", "停留"],
+  },
 ];
 
 const tagRules = [
@@ -312,6 +395,10 @@ const cardImageManifest = {
   round: createNumberedCardImages("round", 68, "png"),
   relationship: createNumberedCardImages("relationship", 30, "png"),
 };
+
+const standardSemanticProfiles = await loadStandardSemanticProfiles();
+const observationPerspectiveBank = createObservationPerspectiveBank(standardSemanticProfiles);
+const searchablePromptBank = [...promptBank, ...observationPerspectiveBank];
 
 const projectionSets = [
   makeCardSet("standard", "标准", "标准投射卡，58 张", ["#dbece6", "#c7d7ea", "#efd77e", "#dfa28f"], 1100),
@@ -427,6 +514,164 @@ function createNumberedCardImages(setId, count, extension) {
   });
 }
 
+async function loadStandardSemanticProfiles() {
+  try {
+    const response = await fetch("./assets/cards/standard/semantic-profiles.json");
+    if (!response.ok) throw new Error(`Semantic profile fetch failed: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.warn("Standard semantic profiles are unavailable; falling back to fixed prompts.", error);
+    return {};
+  }
+}
+
+function createObservationPerspectiveBank(profiles) {
+  const profileTemplates = Object.values(profiles).flatMap((profile) => {
+    const visualTokens = getProfileVisualTokens(profile);
+    const vectorTokens = getProfileVectorTokens(profile);
+    const intensity = clamp(profile.emotionalLayer?.energyLevel ?? 0.35, 0.15, 0.85);
+    return (profile.observationPerspectives ?? []).map((text, index) => ({
+      id: `semantic-${profile.id}-${index + 1}`,
+      text,
+      compatibleVectors: vectorTokens,
+      compatibleVisualFeatures: visualTokens,
+      intensity,
+      tone: inferPerspectiveTone(text, profile),
+      modeCompatibility: ["choice", "journal"],
+      avoidRecentKey: normalizePerspectiveKey(text),
+      sourceProfileId: profile.id,
+      displayTags: createDisplayTagsForPerspective(text, profile),
+      tags: createDisplayTagsForPerspective(text, profile),
+    }));
+  });
+  return [...supplementalObservationPerspectives, ...profileTemplates];
+}
+
+function getProfileVisualTokens(profile) {
+  const layer = profile?.visualLayer ?? {};
+  return uniqueStrings([
+    ...(layer.visualFeatures ?? []),
+    ...(layer.composition ?? []),
+    ...(layer.motion ?? []),
+    ...(layer.colorMood ?? []),
+  ]);
+}
+
+function getProfileVectorTokens(profile) {
+  const layer = profile?.emotionalLayer ?? {};
+  return uniqueStrings([
+    ...(layer.emotionalVectors ?? []),
+    layer.emotionalTemperature,
+    layer.socialFeeling,
+  ]);
+}
+
+function uniqueStrings(items) {
+  return [...new Set(items.filter(Boolean).map((item) => String(item)))];
+}
+
+function inferPerspectiveTone(text, profile) {
+  const temperature = profile?.emotionalLayer?.emotionalTemperature ?? "";
+  if (/光|亮|温|抱|手|火/.test(text) || temperature.includes("warm")) return "gentle-attention";
+  if (/碎|断|接住|完整|发生/.test(text)) return "quiet-precise";
+  if (/哪里|什么|先看/.test(text)) return "observational";
+  return "ambiguous";
+}
+
+function normalizePerspectiveKey(text) {
+  return text.replace(/[？?，,。！!：“”"、\s]/g, "").slice(0, 18);
+}
+
+function createDisplayTagsForPerspective(text, profile) {
+  const tokens = [...getProfileVectorTokens(profile), ...getProfileVisualTokens(profile)];
+  const translated = tokens.map(translateSemanticToken).filter(Boolean);
+  const textTags = inferDisplayTagsFromText(text);
+  return uniqueStrings([...textTags, ...translated]).slice(0, 4);
+}
+
+function inferDisplayTagsFromText(text) {
+  const tags = [];
+  if (/光|亮|火/.test(text)) tags.push("光线");
+  if (/手|碰|托|接住|握/.test(text)) tags.push("手势");
+  if (/门|锁|钥匙|入口/.test(text)) tags.push("入口");
+  if (/边缘|角落|远|近|距离/.test(text)) tags.push("距离");
+  if (/慢|等|停|还没/.test(text)) tags.push("停留");
+  if (/碎|散|完整/.test(text)) tags.push("碎片");
+  if (/水|海|浪|雨/.test(text)) tags.push("水面");
+  if (/路|方向|走|离开/.test(text)) tags.push("方向");
+  if (/看|镜|脸|面具/.test(text)) tags.push("被看见");
+  return tags;
+}
+
+function translateSemanticToken(token) {
+  const dictionary = {
+    distance: "距离",
+    waiting: "等待",
+    uncertainty: "不确定",
+    warmth: "温度",
+    wandering: "游移",
+    stillness: "静止",
+    tension: "张力",
+    openness: "打开",
+    vulnerability: "柔软",
+    longing: "靠近",
+    direction: "方向",
+    solitude: "独自",
+    agency: "行动",
+    overview: "俯看",
+    detachment: "距离",
+    deliberation: "斟酌",
+    exchange: "交换",
+    value: "价值",
+    transfer: "传递",
+    rupture: "断裂",
+    aftermath: "余波",
+    witnessing: "看见",
+    loss: "空缺",
+    repetition: "重复",
+    immersion: "沉入",
+    depth: "深处",
+    contact: "接触",
+    hands: "手势",
+    "open-palms": "掌心",
+    "warm-light": "暖光",
+    "small-human-figure": "小小的人",
+    "open-space": "开阔",
+    "enclosed-space": "封闭",
+    "fragmented-objects": "碎片",
+    "scattered-fragments": "碎片",
+    "broken-object": "破碎",
+    "light-from-above": "上方的光",
+    water: "水面",
+    ocean: "海面",
+    shoreline: "岸边",
+    fog: "雾",
+    door: "门",
+    key: "钥匙",
+    mirror: "镜面",
+    mask: "面具",
+    flame: "火光",
+    torch: "火把",
+    "center-focus": "中心",
+    "figure-at-edge": "边缘人物",
+    "back-facing": "背影",
+    "close-up": "近处",
+    "cool-neutral": "冷静",
+    "warm-intense": "温热",
+  };
+  if (dictionary[token]) return dictionary[token];
+  if (/light|flame|yellow|golden|bright/.test(token)) return "光线";
+  if (/hand|palm|gesture|reaching/.test(token)) return "手势";
+  if (/water|sea|ocean|shore|wave|rain/.test(token)) return "水面";
+  if (/edge|corner|distance|outside/.test(token)) return "距离";
+  if (/door|lock|key|entrance/.test(token)) return "入口";
+  if (/broken|fragment|scattered|shatter|debris/.test(token)) return "碎片";
+  if (/path|road|direction|forward|depart/.test(token)) return "方向";
+  if (/still|quiet|slow|waiting/.test(token)) return "停留";
+  if (/warm|red|orange|fire/.test(token)) return "温度";
+  return "";
+}
+
 function makeCardSet(id, name, description, colors, seedBase) {
   const imagePaths = cardImageManifest[id] ?? [];
   return {
@@ -439,6 +684,7 @@ function makeCardSet(id, name, description, colors, seedBase) {
       id: `${id}-${index + 1}`,
       setId: id,
       title: `${name} ${index + 1}`,
+      semanticProfile: id === "standard" ? standardSemanticProfiles[`standard-${index + 1}`] ?? null : null,
       seed: seedBase + index * 137,
       kind: "projection",
       src,
@@ -519,7 +765,7 @@ async function seedQuestionSchema() {
       cardStore.put({ ...card, source: "projection", createdAt: now });
     });
   });
-  promptBank.forEach((prompt) => {
+  searchablePromptBank.forEach((prompt) => {
     promptStore.put({ id: prompt.id, text: prompt.text, tags: prompt.tags ?? [], scope: prompt.scope, createdAt: now });
   });
   promptBank.forEach((prompt) => {
@@ -777,11 +1023,17 @@ function answerWeatherLabels(text) {
 }
 
 function normalizeWeatherLabel(value = "") {
-  return stripTagPrefix(value)
+  return translateEnglishDisplayText(stripTagPrefix(value))
     .replace(/[，。！？、,.!?]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 16);
+}
+
+function translateEnglishDisplayText(value = "") {
+  const text = String(value).trim();
+  if (!/^[A-Za-z][A-Za-z /-]*$/.test(text)) return text;
+  return angelTranslationMap.get(text.toLowerCase()) ?? "";
 }
 
 function weatherBucketKey(piece) {
@@ -993,17 +1245,24 @@ function makeWordStreamItem(base, enabledWords, semanticKey, seed) {
   const matching = enabledWords.filter((word) => getWordSemanticKey(word) === semanticKey);
   const pool = matching.length ? matching : enabledWords;
   const word = pool[Math.floor(seededRandom(seed + 41) * pool.length) % pool.length];
-  const wordScale = getWordPlaneScale(word.text);
+  const displayText = getWordDisplayText(word);
+  const wordScale = getWordPlaneScale(displayText);
   return {
     ...base,
     id: `${base.id}-${word.id}`,
     kind: "word",
     word,
-    text: word.text,
+    text: displayText,
     groupId: word.groupId,
     semanticKey: getWordSemanticKey(word),
     scale: new THREE.Vector3(wordScale.width, wordScale.height, 1),
   };
+}
+
+function getWordDisplayText(word) {
+  const text = word?.text ?? "";
+  if (word?.language === "zh" || !/^[A-Za-z][A-Za-z /-]*$/.test(text)) return text;
+  return translateEnglishDisplayText(text) || "轻轻停留";
 }
 
 function makeWeatherStreamItem(base, weatherFragments, seed) {
@@ -1696,6 +1955,14 @@ function getCurrentPrompt() {
 }
 
 function selectPrompts(card, set, seed) {
+  if (card.setId === "standard" && card.semanticProfile && observationPerspectiveBank.length) {
+    const semanticPrompts = selectSemanticPrompts(card, seed);
+    if (semanticPrompts.length) return semanticPrompts;
+  }
+  return selectFallbackPrompts(card, set, seed);
+}
+
+function selectFallbackPrompts(card, set, seed) {
   const cardPrompts = promptBank.filter((prompt) => prompt.scope === "card" && prompt.cardId === card.id);
   const setPrompts = promptBank.filter((prompt) => prompt.scope === "set" && prompt.setId === set.id);
   const genericPrompts = promptBank.filter((prompt) => prompt.scope === "generic");
@@ -1705,6 +1972,93 @@ function selectPrompts(card, set, seed) {
     ...stableShuffle(genericPrompts, seed + 37),
   ];
   return [...new Map(ordered.map((prompt) => [prompt.id, prompt])).values()].slice(0, maxPromptsPerCard);
+}
+
+function selectSemanticPrompts(card, seed) {
+  const recentKeys = readRecentSemanticPromptKeys();
+  const profile = card.semanticProfile;
+  const visualTokens = getProfileVisualTokens(profile);
+  const vectorTokens = getProfileVectorTokens(profile);
+  const energy = profile.emotionalLayer?.energyLevel ?? 0.4;
+  const ownCandidates = observationPerspectiveBank
+    .filter((prompt) => prompt.sourceProfileId === card.id)
+    .map((prompt) => ({
+      prompt: { ...prompt, scope: "semantic", cardId: card.id },
+      weight: scoreObservationPerspective(prompt, { visualTokens, vectorTokens, energy, mode: state.mode, recentKeys, isOwnProfile: true }),
+    }))
+    .filter((entry) => entry.weight > 0);
+
+  const selected = weightedSampleUnique(ownCandidates, maxPromptsPerCard, seed + hashString(card.id));
+  if (selected.length < maxPromptsPerCard) {
+    const supportCandidates = observationPerspectiveBank
+      .filter((prompt) => !prompt.sourceProfileId || isStrongSemanticMatch(prompt, { visualTokens, vectorTokens }))
+      .filter((prompt) => prompt.sourceProfileId !== card.id)
+      .map((prompt) => ({
+        prompt: { ...prompt, scope: "semantic", cardId: card.id },
+        weight: scoreObservationPerspective(prompt, { visualTokens, vectorTokens, energy, mode: state.mode, recentKeys, isOwnProfile: false }),
+      }))
+      .filter((entry) => entry.weight > 0);
+    const support = weightedSampleUnique(supportCandidates, maxPromptsPerCard - selected.length, seed + hashString(card.id) + 4049);
+    selected.push(...support.filter((prompt) => !selected.some((item) => item.id === prompt.id)));
+  }
+  if (selected.length < maxPromptsPerCard) {
+    const set = projectionSets.find((candidate) => candidate.id === card.setId) ?? projectionSets[0];
+    const fallback = selectFallbackPrompts(card, set, seed + 97).filter((prompt) => !selected.some((item) => item.id === prompt.id));
+    selected.push(...fallback.slice(0, maxPromptsPerCard - selected.length));
+  }
+  rememberSemanticPromptKeys(selected.map((prompt) => prompt.avoidRecentKey ?? normalizePerspectiveKey(prompt.text)));
+  return selected;
+}
+
+function scoreObservationPerspective(prompt, context) {
+  const visualScore = overlapRatio(context.visualTokens, prompt.compatibleVisualFeatures ?? []);
+  const vectorScore = overlapRatio(context.vectorTokens, prompt.compatibleVectors ?? []);
+  const intensityScore = 1 - Math.min(1, Math.abs((prompt.intensity ?? 0.35) - context.energy));
+  const modeScore = !prompt.modeCompatibility?.length || prompt.modeCompatibility.includes(context.mode) ? 1 : 0.35;
+  const toneScore = prompt.tone === "observational" || prompt.tone === "gentle-attention" || context.mode === "journal" ? 1 : 0.88;
+  const recentPenalty = context.recentKeys.includes(prompt.avoidRecentKey ?? normalizePerspectiveKey(prompt.text)) ? 0.68 : 1;
+  const ownProfileBoost = context.isOwnProfile ? 18 : 0;
+  return (visualScore * 4.2 + vectorScore * 4.8 + intensityScore * 1.6 + modeScore + toneScore + ownProfileBoost) * recentPenalty;
+}
+
+function isStrongSemanticMatch(prompt, context) {
+  if (!prompt.sourceProfileId) return true;
+  const visualScore = overlapRatio(context.visualTokens, prompt.compatibleVisualFeatures ?? []);
+  const vectorScore = overlapRatio(context.vectorTokens, prompt.compatibleVectors ?? []);
+  return visualScore >= 0.42 && vectorScore >= 0.42;
+}
+
+function overlapRatio(sourceTokens, compatibleTokens) {
+  if (!compatibleTokens.length) return 0;
+  const source = new Set(sourceTokens);
+  const matches = compatibleTokens.filter((token) => source.has(token)).length;
+  return matches / Math.sqrt(compatibleTokens.length);
+}
+
+function weightedSampleUnique(candidates, count, seed) {
+  const pool = [...candidates];
+  const selected = [];
+  for (let index = 0; index < count && pool.length; index += 1) {
+    const totalWeight = pool.reduce((sum, entry) => sum + entry.weight, 0);
+    if (totalWeight <= 0) break;
+    let cursor = seededRandom(seed + index * 7919) * totalWeight;
+    const pickedIndex = pool.findIndex((entry) => {
+      cursor -= entry.weight;
+      return cursor <= 0;
+    });
+    const [picked] = pool.splice(pickedIndex >= 0 ? pickedIndex : pool.length - 1, 1);
+    selected.push(picked.prompt);
+  }
+  return selected;
+}
+
+function readRecentSemanticPromptKeys() {
+  return readJson(recentSemanticPromptStoreKey, []);
+}
+
+function rememberSemanticPromptKeys(keys) {
+  const recent = [...keys, ...readRecentSemanticPromptKeys()].filter(Boolean);
+  writeJson(recentSemanticPromptStoreKey, [...new Set(recent)].slice(0, 18));
 }
 
 function renderCurrentPrompt() {
@@ -1980,7 +2334,7 @@ function generateTags(text) {
       rule.tags.slice(0, 2).forEach((label) => matches.push({ family: rule.family, label }));
     }
   });
-  const promptTags = (getCurrentPrompt()?.tags ?? []).map((label) => ({ family: inferFamily(label), label }));
+  const promptTags = getPromptDisplayTags(getCurrentPrompt()).map((label) => ({ family: inferFamily(label), label }));
   const fallback = [
     { family: "feeling", label: trimmed.slice(0, 8) },
     { family: "shift", label: "换个角度" },
@@ -1990,10 +2344,15 @@ function generateTags(text) {
 }
 
 function generateChoiceTags(prompt, card) {
-  const baseText = [prompt?.text, card?.title, ...(prompt?.tags ?? [])].filter(Boolean).join(" ");
+  const displayTags = getPromptDisplayTags(prompt);
+  const baseText = [prompt?.text, card?.title, ...displayTags].filter(Boolean).join(" ");
   const generated = generateAiLikeTags(baseText, { card, prompt });
-  const promptTags = (prompt?.tags ?? []).map((label) => ({ family: inferFamily(label), label }));
+  const promptTags = displayTags.map((label) => ({ family: inferFamily(label), label }));
   return uniqueTags([...promptTags, ...generated, ...defaultTags]).slice(0, 9);
+}
+
+function getPromptDisplayTags(prompt) {
+  return (prompt?.displayTags ?? prompt?.tags ?? []).filter((tag) => !/[a-z]/i.test(tag));
 }
 
 function generateAiLikeTags(input, context = {}) {
@@ -2480,7 +2839,7 @@ function renderCalendarReviewDetail(group) {
 
 function promptTextForRecord(entry) {
   const promptId = entry.payload.questionId ?? entry.payload.promptId;
-  return promptBank.find((prompt) => prompt.id === promptId)?.text ?? "";
+  return searchablePromptBank.find((prompt) => prompt.id === promptId)?.text ?? "";
 }
 
 function collectRecordLabels(entries) {
