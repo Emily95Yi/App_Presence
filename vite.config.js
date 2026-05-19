@@ -1,6 +1,12 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  build: {
+    target: "esnext",
+  },
+  esbuild: {
+    target: "esnext",
+  },
   server: {
     host: "0.0.0.0",
     port: 5173,
