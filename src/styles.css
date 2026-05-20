@@ -505,50 +505,82 @@ button {
   gap: 12px;
 }
 
+.calendar-panel {
+  background:
+    linear-gradient(180deg, rgba(239, 248, 255, 0.72), rgba(222, 241, 255, 0.7)),
+    url("/assets/calendar/calendar-bg.png") center / cover no-repeat;
+  border: 0;
+  box-shadow: 0 28px 78px rgba(87, 126, 156, 0.16);
+}
+
 .calendar-headline {
   display: grid;
-  grid-template-columns: 44px 1fr 44px;
+  grid-template-columns: 38px auto 38px 1fr 38px;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 0;
 }
 
 .calendar-month-title {
-  display: grid;
-  justify-items: center;
-  gap: 4px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  color: rgba(54, 80, 101, 0.62);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: nowrap;
 }
 
 .calendar-month-title span {
-  color: rgba(22, 32, 27, 0.46);
-  font-size: 12px;
-  font-weight: 720;
+  color: currentColor;
+  font: inherit;
+  font-weight: 420;
 }
 
 .calendar-month-title strong {
-  display: grid;
-  width: 46px;
-  height: 42px;
-  place-items: center;
-  border: 1px solid rgba(52, 125, 112, 0.24);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(52, 125, 112, 0.18) 0 9px, rgba(255, 252, 245, 0.9) 9px),
-    var(--paper-strong);
-  color: #143c35;
-  font-size: 18px;
-  font-weight: 820;
+  display: inline;
+  width: auto;
+  height: auto;
+  border: 0;
+  background: transparent;
+  color: currentColor;
+  font: inherit;
+  font-weight: 420;
 }
 
-.calendar-nav-button {
+.calendar-month-title i {
+  font-style: normal;
+}
+
+.calendar-nav-button,
+.calendar-close-button {
   display: grid;
-  min-height: 40px;
+  width: 38px;
+  min-width: 38px;
+  min-height: 38px;
   place-items: center;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 999px;
-  background: rgba(255, 252, 245, 0.78);
-  color: var(--ink);
+  background: transparent;
+  color: rgba(54, 80, 101, 0.52);
   cursor: pointer;
   font-size: 24px;
+}
+
+.calendar-close-button {
+  grid-column: 5;
+  font-size: 28px;
+}
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  color: rgba(54, 80, 101, 0.46);
+  font-size: 13px;
+  line-height: 1;
+  text-align: center;
 }
 
 .month-grid {
@@ -557,12 +589,16 @@ button {
   gap: 6px;
 }
 
-.weather-month-grid {
-  grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+.calendar-month-grid {
   align-items: center;
   justify-items: center;
-  gap: 12px;
-  min-height: 112px;
+  gap: 8px 6px;
+  min-height: 220px;
+}
+
+.calendar-day-spacer {
+  width: 36px;
+  min-height: 36px;
 }
 
 .weekday,
@@ -585,19 +621,17 @@ button {
   color: var(--ink);
 }
 
-.weather-day {
-  width: calc(34px + var(--density) * 3px);
-  min-height: calc(34px + var(--density) * 3px);
-  border-radius: 46% 54% 48% 52% / 58% 44% 56% 42%;
-  filter: blur(calc((7 - var(--density)) * 0.12px));
+.calendar-day {
+  width: 36px;
+  min-height: 36px;
+  border-radius: 999px;
   transition:
     transform 260ms ease,
     filter 260ms ease,
     box-shadow 260ms ease;
 }
 
-.weather-day:hover {
-  filter: blur(0);
+.calendar-day:hover {
   transform: translateY(-3px);
 }
 
@@ -609,12 +643,13 @@ button {
 }
 
 .day-button.has-record {
-  border-color: rgba(143, 184, 165, 0.34);
+  border-color: rgba(137, 190, 225, 0.34);
   background:
-    radial-gradient(circle at 42% 30%, rgba(255, 252, 245, 0.94), rgba(154, 188, 172, 0.26)),
-    var(--accent-soft);
+    radial-gradient(circle at 42% 30%, rgba(255, 255, 255, 0.92), rgba(185, 222, 247, 0.58)),
+    rgba(214, 237, 251, 0.72);
+  color: rgba(45, 75, 99, 0.76);
   font-weight: 760;
-  box-shadow: 0 14px 32px rgba(96, 84, 64, 0.12);
+  box-shadow: 0 14px 32px rgba(87, 126, 156, 0.12);
 }
 
 .day-button.visited-only {
@@ -625,15 +660,23 @@ button {
 
 .day-button.selected {
   background:
-    radial-gradient(circle at 50% 28%, rgba(255, 252, 245, 0.96), rgba(255, 229, 150, 0.48)),
-    var(--accent-soft);
-  color: rgba(31, 38, 34, 0.82);
+    radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.98), rgba(161, 211, 244, 0.7)),
+    rgba(200, 230, 250, 0.88);
+  color: rgba(38, 70, 96, 0.88);
 }
 
 .month-empty {
   grid-column: 1 / -1;
   justify-self: center;
   padding: 24px 0;
+}
+
+.calendar-footer-copy {
+  margin: 2px 0 0;
+  color: rgba(54, 80, 101, 0.56);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
 }
 
 .record-detail {
@@ -728,7 +771,7 @@ button {
   inset: max(18px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
     max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   display: grid;
-  grid-template-rows: 45vh auto minmax(0, 1fr);
+  grid-template-rows: 50vh auto minmax(0, 1fr);
   align-items: center;
   justify-items: center;
   gap: 10px;
@@ -830,8 +873,9 @@ button {
   z-index: 2;
   width: auto;
   max-width: min(90vw, 520px);
-  height: 45vh;
-  max-height: 45vh;
+  height: 42vh;
+  max-height: 42vh;
+  margin-top: 34px;
   object-fit: contain;
   border-radius: 16px;
   box-shadow: none;
@@ -852,6 +896,7 @@ button {
 
 .prompt-layer[data-stage="observing"] {
   width: min(760px, 94vw);
+  transform: translateY(12px);
 }
 
 .prompt-bubble {
@@ -1142,7 +1187,7 @@ button {
 .calendar-review-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(22, 32, 27, 0.26);
+  background: rgba(75, 112, 143, 0.18);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
 }
@@ -1156,42 +1201,79 @@ button {
   gap: 14px;
   overflow: auto;
   padding: 16px;
-  border: 1px solid rgba(255, 252, 245, 0.62);
+  border: 0;
   border-radius: 18px;
   background:
-    linear-gradient(180deg, rgba(255, 252, 245, 0.95), rgba(248, 244, 236, 0.9)),
-    var(--paper);
-  box-shadow: var(--shadow);
+    linear-gradient(180deg, rgba(239, 248, 255, 0.7), rgba(221, 240, 255, 0.74)),
+    url("/assets/calendar/calendar-bg.png") center / cover no-repeat;
+  box-shadow: 0 28px 78px rgba(87, 126, 156, 0.18);
 }
 
 .calendar-review-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: 56px 1fr 56px;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
 }
 
+.review-calendar-mark {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.68);
+  color: rgba(66, 103, 134, 0.8);
+}
+
+.review-calendar-mark .calendar-icon {
+  width: 19px;
+  height: 19px;
+}
+
 .calendar-review-head p {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
   margin: 0;
-  color: rgba(22, 32, 27, 0.68);
-  font-size: 14px;
+  color: rgba(49, 79, 105, 0.88);
+  font-size: 28px;
   font-weight: 780;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.calendar-review-head p small {
+  color: rgba(49, 79, 105, 0.62);
+  font-size: 16px;
+  font-weight: 720;
+}
+
+.calendar-review-head .icon-button {
+  width: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: none;
+  color: rgba(49, 79, 105, 0.74);
 }
 
 .review-deck {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  display: flex;
   align-items: end;
-  gap: 16px 10px;
+  gap: 0;
   min-width: 0;
+  min-height: min(35vh, 310px);
   overflow: visible;
-  padding: 16px 2px 24px;
+  padding: 26px 18px 30px;
   touch-action: pan-y;
 }
 
 .review-card {
   position: relative;
-  min-width: 0;
+  width: min(42vw, 172px);
+  min-width: min(42vw, 172px);
   padding: 0;
   border: 0;
   background: transparent;
@@ -1205,9 +1287,21 @@ button {
     z-index 260ms ease;
 }
 
+.review-card + .review-card {
+  margin-left: -46px;
+}
+
+.review-card:nth-child(2n) {
+  align-self: start;
+}
+
+.review-card:nth-child(3n) {
+  align-self: center;
+}
+
 .review-card.active {
   z-index: 4;
-  filter: drop-shadow(0 24px 48px rgba(22, 32, 27, 0.24));
+  filter: drop-shadow(0 24px 48px rgba(64, 101, 130, 0.24));
   transform: translateY(-12px) rotate(0deg) scale(1.04);
 }
 
@@ -1217,10 +1311,10 @@ button {
   display: block;
   width: 100%;
   max-height: min(34vh, 300px);
-  border: 1px solid rgba(22, 32, 27, 0.14);
+  border: 0;
   border-radius: 14px;
   background: var(--paper-strong);
-  box-shadow: 0 18px 50px rgba(22, 32, 27, 0.16);
+  box-shadow: 0 18px 50px rgba(64, 101, 130, 0.16);
   object-fit: contain;
 }
 
@@ -1256,9 +1350,9 @@ button {
   max-height: 30vh;
   overflow: auto;
   padding: 14px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 14px;
-  background: rgba(255, 252, 245, 0.82);
+  background: transparent;
 }
 
 .review-detail h3 {
@@ -1267,26 +1361,18 @@ button {
 }
 
 .review-record-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-.review-record-group p {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 760;
+  display: grid;
+  gap: 8px;
 }
 
 .review-record-group span {
-  padding: 7px 9px;
-  border: 1px solid rgba(22, 32, 27, 0.1);
-  border-radius: 10px;
-  background: rgba(255, 252, 245, 0.74);
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(49, 79, 105, 0.72);
   font-size: 13px;
-  line-height: 1.35;
+  line-height: 1.55;
 }
 
 .response-dock {
@@ -1445,11 +1531,11 @@ button {
 .fragment-guide span {
   grid-area: 1 / 1;
   opacity: 0;
-  animation: fragment-guide-line 2.8s ease-in-out both;
+  animation: fragment-guide-first-line 4.8s ease-in-out both;
 }
 
 .fragment-guide span:nth-child(2) {
-  animation-delay: 1.9s;
+  animation: fragment-guide-stay 520ms ease 3.9s both;
 }
 
 .sea-message,
@@ -2454,14 +2540,14 @@ textarea:focus {
   }
 }
 
-@keyframes fragment-guide-line {
+@keyframes fragment-guide-first-line {
   0% {
     opacity: 0;
     transform: translateY(4px);
   }
 
   18%,
-  70% {
+  82% {
     opacity: 1;
     transform: translateY(0);
   }
@@ -2469,6 +2555,18 @@ textarea:focus {
   100% {
     opacity: 0;
     transform: translateY(-4px);
+  }
+}
+
+@keyframes fragment-guide-stay {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -2680,15 +2778,16 @@ textarea:focus {
   }
 
   .modal-stage {
-    grid-template-rows: 45vh auto minmax(0, 1fr);
+    grid-template-rows: 50vh auto minmax(0, 1fr);
     gap: 8px;
   }
 
   #focusCard {
     width: auto;
     max-width: min(88vw, 420px);
-    height: 45vh;
-    max-height: 45vh;
+    height: 41vh;
+    max-height: 41vh;
+    margin-top: 34px;
   }
 
   .ritual-question-stack {
@@ -2818,8 +2917,8 @@ textarea:focus {
   #focusCard {
     width: auto;
     max-width: min(76vw, 520px);
-    height: 45vh;
-    max-height: 45vh;
+    height: 42vh;
+    max-height: 42vh;
   }
 
   .modal-stage {

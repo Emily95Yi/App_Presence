@@ -533,7 +533,9 @@ const calendarState = {
   detailCardKey: null,
   reviewGroups: [],
   reviewActiveKey: null,
+  footerCopy: "",
 };
+const calendarFooterCopies = ["选择一天，回看曾经的停留", "选择一天，回顾收藏的记忆", "选择一天，打开那一瞬间的感受"];
 
 const renderer = new THREE.WebGLRenderer({
   antialias: false,
@@ -574,7 +576,7 @@ const state = {
   answerSubmitted: false,
   selectedTags: new Set(),
   lastChunkKey: "",
-  weatherEnabled: localStorage.getItem(weatherStoreKey) === "on",
+  weatherEnabled: false,
   weatherWindowDays: 30,
   weatherFragments: [],
   activeWeatherId: null,
@@ -1020,6 +1022,10 @@ function getEnabledWords() {
 }
 
 function refreshWeatherFragments(shouldRebuild = true) {
+  if (!state.weatherEnabled) {
+    state.weatherFragments = [];
+    return;
+  }
   const previousKey = state.weatherFragments.map((fragment) => fragment.id).join("|");
   state.weatherFragments = buildWeatherFragments(30);
   renderWeatherButton();
@@ -1147,6 +1153,7 @@ function weatherBucketKey(piece) {
 }
 
 function renderWeatherButton() {
+  if (!weatherToggle) return;
   weatherToggle.classList.toggle("active", state.weatherEnabled);
   weatherToggle.classList.toggle("has-fragments", state.weatherFragments.length > 0);
 }
@@ -1944,6 +1951,10 @@ function refreshActiveCardVisual(card) {
 
 function drawProjectionImageCardCanvas(ctx, width, height, card) {
   ctx.clearRect(0, 0, width, height);
+  if (card.setId === "round") {
+    drawImageContain(ctx, card.imageElement, 0, 0, width, height, { fill: false });
+    return;
+  }
   ctx.save();
   ctx.shadowColor = "rgba(22, 32, 27, 0.24)";
   ctx.shadowBlur = 24;
@@ -1987,14 +1998,16 @@ function drawPhotoCardCanvas(ctx, width, height, card) {
   ctx.restore();
 }
 
-function drawImageContain(ctx, image, x, y, width, height) {
+function drawImageContain(ctx, image, x, y, width, height, options = {}) {
   const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
   const dw = image.naturalWidth * scale;
   const dh = image.naturalHeight * scale;
   const dx = x + (width - dw) / 2;
   const dy = y + (height - dh) / 2;
-  ctx.fillStyle = palette.paper;
-  ctx.fillRect(x, y, width, height);
+  if (options.fill !== false) {
+    ctx.fillStyle = palette.paper;
+    ctx.fillRect(x, y, width, height);
+  }
   ctx.drawImage(image, dx, dy, dw, dh);
 }
 
@@ -2478,6 +2491,7 @@ function closeModal() {
   const session = getActiveSession();
   clearModalTimers();
   if (session) {
+    captureAnswerTextFromDom(session);
     flushAnswerSave(session);
     window.clearTimeout(session.inputSaveTimer);
     window.clearTimeout(session.customSaveTimer);
@@ -2487,6 +2501,11 @@ function closeModal() {
   state.activeCards = [];
   state.activeCardIndex = 0;
   state.activeBatchId = null;
+}
+
+function captureAnswerTextFromDom(session) {
+  const textarea = responseDock.querySelector("#answerInput");
+  if (textarea) session.answerText = textarea.value;
 }
 
 function clearModalTimers() {
@@ -2777,7 +2796,6 @@ function renderFragmentPiece(session, fragment, { isLeaving = false, field = res
     input.addEventListener("click", (event) => event.stopPropagation());
     input.addEventListener("input", () => {
       fragment.draft = input.value;
-      debounceCustomFragment(session, fragment);
     });
     window.setTimeout(() => input.focus(), 40);
   } else {
@@ -2916,7 +2934,6 @@ function renderEchoStage(session) {
     textarea.value = session.answerText;
     textarea.addEventListener("input", () => {
       session.answerText = textarea.value;
-      debounceAnswerSave(session);
     });
   }
   responseDock.querySelector("#unfoldInput")?.addEventListener("click", () => {
@@ -3051,13 +3068,6 @@ function handleFragmentClick(session, fragment, element = null) {
 
 function debounceCustomFragment(session, fragment) {
   window.clearTimeout(session.customSaveTimer);
-  session.customSaveTimer = window.setTimeout(() => {
-    if (fragment && session.customFragmentText.trim()) handleFragmentClick(session, fragment);
-    if (fragment?.draft?.trim()) {
-      const element = responseDock.querySelector(`[data-fragment-id="${fragment.id}"]`);
-      handleFragmentClick(session, fragment, element);
-    }
-  }, 520);
 }
 
 function resetFragments(session) {
@@ -3120,7 +3130,6 @@ function handleSendBottle(session) {
     session.finalVisible = true;
     session.echoMessages = createEchoMessages(session);
     session.echoText = session.echoMessages.map((echo) => echo.text).join("\n");
-    saveReturnedEchoes(session);
     renderModalByMode();
     scheduleInputRevealIfNeeded(session);
   }, 3400);
@@ -3177,6 +3186,7 @@ function collectEcho(session, echo, element = null) {
     setId: session.card.setId,
     promptId: getCurrentPrompt()?.id,
     questionId: getCurrentPrompt()?.id,
+    questionText: session.question,
     text: echo.text,
     labels: [...session.selectedTags],
     thumbnail: cardThumbnail(session.card),
@@ -3205,7 +3215,6 @@ function expandQuietInput(session) {
   textarea.value = session.answerText;
   textarea.addEventListener("input", () => {
     session.answerText = textarea.value;
-    debounceAnswerSave(session);
   });
   unfold.replaceWith(textarea);
   window.setTimeout(() => textarea.focus(), 40);
@@ -3225,11 +3234,12 @@ function flushAnswerSave(session) {
   session.lastSavedAnswerText = text;
   record("answer", {
     mode: "presence",
-    action: "draft",
+    action: "exit_save",
     cardId: session.card.id,
     setId: session.card.setId,
     promptId: getCurrentPrompt()?.id,
     questionId: getCurrentPrompt()?.id,
+    questionText: session.question,
     text,
     thumbnail: cardThumbnail(session.card),
     photoBatchId: state.activeBatchId,
@@ -3264,6 +3274,7 @@ function tagPayload(tag, action) {
     setId: session.card.setId,
     promptId: prompt?.id,
     questionId: prompt?.id,
+    questionText: session.question,
     photoBatchId: state.activeBatchId,
   };
 }
@@ -3462,6 +3473,7 @@ function saveVisibility() {
 }
 
 function openWeatherReview(fragment = null) {
+  if (!weatherReview) return;
   const fragments = buildWeatherFragments(state.weatherWindowDays);
   const active = fragment && fragments.find((item) => item.id === fragment.id) ? fragment : fragments[0];
   state.activeWeatherId = active?.id ?? null;
@@ -3472,6 +3484,7 @@ function openWeatherReview(fragment = null) {
 }
 
 function closeWeatherReview() {
+  if (!weatherReview) return;
   weatherReview.classList.remove("open");
   weatherReview.setAttribute("aria-hidden", "true");
   state.activeWeatherId = null;
@@ -3479,6 +3492,7 @@ function closeWeatherReview() {
 }
 
 function renderWeatherReview() {
+  if (!weatherReview || !weatherReviewTitle || !weatherReviewCopy) return;
   const fragments = buildWeatherFragments(state.weatherWindowDays);
   const active = fragments.find((fragment) => fragment.id === state.activeWeatherId) ?? fragments[0] ?? null;
   state.activeWeatherId = active?.id ?? null;
@@ -3494,6 +3508,7 @@ function renderWeatherReview() {
 }
 
 function renderWeatherReviewDeck(fragments, active) {
+  if (!weatherReviewDeck) return;
   weatherReviewDeck.innerHTML = "";
   if (!fragments.length) {
     const empty = document.createElement("p");
@@ -3523,6 +3538,7 @@ function renderWeatherReviewDeck(fragments, active) {
 }
 
 function renderWeatherReviewDetail(fragment) {
+  if (!weatherReviewDetail) return;
   weatherReviewDetail.innerHTML = "";
   if (!fragment) {
     const empty = document.createElement("p");
@@ -3608,36 +3624,42 @@ function renderCalendar() {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const days = new Date(year, month + 1, 0).getDate();
+  const firstWeekday = new Date(year, month, 1).getDay();
   const groups = groupedRecords();
-  const monthLabel = String(month + 1).padStart(2, "0");
+  const monthLabel = `${month + 1}月`;
+  const footerCopy = calendarState.footerCopy || pickCalendarFooterCopy();
   let html = `
     <div class="calendar-headline">
       <button class="calendar-nav-button" id="prevMonth" type="button" aria-label="上个月">‹</button>
       <div class="calendar-month-title" aria-label="${year}-${monthLabel}">
         <span>${year}</span>
+        <i aria-hidden="true">·</i>
         <strong>${monthLabel}</strong>
       </div>
       <button class="calendar-nav-button" id="nextMonth" type="button" aria-label="下个月">›</button>
+      <button class="calendar-close-button" id="closeCalendarInline" type="button" aria-label="关闭日历">×</button>
     </div>
-    <div class="month-grid weather-month-grid">
+    <div class="weekday-row" aria-hidden="true">
+      <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+    </div>
+    <div class="month-grid calendar-month-grid">
   `;
-  let visibleDays = 0;
+  for (let blank = 0; blank < firstWeekday; blank += 1) {
+    html += `<span class="calendar-day-spacer"></span>`;
+  }
   for (let day = 1; day <= days; day += 1) {
     const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const entries = groups[key] ?? [];
-    const meaningful = entries.filter((entry) => entry.type !== "app_visit");
-    const hasRecord = meaningful.length > 0;
-    const visitedOnly = !hasRecord && entries.some((entry) => entry.type === "app_visit");
-    if (!hasRecord && !visitedOnly) continue;
-    visibleDays += 1;
-    const density = clamp(meaningful.length, 1, 7);
-    const className = `day-button weather-day${hasRecord ? " has-record" : " visited-only"}${
-      calendarState.selectedDay === key ? " selected" : ""
-    }`;
+    const hasRecord = entries.length > 0;
+    const density = clamp(entries.length || 1, 1, 7);
+    if (!hasRecord) {
+      html += `<span class="calendar-day-spacer"></span>`;
+      continue;
+    }
+    const className = `day-button calendar-day has-record${calendarState.selectedDay === key ? " selected" : ""}`;
     html += `<button class="${className}" style="--density:${density}" data-day="${key}" type="button">${day}</button>`;
   }
-  if (!visibleDays) html += `<p class="empty-state month-empty">这个月还没有什么留下。</p>`;
-  html += `</div>`;
+  html += `</div><p class="calendar-footer-copy">${footerCopy}</p>`;
   rootEl.innerHTML = html;
   rootEl.querySelector("#prevMonth").addEventListener("click", () => {
     calendarState.month = new Date(year, month - 1, 1);
@@ -3647,7 +3669,8 @@ function renderCalendar() {
     calendarState.month = new Date(year, month + 1, 1);
     renderCalendar();
   });
-  rootEl.querySelectorAll(".day-button").forEach((button) => {
+  rootEl.querySelector("#closeCalendarInline")?.addEventListener("click", () => togglePanel(calendarPanel));
+  rootEl.querySelectorAll(".day-button.has-record").forEach((button) => {
     button.addEventListener("click", () => {
       calendarState.selectedDay = button.dataset.day;
       calendarState.detailCardKey = null;
@@ -3656,6 +3679,10 @@ function renderCalendar() {
       openCalendarReview(calendarState.selectedDay, entries);
     });
   });
+}
+
+function pickCalendarFooterCopy() {
+  return calendarFooterCopies[Math.floor(Math.random() * calendarFooterCopies.length) % calendarFooterCopies.length];
 }
 
 function groupedRecords() {
@@ -3669,8 +3696,10 @@ function groupedRecords() {
 }
 
 function isCalendarRecord(entry) {
-  if (entry.type === "answer") return Boolean(entry.payload.text?.trim());
-  return ["tag", "keyword", "card_open", "question_action", "photo_upload", "app_visit", "echo"].includes(entry.type);
+  if (entry.type === "tag") return ["bottle_fragment_select", "custom_fragment_select"].includes(entry.payload.action);
+  if (entry.type === "echo") return entry.payload.action === "collect" && Boolean(entry.payload.text?.trim());
+  if (entry.type === "answer") return entry.payload.action === "exit_save" && Boolean(entry.payload.text?.trim());
+  return false;
 }
 
 function groupEntriesByCard(entries) {
@@ -3708,10 +3737,8 @@ function calendarCardKey(entry) {
 }
 
 function calendarEntryTitle(entry) {
-  if (entry.type === "app_visit") return "轻轻经过";
   if (entry.type === "echo") return "回声";
-  if (entry.type === "keyword") return entry.payload.text ?? "点亮的文字";
-  if (!entry.payload.cardId && !entry.payload.id) return "文字";
+  if (entry.type === "tag") return "漂流瓶";
   return entry.payload.title ?? entry.payload.cardTitle ?? entry.payload.cardId ?? entry.payload.id ?? "卡牌";
 }
 
@@ -3722,8 +3749,8 @@ function latestTime(group) {
 function openCalendarReview(day, entries) {
   const groups = groupEntriesByCard(entries);
   calendarState.reviewGroups = groups;
-  calendarState.reviewActiveKey = groups[0]?.key ?? null;
-  calendarReviewDate.textContent = day;
+  calendarState.reviewActiveKey = null;
+  calendarReviewDate.innerHTML = `<span>${formatReviewDate(day)}</span><small>${formatReviewWeekday(day)}</small>`;
   calendarReview.classList.add("open");
   calendarReview.setAttribute("aria-hidden", "false");
   renderCalendarReview();
@@ -3759,7 +3786,7 @@ function renderCalendarReview() {
     });
     calendarReviewDeck.appendChild(button);
   });
-  const activeGroup = groups.find((group) => group.key === calendarState.reviewActiveKey) ?? groups[0];
+  const activeGroup = groups.find((group) => group.key === calendarState.reviewActiveKey) ?? null;
   renderCalendarReviewDetail(activeGroup);
 }
 
@@ -3809,37 +3836,40 @@ function cardPreviewDataUrl(card) {
 }
 
 function renderCalendarReviewDetail(group) {
-  const questions = uniqueRecordValues(group.entries.map((entry) => promptTextForRecord(entry)).filter(Boolean));
-  const answers = group.entries.filter((entry) => entry.type === "answer" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim());
-  const echoes = group.entries.filter((entry) => entry.type === "echo" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim());
-  const labels = collectRecordLabels(group.entries);
   calendarReviewDetail.innerHTML = "";
-  [
-    ["回声", echoes],
-    ["设问", questions],
-    ["输入", answers],
-    ["标签", labels],
-    ["点亮文字", group.entries.filter((entry) => entry.type === "keyword").map((entry) => entry.payload.text ?? "点亮的文字")],
-  ].forEach(([label, values]) => {
-    if (!values.length) return;
-    const section = document.createElement("div");
-    section.className = "review-record-group";
-    const heading = document.createElement("p");
-    heading.textContent = label;
-    section.appendChild(heading);
-    values.forEach((value) => {
-      const item = document.createElement("span");
-      item.textContent = value;
-      section.appendChild(item);
-    });
-    calendarReviewDetail.appendChild(section);
-  });
-  if (!calendarReviewDetail.children.length) {
+  if (!group) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = group.entries.some((entry) => entry.type === "app_visit") ? "这一天只是轻轻经过。" : "这张卡还没有留下可回看的输入或标签。";
+    empty.textContent = "点击一张记忆，再看见那一刻。";
     calendarReviewDetail.appendChild(empty);
+    return;
   }
+  calendarReviewDetail.appendChild(renderReviewRecordList(group.entries));
+}
+
+function renderReviewRecordList(entries) {
+  const section = document.createElement("div");
+  section.className = "review-record-group";
+  getCalendarReviewTexts(entries).forEach((value) => {
+    const item = document.createElement("span");
+    item.textContent = value;
+    section.appendChild(item);
+  });
+  if (!section.children.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "这一天还没有可回看的内容。";
+    section.appendChild(empty);
+  }
+  return section;
+}
+
+function getCalendarReviewTexts(entries) {
+  const questions = uniqueRecordValues(entries.map((entry) => entry.payload.questionText || promptTextForRecord(entry)).filter(Boolean));
+  const labels = collectRecordLabels(entries);
+  const echoes = uniqueRecordValues(entries.filter((entry) => entry.type === "echo" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim()));
+  const answers = uniqueRecordValues(entries.filter((entry) => entry.type === "answer" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim()));
+  return uniqueRecordValues([...questions, ...labels, ...echoes, ...answers]);
 }
 
 function promptTextForRecord(entry) {
@@ -3850,11 +3880,24 @@ function promptTextForRecord(entry) {
 function collectRecordLabels(entries) {
   const labels = [];
   entries.forEach((entry) => {
-    if (entry.type === "tag") labels.push(stripTagPrefix(entry.payload.label ?? entry.payload.tag ?? ""));
-    if (entry.type === "question_action") labels.push(...(entry.payload.labels ?? []));
-    if (entry.type === "echo") labels.push(...(entry.payload.labels ?? []));
+    if (entry.type === "tag" && ["bottle_fragment_select", "custom_fragment_select"].includes(entry.payload.action)) {
+      labels.push(stripTagPrefix(entry.payload.label ?? entry.payload.tag ?? ""));
+    }
   });
   return uniqueRecordValues(labels.filter(Boolean));
+}
+
+function formatReviewDate(day) {
+  const date = new Date(`${day}T00:00:00`);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const dateNumber = String(date.getDate()).padStart(2, "0");
+  return `${year}.${month}.${dateNumber}`;
+}
+
+function formatReviewWeekday(day) {
+  const date = new Date(`${day}T00:00:00`);
+  return ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][date.getDay()];
 }
 
 function uniqueRecordValues(values) {
@@ -4070,10 +4113,11 @@ document.getElementById("cardSetToggle").addEventListener("click", () => {
 });
 document.getElementById("calendarToggle").addEventListener("click", () => {
   hideIntroWhisper();
+  calendarState.footerCopy = pickCalendarFooterCopy();
   renderCalendar();
   togglePanel(calendarPanel);
 });
-weatherToggle.addEventListener("click", () => {
+weatherToggle?.addEventListener("click", () => {
   hideIntroWhisper();
   state.weatherEnabled = !state.weatherEnabled;
   localStorage.setItem(weatherStoreKey, state.weatherEnabled ? "on" : "off");
@@ -4081,12 +4125,12 @@ weatherToggle.addEventListener("click", () => {
   rebuildScene();
 });
 document.getElementById("closeCardSetPanel").addEventListener("click", () => togglePanel(cardSetPanel));
-document.getElementById("closeCalendarPanel").addEventListener("click", () => togglePanel(calendarPanel));
+document.getElementById("closeCalendarPanel")?.addEventListener("click", () => togglePanel(calendarPanel));
 document.getElementById("closeCalendarReview").addEventListener("click", closeCalendarReview);
 document.getElementById("calendarReviewScrim").addEventListener("click", closeCalendarReview);
-document.getElementById("closeWeatherReview").addEventListener("click", closeWeatherReview);
-document.getElementById("weatherReviewScrim").addEventListener("click", closeWeatherReview);
-weatherReview.querySelectorAll(".weather-window-option").forEach((button) => {
+document.getElementById("closeWeatherReview")?.addEventListener("click", closeWeatherReview);
+document.getElementById("weatherReviewScrim")?.addEventListener("click", closeWeatherReview);
+weatherReview?.querySelectorAll(".weather-window-option").forEach((button) => {
   button.addEventListener("click", () => {
     state.weatherWindowDays = Number(button.dataset.days);
     state.activeWeatherCardKey = null;
