@@ -6,9 +6,6 @@ const cardModal = document.getElementById("cardModal");
 const focusCard = document.getElementById("focusCard");
 const focusCtx = focusCard.getContext("2d");
 const promptLayer = document.getElementById("promptLayer");
-const answerInput = document.getElementById("answerInput");
-const submitAnswerButton = document.getElementById("submitAnswer");
-const liveTagResult = document.getElementById("liveTagResult");
 const responseDock = document.getElementById("responseDock");
 const cardSetPanel = document.getElementById("cardSetPanel");
 const calendarPanel = document.getElementById("calendarPanel");
@@ -23,20 +20,33 @@ const weatherReviewCopy = document.getElementById("weatherReviewCopy");
 const weatherReviewDeck = document.getElementById("weatherReviewDeck");
 const weatherReviewDetail = document.getElementById("weatherReviewDetail");
 const photoInput = document.getElementById("photoInput");
-const choiceModeToggle = document.getElementById("choiceModeToggle");
-const journalModeToggle = document.getElementById("journalModeToggle");
 const prevCardButton = document.getElementById("prevCard");
 const nextCardButton = document.getElementById("nextCard");
+const introWhisper = document.getElementById("introWhisper");
 
 const recordStoreKey = "presence.records.v1";
 const visibilityStoreKey = "presence.contentVisibility.v1";
 const userStoreKey = "presence.localUserId.v1";
-const modeStoreKey = "presence.mode.v1";
 const weatherStoreKey = "presence.weatherFragments.v1";
 const recentSemanticPromptStoreKey = "presence.recentSemanticPrompts.v1";
+const introStoreKey = "presence.intro.v1";
 const dbName = "presence.db.v1";
 const dbVersion = 1;
-const chunkSize = 92;
+const canvasGenerationConfig = {
+  minCardsPerViewport: 7,
+  maxCardsPerViewport: 10,
+  minBubblesPerViewport: 5,
+  maxBubblesPerViewport: 8,
+  chunkSize: 92,
+  clusterRadius: 58,
+  minDistanceBetweenCards: 130,
+  minDistanceBetweenBubbles: 78,
+  minDistanceCardToBubble: 112,
+  minOpacity: 0.35,
+  spawnPaddingAroundViewport: 0.22,
+};
+
+const chunkSize = canvasGenerationConfig.chunkSize;
 const renderDistance = 2;
 const chunkFadeMargin = 1.2;
 const depthFadeStart = 122;
@@ -46,9 +56,32 @@ const velocityLerp = 0.16;
 const velocityDecay = 0.9;
 const initialCameraZ = 92;
 const maxPromptsPerCard = 3;
-const maxItemsPerChunk = 7;
+const maxItemsPerChunk = canvasGenerationConfig.maxCardsPerViewport + canvasGenerationConfig.maxBubblesPerViewport;
 const flowBendStrength = 38;
 const flowJitterStrength = 24;
+const poissonPlacementAttempts = 30;
+const cardCenterMinDistancePx = canvasGenerationConfig.minDistanceBetweenCards;
+const wordCenterMinDistancePx = canvasGenerationConfig.minDistanceBetweenBubbles;
+const idleCruiseDelayMs = 2000;
+const idleCruiseScreenSeconds = 25;
+const interactionBoostDecaySeconds = 1;
+const interactionFloatBoostAmount = 0.18;
+const cardFloatAmplitude = { x: 0.45, y: 0.85 };
+const ambientFloatAmplitude = { x: 0.28, y: 0.54 };
+const wordFloatAmplitude = { x: 0.34, y: 0.62 };
+const floatSpeeds = {
+  standard: 0.15,
+  round: 0.22,
+  relationship: 0.18,
+  word: 0.3,
+  weather: 0.18,
+};
+const hoverLift = {
+  enterMs: 200,
+  leaveMs: 300,
+  scale: 1.04,
+  yOffset: -4,
+};
 
 const angelPairs = `
 Abundance|丰盛
@@ -272,6 +305,65 @@ const promptBank = [
   { id: "relationship-card-3", text: "这张卡想让你靠近一点，还是退后一点？", scope: "card", cardId: "relationship-3", tags: ["靠近", "退后"] },
 ];
 
+const introWhispers = [
+  "最近有些话，或许可以轻轻放进图片里。",
+  "不用急着说清，先靠近一张图。",
+  "这里可以只是停一会儿。",
+];
+
+const observingQuestions = [
+  "你在画面中看到了什么？",
+  "你被卡牌的哪里吸引着？",
+  "这里有什么还不需要马上清楚？",
+  "你的目光先停在哪里？",
+  "如果它是一种天气，会是什么？",
+];
+
+const dwellingCopies = [
+  "你似乎在这里停留了一会儿。",
+  "也许有几个词，正慢慢靠近。",
+  "不用选对，只是把贴近的留下。",
+  "沉默也可以先留在这里。",
+];
+
+const softTagPool = [
+  { family: "feeling", label: "有点雾" },
+  { family: "relation", label: "靠近一点" },
+  { family: "related", label: "还没说完" },
+  { family: "body", label: "轻轻警觉" },
+  { family: "feeling", label: "心里有风" },
+  { family: "boundary", label: "想躲一下" },
+  { family: "relation", label: "被看见一点" },
+  { family: "action", label: "暂时放着" },
+  { family: "feeling", label: "像傍晚" },
+  { family: "shift", label: "慢慢回来" },
+  { family: "body", label: "有点酸" },
+  { family: "related", label: "不必解释" },
+];
+
+const localEchoFragments = [
+  "你似乎在反复经过这里。",
+  "有些东西还没有被说完。",
+  "这里有一点慢下来的声音。",
+  "你刚才靠近了一个很轻的地方。",
+  "那句没有解释的话，也被留下了。",
+  "有个词像雾一样停着。",
+  "你没有急着离开，这已经算回应。",
+  "这里像是暂时不用整理。",
+  "有一点光，没有被拿走。",
+  "你提到的部分，还在轻轻回响。",
+  "这张图接住了一点沉默。",
+  "有些靠近，是很小声的。",
+  "刚才那一下停顿，被空间记住了。",
+  "你放下的不是答案，是一小片天气。",
+  "这里还有一点未完成的柔软。",
+  "像有什么从边缘慢慢浮回来。",
+  "那一点不确定，也可以先在这里。",
+  "你没有把它说清，但它被看见了。",
+  "有个地方，似乎还想再停一会儿。",
+  "这不是结论，只是一点回声。",
+];
+
 const supplementalObservationPerspectives = [
   {
     id: "semantic-nearest",
@@ -439,8 +531,10 @@ if (savedVisibility) {
 
 const records = readJson(recordStoreKey, []);
 const planeCache = new Map();
+const viewportDensityCache = new Map();
 const textureCache = new Map();
 const activeMeshes = new Map();
+const activeViewportDensityMeshIds = new Set();
 const raycaster = new THREE.Raycaster();
 const pointerNdc = new THREE.Vector2();
 const reusableVector = new THREE.Vector3();
@@ -457,12 +551,12 @@ const renderer = new THREE.WebGLRenderer({
   alpha: true,
   powerPreference: "high-performance",
 });
-renderer.setClearColor(0xf8f4ec, 0);
+renderer.setClearColor(0xeef5f7, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 root.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xf8f4ec, depthFadeStart, depthFadeEnd);
+scene.fog = new THREE.Fog(0xeef5f7, depthFadeStart, depthFadeEnd);
 
 const camera = new THREE.PerspectiveCamera(58, 1, 1, 760);
 camera.position.set(0, 0, initialCameraZ);
@@ -479,7 +573,7 @@ const state = {
   lastPointer: null,
   lastTouchDist: 0,
   scrollAccum: 0,
-  mode: localStorage.getItem(modeStoreKey) || "choice",
+  mode: "journal",
   activeCards: [],
   activeCardIndex: 0,
   activeBatchId: null,
@@ -491,22 +585,29 @@ const state = {
   answerSubmitted: false,
   selectedTags: new Set(),
   lastChunkKey: "",
-  weatherEnabled: localStorage.getItem(weatherStoreKey) !== "off",
+  weatherEnabled: localStorage.getItem(weatherStoreKey) === "on",
   weatherWindowDays: 30,
   weatherFragments: [],
   activeWeatherId: null,
   activeWeatherCardKey: null,
+  hoveredMeshId: null,
+  introTimer: null,
+  activeDwellTimer: null,
+  lastInteractionAt: performance.now(),
+  lastFrameAt: performance.now(),
+  interactionFloatBoost: 0,
 };
 
 const chunkOffsets = makeChunkOffsets();
 resize();
-renderModeToggle();
 renderContentPanel();
 renderCalendar();
 refreshWeatherFragments(false);
 renderWeatherButton();
+recordAppVisit();
 updateChunks(true);
 animate();
+scheduleIntroWhisper();
 
 function createNumberedCardImages(setId, count, extension) {
   return Array.from({ length: count }, (_, index) => {
@@ -860,6 +961,12 @@ function record(type, payload) {
   refreshWeatherFragments();
 }
 
+function recordAppVisit() {
+  const today = formatRecordDay(new Date().toISOString());
+  const visitedToday = records.some((entry) => entry.type === "app_visit" && (entry.dateKey ?? formatRecordDay(entry.at)) === today);
+  if (!visitedToday) record("app_visit", { action: "open" });
+}
+
 async function persistEvent(entry) {
   const event = {
     id: entry.id,
@@ -953,7 +1060,7 @@ function buildWeatherFragments(windowDays) {
   });
 
   return [...buckets.values()]
-    .filter((bucket) => bucket.entries.size >= 2 || bucket.days.size >= 2)
+    .filter((bucket) => [...bucket.entries.values()].some((entry) => entry.type === "echo") || bucket.entries.size >= 2 || bucket.days.size >= 2)
     .sort((a, b) => b.days.size - a.days.size || b.entries.size - a.entries.size || a.key.localeCompare(b.key))
     .slice(0, 5)
     .map((bucket, index) => {
@@ -969,7 +1076,7 @@ function buildWeatherFragments(windowDays) {
         relatedEntries: [...bucket.entries.values()].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()),
         windowDays,
         seed: hashString(`${windowDays}-${bucket.key}-${fragments.join("|")}`),
-        visualKind: ["shell", "paper", "tide"][index % 3],
+        visualKind: ["shell", "paper", "tide", "glow"][index % 4],
       };
     });
 }
@@ -996,7 +1103,7 @@ function collectWeatherPieces(windowDays, cutoff) {
 }
 
 function isWeatherRecord(entry) {
-  return ["tag", "keyword", "question_action", "answer"].includes(entry.type);
+  return ["tag", "keyword", "question_action", "answer", "echo"].includes(entry.type);
 }
 
 function weatherLabelsForEntry(entry) {
@@ -1011,6 +1118,12 @@ function weatherLabelsForEntry(entry) {
   }
   if (entry.type === "answer") {
     return answerWeatherLabels(entry.payload.text ?? "");
+  }
+  if (entry.type === "echo") {
+    return [
+      { label: entry.payload.text ?? "回声", family: "resonance" },
+      ...(entry.payload.labels ?? []).map((label) => ({ label, family: inferFamily(label) })),
+    ];
   }
   return [];
 }
@@ -1059,10 +1172,15 @@ function updateChunks(force = false) {
       .join("|") || "none";
   const sceneKey = `${enabledKey},${weatherKey}`;
   const key = `${cx},${cy},${cz},${sceneKey}`;
-  if (!force && key === state.lastChunkKey) return;
+  if (!force && key === state.lastChunkKey) {
+    ensureViewportDensity(sceneKey);
+    return;
+  }
   state.lastChunkKey = key;
 
   const needed = new Set();
+  activeViewportDensityMeshIds.forEach((id) => removeMeshById(id));
+  activeViewportDensityMeshIds.clear();
   chunkOffsets.forEach((offset) => {
     generateChunkPlanesCached(cx + offset.dx, cy + offset.dy, cz + offset.dz).forEach((item) => {
       needed.add(item.id);
@@ -1076,11 +1194,200 @@ function updateChunks(force = false) {
 
   activeMeshes.forEach((mesh, id) => {
     if (!needed.has(id)) {
-      scene.remove(mesh);
-      mesh.material.dispose();
-      activeMeshes.delete(id);
+      removeMeshById(id);
     }
   });
+  ensureViewportDensity(sceneKey);
+}
+
+function ensureViewportDensity(sceneKey) {
+  const densityKey = getViewportDensityKey(sceneKey);
+  activeViewportDensityMeshIds.forEach((id) => {
+    const item = activeMeshes.get(id)?.userData;
+    if (item?.viewportDensityKey !== densityKey) {
+      removeMeshById(id);
+      activeViewportDensityMeshIds.delete(id);
+    }
+  });
+
+  const counts = countViewportDensity();
+  const missingCards =
+    counts.cards < canvasGenerationConfig.minCardsPerViewport
+      ? Math.min(canvasGenerationConfig.minCardsPerViewport - counts.cards, Math.max(0, canvasGenerationConfig.maxCardsPerViewport - counts.cards))
+      : 0;
+  const missingWords =
+    counts.words < canvasGenerationConfig.minBubblesPerViewport
+      ? Math.min(canvasGenerationConfig.minBubblesPerViewport - counts.words, Math.max(0, canvasGenerationConfig.maxBubblesPerViewport - counts.words))
+      : 0;
+  if (!missingCards && !missingWords) return;
+
+  if (!viewportDensityCache.has(densityKey)) {
+    const existingItems = getPlacementItemsNearViewport(canvasGenerationConfig.spawnPaddingAroundViewport);
+    viewportDensityCache.set(densityKey, makeViewportDensityItems(densityKey, missingCards, missingWords, existingItems));
+    if (viewportDensityCache.size > 180) viewportDensityCache.delete(viewportDensityCache.keys().next().value);
+  }
+
+  viewportDensityCache.get(densityKey).forEach((item) => {
+    if (activeMeshes.has(item.id)) return;
+    const mesh = createMesh(item);
+    activeMeshes.set(item.id, mesh);
+    activeViewportDensityMeshIds.add(item.id);
+    scene.add(mesh);
+  });
+}
+
+function getViewportDensityKey(sceneKey) {
+  const width = Math.max(1, getVisibleWorldWidth() * 0.72);
+  const height = Math.max(1, getVisibleWorldHeight() * 0.72);
+  const vx = Math.floor((state.basePos.x + state.drift.x) / width);
+  const vy = Math.floor((state.basePos.y + state.drift.y) / height);
+  const vz = Math.floor(state.basePos.z / chunkSize);
+  return `${sceneKey}|viewport:${vx}:${vy}:${vz}`;
+}
+
+function countViewportDensity() {
+  const counts = { cards: 0, words: 0 };
+  activeMeshes.forEach((mesh) => {
+    const item = mesh.userData;
+    if (item.kind !== "card" && item.kind !== "word") return;
+    if (!isItemInReadableViewport(item, -0.12)) return;
+    if (item.kind === "card") counts.cards += 1;
+    if (item.kind === "word") counts.words += 1;
+  });
+  return counts;
+}
+
+function getPlacementItemsNearViewport(padding) {
+  return [...activeMeshes.values()]
+    .map((mesh) => mesh.userData)
+    .filter((item) => (item.kind === "card" || item.kind === "word") && isItemInReadableViewport(item, padding + 0.18));
+}
+
+function isItemInProjectedViewport(item, padding) {
+  reusableVector.copy(item.position).project(camera);
+  const relativeDepth = state.basePos.z - item.position.z;
+  return (
+    relativeDepth > -26 &&
+    Math.abs(relativeDepth) < depthFadeEnd &&
+    reusableVector.x >= -1 - padding &&
+    reusableVector.x <= 1 + padding &&
+    reusableVector.y >= -1 - padding &&
+    reusableVector.y <= 1 + padding
+  );
+}
+
+function isItemInReadableViewport(item, padding) {
+  reusableVector.copy(item.position).project(camera);
+  const relativeDepth = state.basePos.z - item.position.z;
+  return (
+    relativeDepth > 8 &&
+    relativeDepth <= depthFadeStart &&
+    reusableVector.x >= -1 - padding &&
+    reusableVector.x <= 1 + padding &&
+    reusableVector.y >= -1 - padding &&
+    reusableVector.y <= 1 + padding
+  );
+}
+
+function makeViewportDensityItems(densityKey, missingCards, missingWords, existingItems) {
+  const cards = getEnabledCards();
+  const enabledWords = getEnabledWords();
+  const items = [];
+  const seed = hashString(densityKey);
+  const bounds = getViewportWorldBounds(state.basePos.z - 72, canvasGenerationConfig.spawnPaddingAroundViewport);
+  const clusters = makeViewportDensityClusters(bounds, seed);
+  const clusterRadius = screenPixelsToWorldUnits(canvasGenerationConfig.clusterRadius);
+  const kinds = [
+    ...Array.from({ length: cards.length ? missingCards : 0 }, () => "card"),
+    ...Array.from({ length: enabledWords.length ? missingWords : 0 }, () => "word"),
+  ];
+
+  kinds.forEach((kind, index) => {
+    const item = makePoissonViewportItem(
+      {
+        cards,
+        enabledWords,
+        clusters,
+        clusterRadius,
+        densityKey,
+        itemIndex: index,
+        itemSeed: seed + index * 1291,
+        kind,
+      },
+      [...existingItems, ...items],
+    );
+    if (item) items.push(item);
+  });
+
+  return items;
+}
+
+function makeViewportDensityClusters(bounds, seed) {
+  const count = 2 + (seededRandom(seed + 17) > 0.62 ? 1 : 0);
+  return Array.from({ length: count }, (_, index) => {
+    const s = seed + index * 2161;
+    const r = (n) => seededRandom(s + n);
+    return {
+      id: `viewport-cluster:${index}`,
+      center: new THREE.Vector3(lerp(bounds.minX, bounds.maxX, r(1)), lerp(bounds.minY, bounds.maxY, r(2)), bounds.z + (r(3) - 0.5) * chunkSize * 0.38),
+      semanticKey: ["standard", "round", "relationship", "present", "angel"][Math.floor(r(4) * 5) % 5],
+      flowRotation: (r(5) - 0.5) * 0.32,
+      seed: s,
+    };
+  });
+}
+
+function makePoissonViewportItem(args, placedItems) {
+  const attempts = poissonPlacementAttempts * 2;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const itemSeed = args.itemSeed + attempt * 7919;
+    const cluster = args.clusters[Math.floor(seededRandom(itemSeed + 5) * args.clusters.length) % args.clusters.length];
+    const radius = args.clusterRadius * (1 + (attempt / attempts) * 2.4);
+    const item = makeClusterItem({
+      cards: args.cards,
+      enabledWords: args.enabledWords,
+      weatherFragments: [],
+      cluster,
+      key: args.densityKey,
+      itemIndex: args.itemIndex,
+      itemSeed,
+      kind: args.kind,
+      position: placeAroundCluster(cluster, radius, itemSeed),
+      attempt,
+    });
+    if (item && isPoissonPlacementValid(item, placedItems)) {
+      item.isViewportSupplemental = true;
+      item.viewportDensityKey = args.densityKey;
+      if (item.kind === "card") item.scale.multiplyScalar(0.72);
+      if (item.kind === "word") item.scale.multiplyScalar(0.92);
+      return item;
+    }
+  }
+  return null;
+}
+
+function getViewportWorldBounds(z, padding) {
+  const distance = Math.max(1, camera.position.z - z);
+  const height = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const width = height * camera.aspect;
+  const padX = width * padding;
+  const padY = height * padding;
+  return {
+    minX: camera.position.x - width / 2 - padX,
+    maxX: camera.position.x + width / 2 + padX,
+    minY: camera.position.y - height / 2 - padY,
+    maxY: camera.position.y + height / 2 + padY,
+    z,
+  };
+}
+
+function removeMeshById(id) {
+  const mesh = activeMeshes.get(id);
+  if (!mesh) return;
+  if (state.hoveredMeshId === id) setHoveredMeshId(null);
+  scene.remove(mesh);
+  mesh.material.dispose();
+  activeMeshes.delete(id);
 }
 
 function generateChunkPlanesCached(cx, cy, cz) {
@@ -1097,43 +1404,155 @@ function generateChunkPlanesCached(cx, cy, cz) {
   const weatherFragments = state.weatherEnabled ? state.weatherFragments : [];
   const items = [];
   const seed = hashString(key);
-  const streams = makeStreamAnchors(cx, cy, cz, seed);
-  const empty = isBreathingVoid(cx, cy, cz);
+  const clusters = makeChunkClusters(cx, cy, cz, seed);
+  const clusterRadius = screenPixelsToWorldUnits(canvasGenerationConfig.clusterRadius);
   let itemIndex = 0;
 
-  streams.forEach((stream, streamIndex) => {
+  const desiredCards = cards.length ? 1 + (seededRandom(seed + 11) > 0.72 ? 1 : 0) : 0;
+  const desiredWords = enabledWords.length && seededRandom(seed + 13) > 0.45 ? 1 : 0;
+  const desiredWeather = weatherFragments.length && seededRandom(seed + 17) > 0.82 ? 1 : 0;
+  const itemKinds = [
+    ...Array.from({ length: desiredCards }, () => "card"),
+    ...Array.from({ length: desiredWords }, () => "word"),
+    ...Array.from({ length: desiredWeather }, () => "weather"),
+  ];
+
+  itemKinds.forEach((kind, index) => {
     if (items.length >= maxItemsPerChunk) return;
-    const streamSeed = seed + streamIndex * 1543;
-    const r = (n) => seededRandom(streamSeed + n);
-    const rawCount = Math.floor(1.5 + r(11) * 3.8 + (stream.density > 0.72 ? r(12) * 2.4 : 0));
-    const count = empty ? Math.min(rawCount, r(13) > 0.62 ? 1 : 0) : Math.min(rawCount, maxItemsPerChunk - items.length);
-    for (let i = 0; i < count && items.length < maxItemsPerChunk; i += 1) {
-      const itemSeed = streamSeed + i * 997;
-      const item = makeStreamItem({
+    const itemSeed = seed + index * 997;
+    const item = makePoissonClusterItem(
+      {
         cards,
         enabledWords,
         weatherFragments,
-        stream,
+        clusters,
+        clusterRadius,
         key,
         itemIndex,
         itemSeed,
-      });
-      if (item) {
-        items.push(item);
-        itemIndex += 1;
-      }
+        kind,
+      },
+      items,
+    );
+    if (item) {
+      items.push(item);
+      itemIndex += 1;
     }
   });
 
-  if (!items.length && isNearInitialView(cx, cy, cz)) {
-    const stream = streams[0] ?? makeFallbackStream(cx, cy, cz, seed);
-    const item = makeStreamItem({ cards, enabledWords, weatherFragments, stream, key, itemIndex: 0, itemSeed: seed + 4049 });
-    if (item) items.push(item);
+  if (state.weatherEnabled && weatherFragments.length && isNearInitialView(cx, cy, cz) && !items.some((item) => item.kind === "weather")) {
+    const echoItem = makeWeatherStreamItem(
+      {
+        id: `${key}-weather-echo-surface`,
+        chunkKey: key,
+        streamId: clusters[0]?.id ?? key,
+        semanticKey: "weather",
+        flowRotation: (clusters[0]?.flowRotation ?? 0) + 0.08,
+        floatPhase: seededRandom(seed + 88) * Math.PI * 2,
+        floatAmp: 1.4,
+        position: placeAroundCluster(clusters[0] ?? makeChunkCluster(cx, cy, cz, seed + 88, "fallback"), clusterRadius, seed + 909),
+        seed: seed + 909,
+        lit: true,
+      },
+      weatherFragments,
+      seed + 909,
+    );
+    if (echoItem) items.push(echoItem);
+  }
+
+  if (!items.length) {
+    const fallbackKind = cards.length ? "card" : enabledWords.length ? "word" : weatherFragments.length ? "weather" : null;
+    if (fallbackKind) {
+      const item = makePoissonClusterItem(
+        {
+          cards,
+          enabledWords,
+          weatherFragments,
+          clusters,
+          clusterRadius,
+          key,
+          itemIndex: 0,
+          itemSeed: seed + 4049,
+          kind: fallbackKind,
+        },
+        items,
+      );
+      if (item) items.push(item);
+    }
   }
 
   planeCache.set(key, items);
   if (planeCache.size > 260) planeCache.delete(planeCache.keys().next().value);
   return items;
+}
+
+function makeChunkClusters(cx, cy, cz, seed) {
+  const count = 1 + (seededRandom(seed + 31) > 0.42 ? 1 : 0) + (seededRandom(seed + 37) > 0.82 ? 1 : 0);
+  return Array.from({ length: count }, (_, index) => makeChunkCluster(cx, cy, cz, seed + index * 2017, index));
+}
+
+function makeChunkCluster(cx, cy, cz, seed, index) {
+  const r = (n) => seededRandom(seed + n);
+  const center = new THREE.Vector3(
+    cx * chunkSize + (r(1) - 0.5) * chunkSize * 0.86,
+    cy * chunkSize + (r(2) - 0.5) * chunkSize * 0.86,
+    cz * chunkSize + (r(3) - 0.5) * chunkSize * 0.5,
+  );
+  const semanticKeys = ["standard", "round", "relationship", "photos", "present", "angel", "mist", "seen", "weather", "body", "light"];
+  return {
+    id: `${cx}:${cy}:${cz}:cluster:${index}`,
+    center,
+    semanticKey: semanticKeys[Math.floor(r(4) * semanticKeys.length) % semanticKeys.length],
+    flowRotation: (r(5) - 0.5) * 0.32,
+    seed,
+  };
+}
+
+function placeAroundCluster(cluster, radius, seed) {
+  const r = (n) => seededRandom(seed + n);
+  const angle = r(1) * Math.PI * 2;
+  const distance = Math.sqrt(r(2)) * radius;
+  const depth = (r(3) - 0.5) * chunkSize * 0.28;
+  return new THREE.Vector3(
+    cluster.center.x + Math.cos(angle) * distance,
+    cluster.center.y + Math.sin(angle) * distance,
+    cluster.center.z + depth,
+  );
+}
+
+function makePoissonClusterItem(args, placedItems) {
+  for (let attempt = 0; attempt < poissonPlacementAttempts; attempt += 1) {
+    const itemSeed = args.itemSeed + attempt * 7919;
+    const cluster = args.clusters[Math.floor(seededRandom(itemSeed + 5) * args.clusters.length) % args.clusters.length];
+    const item = makeClusterItem({
+      ...args,
+      cluster,
+      itemSeed,
+      position: placeAroundCluster(cluster, args.clusterRadius, itemSeed),
+      attempt,
+    });
+    if (item && isPoissonPlacementValid(item, placedItems)) return item;
+  }
+  return null;
+}
+
+function makeClusterItem({ cards, enabledWords, weatherFragments, cluster, key, itemIndex, itemSeed, kind, position, attempt }) {
+  const base = {
+    id: `${key}-${cluster.id}-${kind}-${itemIndex}-${attempt}`,
+    chunkKey: key,
+    streamId: cluster.id,
+    semanticKey: cluster.semanticKey,
+    flowRotation: cluster.flowRotation,
+    floatPhase: seededRandom(itemSeed + 3) * Math.PI * 2,
+    floatAmp: 0.45 + seededRandom(itemSeed + 4) * 1.4,
+    position,
+    seed: itemSeed,
+    lit: false,
+  };
+  if (kind === "card") return makeCardStreamItem(base, cards, cluster.semanticKey, itemSeed);
+  if (kind === "word") return makeWordStreamItem(base, enabledWords, cluster.semanticKey, itemSeed);
+  if (kind === "weather") return makeWeatherStreamItem(base, weatherFragments, itemSeed);
+  return null;
 }
 
 function makeStreamAnchors(cx, cy, cz, seed) {
@@ -1187,6 +1606,62 @@ function placeAlongStream(stream, t, jitterSeed) {
   );
 }
 
+function makePoissonStreamItem(args, placedItems) {
+  for (let attempt = 0; attempt < poissonPlacementAttempts; attempt += 1) {
+    const item = makeStreamItem({
+      ...args,
+      itemSeed: args.itemSeed + attempt * 7919,
+    });
+    if (item && isPoissonPlacementValid(item, placedItems)) return item;
+  }
+  return null;
+}
+
+function isPoissonPlacementValid(candidate, placedItems) {
+  return placedItems.every((item) => {
+    const distance = getPoissonPairDistance(candidate, item);
+    if (!distance) return true;
+    return centerDistance2d(candidate.position, item.position) >= distance;
+  });
+}
+
+function getPoissonMinDistance(item) {
+  if (item.kind === "card") return screenPixelsToWorldUnits(cardCenterMinDistancePx);
+  if (item.kind === "word") return screenPixelsToWorldUnits(wordCenterMinDistancePx);
+  return 0;
+}
+
+function getPoissonPairDistance(a, b) {
+  if (a.kind === "card" && b.kind === "card") {
+    const baseDistance = Math.max(getPoissonMinDistance(a), getPoissonMinDistance(b));
+    const widthGuard = (a.scale.x + b.scale.x) * 0.56;
+    const heightGuard = (a.scale.y + b.scale.y) * 0.62;
+    return Math.max(baseDistance, widthGuard, heightGuard);
+  }
+  if (a.kind === "word" && b.kind === "word") {
+    return Math.max(getPoissonMinDistance(a), getPoissonMinDistance(b));
+  }
+  if ((a.kind === "card" && b.kind === "word") || (a.kind === "word" && b.kind === "card")) {
+    const card = a.kind === "card" ? a : b;
+    const word = a.kind === "word" ? a : b;
+    const baseDistance = screenPixelsToWorldUnits(canvasGenerationConfig.minDistanceCardToBubble);
+    const widthGuard = card.scale.x * 0.42 + word.scale.x * 0.55;
+    const heightGuard = card.scale.y * 0.44 + word.scale.y * 0.6;
+    return Math.max(baseDistance, widthGuard, heightGuard);
+  }
+  return 0;
+}
+
+function screenPixelsToWorldUnits(pixels) {
+  const viewportHeight = Math.max(window.innerHeight || 800, 1);
+  const initialViewHeight = 2 * initialCameraZ * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  return (initialViewHeight / viewportHeight) * pixels;
+}
+
+function centerDistance2d(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
 function makeStreamItem({ cards, enabledWords, weatherFragments, stream, key, itemIndex, itemSeed }) {
   const r = (n) => seededRandom(itemSeed + n);
   const semanticKey = stream.semanticKey;
@@ -1238,6 +1713,7 @@ function makeCardStreamItem(base, cards, semanticKey, seed) {
     card,
     set,
     semanticKey: getCardSemanticKey(card),
+    floatSpeed: getCardFloatSpeed(card),
     scale: new THREE.Vector3(clamp(cardHeight * cardAspect, 8.5, 29), cardHeight, 1),
   };
 }
@@ -1256,6 +1732,7 @@ function makeWordStreamItem(base, enabledWords, semanticKey, seed) {
     text: displayText,
     groupId: word.groupId,
     semanticKey: getWordSemanticKey(word),
+    floatSpeed: floatSpeeds.word,
     scale: new THREE.Vector3(wordScale.width, wordScale.height, 1),
   };
 }
@@ -1276,12 +1753,19 @@ function makeWeatherStreamItem(base, weatherFragments, seed) {
     kind: "weather",
     fragment,
     semanticKey: getWeatherSemanticKey(fragment),
+    floatSpeed: floatSpeeds.weather,
     scale: new THREE.Vector3(scale.width, scale.height, 1),
   };
 }
 
 function getCardSemanticKey(card) {
   return card?.setId ?? "card";
+}
+
+function getCardFloatSpeed(card) {
+  if (card?.setId === "round") return floatSpeeds.round;
+  if (card?.setId === "relationship") return floatSpeeds.relationship;
+  return floatSpeeds.standard;
 }
 
 function getWordSemanticKey(word) {
@@ -1411,23 +1895,24 @@ function makeWeatherTexture(fragment, seed) {
   const ctx = canvas.getContext("2d");
   const kind = fragment.visualKind;
   const colors = {
-    shell: ["rgba(255, 252, 245, 0.92)", "rgba(232, 213, 190, 0.72)", "rgba(52, 125, 112, 0.2)"],
-    paper: ["rgba(255, 252, 245, 0.9)", "rgba(219, 236, 230, 0.72)", "rgba(223, 162, 143, 0.18)"],
-    tide: ["rgba(255, 252, 245, 0.78)", "rgba(199, 215, 234, 0.64)", "rgba(52, 125, 112, 0.16)"],
-  }[kind];
+    shell: ["rgba(255, 255, 246, 0.98)", "rgba(255, 229, 150, 0.82)", "rgba(156, 220, 210, 0.42)"],
+    paper: ["rgba(255, 255, 250, 0.96)", "rgba(156, 220, 210, 0.76)", "rgba(255, 229, 150, 0.36)"],
+    tide: ["rgba(255, 255, 245, 0.92)", "rgba(205, 187, 235, 0.72)", "rgba(156, 220, 210, 0.38)"],
+    glow: ["rgba(255, 255, 250, 0.98)", "rgba(255, 229, 150, 0.86)", "rgba(205, 187, 235, 0.46)"],
+  }[kind] ?? ["rgba(255, 255, 250, 0.96)", "rgba(255, 229, 150, 0.76)", "rgba(156, 220, 210, 0.38)"];
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.save();
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.rotate((seededRandom(seed + 3) - 0.5) * 0.14);
-  ctx.shadowColor = "rgba(22, 32, 27, 0.14)";
-  ctx.shadowBlur = 28;
+  ctx.shadowColor = "rgba(255, 214, 111, 0.76)";
+  ctx.shadowBlur = 44;
   ctx.beginPath();
   if (kind === "shell") {
     ctx.moveTo(-canvas.width * 0.34, -canvas.height * 0.04);
     ctx.bezierCurveTo(-canvas.width * 0.24, -canvas.height * 0.42, canvas.width * 0.25, -canvas.height * 0.46, canvas.width * 0.34, -canvas.height * 0.06);
     ctx.bezierCurveTo(canvas.width * 0.4, canvas.height * 0.24, canvas.width * 0.12, canvas.height * 0.38, -canvas.width * 0.26, canvas.height * 0.24);
     ctx.bezierCurveTo(-canvas.width * 0.38, canvas.height * 0.18, -canvas.width * 0.42, canvas.height * 0.08, -canvas.width * 0.34, -canvas.height * 0.04);
-  } else if (kind === "paper") {
+  } else if (kind === "paper" || kind === "glow") {
     ctx.moveTo(-canvas.width * 0.36, -canvas.height * 0.28);
     ctx.lineTo(canvas.width * 0.3, -canvas.height * 0.34);
     ctx.quadraticCurveTo(canvas.width * 0.4, -canvas.height * 0.1, canvas.width * 0.34, canvas.height * 0.28);
@@ -1449,9 +1934,16 @@ function makeWeatherTexture(fragment, seed) {
   ctx.strokeStyle = "rgba(22, 32, 27, 0.12)";
   ctx.lineWidth = 3;
   ctx.stroke();
+  ctx.globalAlpha = 0.64;
+  ctx.strokeStyle = "rgba(255, 250, 210, 0.86)";
+  ctx.lineWidth = 5;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
   ctx.restore();
 
-  ctx.fillStyle = "rgba(22, 32, 27, 0.72)";
+  ctx.shadowColor = "rgba(255, 229, 150, 0.72)";
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = "rgba(31, 38, 34, 0.78)";
   ctx.font = `${size.lines.length > 1 ? 700 : 760} ${size.lines.length > 1 ? 30 : 34}px Inter, system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -1498,7 +1990,7 @@ function getWeatherTextureSize(text) {
 
 function getWeatherPlaneScale(text, visualKind) {
   const size = getWeatherTextureSize(text);
-  const height = visualKind === "tide" ? 10.2 : 9.2;
+  const height = visualKind === "tide" || visualKind === "glow" ? 10.8 : 9.6;
   return { width: height * (size.width / size.height), height };
 }
 
@@ -1758,6 +2250,9 @@ function roundedRect(ctx, x, y, w, h, r) {
 
 function animate() {
   requestAnimationFrame(animate);
+  const nowMs = performance.now();
+  const deltaSeconds = Math.min((nowMs - state.lastFrameAt) / 1000, 0.08);
+  state.lastFrameAt = nowMs;
   state.targetVel.z += state.scrollAccum;
   state.scrollAccum *= 0.78;
   state.targetVel.x = clamp(state.targetVel.x, -maxVelocity, maxVelocity);
@@ -1765,6 +2260,8 @@ function animate() {
   state.targetVel.z = clamp(state.targetVel.z, -maxVelocity * 0.86, maxVelocity * 0.86);
   state.velocity.lerp(state.targetVel, velocityLerp);
   state.basePos.add(state.velocity);
+  updateIdleCruise(nowMs, deltaSeconds);
+  state.interactionFloatBoost = Math.max(0, state.interactionFloatBoost - deltaSeconds / interactionBoostDecaySeconds);
   state.targetVel.multiplyScalar(velocityDecay);
   const driftAmount = clamp(Math.abs(state.basePos.z) / 70, 0.5, 2.4) * 5.5;
   if (!state.isDragging && state.pointers.size === 0) {
@@ -1782,20 +2279,23 @@ function updateMeshVisibility() {
   const cx = Math.floor(state.basePos.x / chunkSize);
   const cy = Math.floor(state.basePos.y / chunkSize);
   const cz = Math.floor(state.basePos.z / chunkSize);
-  const now = performance.now() * 0.001;
+  const nowMs = performance.now();
+  const now = nowMs * 0.001;
   activeMeshes.forEach((mesh) => {
     const item = mesh.userData;
-    const flow = flowAt(item.position.x, item.position.y, item.position.z, item.seed ?? 1);
-    const phase = now * 0.24 + (item.floatPhase ?? 0);
-    const floatAmp = item.floatAmp ?? 0;
-    const streamDrift = Math.sin(phase) * floatAmp;
-    const sideDrift = Math.cos(phase * 0.72) * floatAmp * 0.38;
+    const floatSpeed = item.floatSpeed ?? getItemFloatSpeed(item);
+    const phaseOffset = item.floatPhase ?? 0;
+    const amplitude = getFloatAmplitude(item);
+    const interactionMultiplier = item.kind === "card" ? 1 + state.interactionFloatBoost * interactionFloatBoostAmount : 1;
+    const floatY = Math.sin(now * floatSpeed + phaseOffset) * amplitude.y * interactionMultiplier;
+    const floatX = Math.cos(now * floatSpeed * 0.7 + phaseOffset) * amplitude.x * interactionMultiplier;
+    const hover = updateCardHoverLift(item, nowMs);
     mesh.position.set(
-      item.position.x + flow.x * streamDrift - flow.y * sideDrift,
-      item.position.y + flow.y * streamDrift + flow.x * sideDrift,
-      item.position.z + Math.sin(phase * 0.62) * floatAmp * 0.42,
+      item.position.x + floatX,
+      item.position.y + floatY + hover.yOffset,
+      item.position.z,
     );
-    mesh.rotation.z = (item.flowRotation ?? 0) + Math.sin(phase * 0.5) * 0.035;
+    mesh.rotation.z = (item.flowRotation ?? 0) + Math.sin((now * floatSpeed + phaseOffset) * 0.5) * 0.035;
     reusableVector.copy(mesh.position);
     const dist = Math.max(
       Math.abs(Math.floor(reusableVector.x / chunkSize) - cx),
@@ -1807,19 +2307,140 @@ function updateMeshVisibility() {
     const gridFade = dist <= renderDistance ? 1 : Math.max(0, 1 - (dist - renderDistance) / chunkFadeMargin);
     const depthFade =
       absDepth <= depthFadeStart ? 1 : Math.max(0, 1 - (absDepth - depthFadeStart) / (depthFadeEnd - depthFadeStart));
+    const depthRatio = clamp(absDepth / depthFadeEnd, 0, 1);
     reusableVector.copy(mesh.position).project(camera);
     const edgeDistance = Math.max(Math.abs(reusableVector.x), Math.abs(reusableVector.y));
     const edgeFade = edgeDistance < 0.72 ? 1 : clamp(1 - (edgeDistance - 0.72) / 0.34, 0, 1);
     const tooCloseWord = item.kind === "word" && relativeDepth < 24;
     const depthSoftness = item.kind === "weather" ? depthFade : depthFade * depthFade;
-    const target = relativeDepth > -26 && !tooCloseWord ? Math.min(gridFade, depthSoftness, edgeFade) : 0;
-    mesh.material.opacity += (target - mesh.material.opacity) * 0.16;
+    const observable = relativeDepth > -26 && !tooCloseWord && gridFade > 0 && depthSoftness > 0 && edgeFade > 0;
+    const rawTarget = observable ? Math.min(gridFade, depthSoftness, edgeFade) : 0;
+    const target = observable && (item.kind === "card" || item.kind === "word") ? Math.max(canvasGenerationConfig.minOpacity, rawTarget) : rawTarget;
+    const isHovered = state.hoveredMeshId === item.id;
+    const hoverBoost = isHovered ? (item.kind === "weather" ? 0.24 : 0.16) : 0;
+    mesh.material.opacity += (Math.min(1, target + hoverBoost) - mesh.material.opacity) * 0.16;
+    mesh.material.color.setHex(isHovered && item.kind === "weather" ? 0xfff4bb : 0xffffff);
+    const breatheAmp = item.kind === "weather" ? 0.035 : item.kind === "card" ? 0.018 : 0.012;
+    const zoomSoftness = 1 - depthRatio * (item.kind === "weather" ? 0.08 : 0.16);
+    const hoverScale = item.kind === "weather" && isHovered ? 1.04 : hover.scale;
+    const breathe = (1 + Math.sin((now * floatSpeed + phaseOffset) * 0.82) * breatheAmp) * zoomSoftness * hoverScale;
+    mesh.scale.set(item.scale.x * breathe, item.scale.y * breathe, item.scale.z);
     mesh.material.depthWrite = mesh.material.opacity > 0.98;
     mesh.visible = mesh.material.opacity > 0.012;
   });
 }
 
+function updateIdleCruise(nowMs, deltaSeconds) {
+  const isIdle = nowMs - state.lastInteractionAt > idleCruiseDelayMs && !state.isDragging && state.pointers.size === 0 && !cardModal.classList.contains("open");
+  if (!isIdle || deltaSeconds <= 0) return;
+  const visibleWidth = getVisibleWorldWidth();
+  const speed = visibleWidth / idleCruiseScreenSeconds;
+  const angle = nowMs * 0.000035;
+  const directionX = Math.cos(angle) * 0.94;
+  const directionY = Math.sin(angle * 0.73) * 0.34;
+  state.basePos.x += directionX * speed * deltaSeconds;
+  state.basePos.y += directionY * speed * deltaSeconds;
+}
+
+function getVisibleWorldWidth() {
+  return getVisibleWorldHeight() * camera.aspect;
+}
+
+function getVisibleWorldHeight() {
+  return 2 * initialCameraZ * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+}
+
+function getFloatAmplitude(item) {
+  if (item.kind === "card") return cardFloatAmplitude;
+  if (item.kind === "word") return wordFloatAmplitude;
+  return ambientFloatAmplitude;
+}
+
+function markCanvasInteraction() {
+  state.lastInteractionAt = performance.now();
+  state.interactionFloatBoost = 1;
+}
+
+function updateHover(clientX, clientY) {
+  pointerNdc.set((clientX / window.innerWidth) * 2 - 1, -(clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(pointerNdc, camera);
+  const hits = raycaster.intersectObjects([...activeMeshes.values()].filter((mesh) => mesh.visible), false);
+  const hit = hits.find((entry) => entry.object.material.opacity > 0.18);
+  setHoveredMeshId(hit?.object.userData.id ?? null);
+}
+
+function setHoveredMeshId(nextId) {
+  if (state.hoveredMeshId === nextId) return;
+  const nowMs = performance.now();
+  triggerCardHoverLift(activeMeshes.get(state.hoveredMeshId), false, nowMs);
+  state.hoveredMeshId = nextId;
+  triggerCardHoverLift(activeMeshes.get(nextId), true, nowMs);
+}
+
+function triggerCardHoverLift(mesh, isEntering, nowMs) {
+  const item = mesh?.userData;
+  if (!item || item.kind !== "card") return;
+  const current = getCardHoverLift(item, nowMs);
+  item.hoverLift = {
+    startedAt: nowMs,
+    duration: isEntering ? hoverLift.enterMs : hoverLift.leaveMs,
+    fromScale: current.scale,
+    toScale: isEntering ? hoverLift.scale : 1,
+    fromYOffset: current.yOffset,
+    toYOffset: isEntering ? hoverLift.yOffset : 0,
+    easing: isEntering ? easeOutCubic : easeInOutCubic,
+  };
+}
+
+function updateCardHoverLift(item, nowMs) {
+  if (item.kind !== "card") return { scale: 1, yOffset: 0 };
+  const current = getCardHoverLift(item, nowMs);
+  item.hoverScale = current.scale;
+  item.hoverYOffset = current.yOffset;
+  if (current.done) item.hoverLift = null;
+  return current;
+}
+
+function getCardHoverLift(item, nowMs) {
+  const animation = item.hoverLift;
+  if (!animation) {
+    return {
+      scale: item.hoverScale ?? 1,
+      yOffset: item.hoverYOffset ?? 0,
+      done: false,
+    };
+  }
+  const progress = clamp((nowMs - animation.startedAt) / animation.duration, 0, 1);
+  const eased = animation.easing(progress);
+  return {
+    scale: lerp(animation.fromScale, animation.toScale, eased),
+    yOffset: lerp(animation.fromYOffset, animation.toYOffset, eased),
+    done: progress >= 1,
+  };
+}
+
+function getItemFloatSpeed(item) {
+  if (item.kind === "word") return floatSpeeds.word;
+  if (item.kind === "weather") return floatSpeeds.weather;
+  if (item.kind === "card") return getCardFloatSpeed(item.card);
+  return floatSpeeds.standard;
+}
+
+function easeOutCubic(t) {
+  return 1 - (1 - t) ** 3;
+}
+
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
 function onPointerDown(event) {
+  markCanvasInteraction();
+  hideIntroWhisper();
   renderer.domElement.setPointerCapture(event.pointerId);
   state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
   state.lastPointer = { x: event.clientX, y: event.clientY, t: performance.now(), moved: 0 };
@@ -1828,6 +2449,7 @@ function onPointerDown(event) {
 }
 
 function onPointerMove(event) {
+  markCanvasInteraction();
   const previous = state.pointers.get(event.pointerId);
   if (!previous) return;
   state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -1847,6 +2469,7 @@ function onPointerMove(event) {
 }
 
 function onPointerUp(event) {
+  markCanvasInteraction();
   const last = state.lastPointer;
   state.pointers.delete(event.pointerId);
   state.lastTouchDist = 0;
@@ -1894,11 +2517,17 @@ function openCardExperience(cards, initialIndex = 0, batchId = null) {
 
 function createCardSession(card) {
   const set = [...projectionSets, photoSet].find((candidate) => candidate.id === card.setId) ?? photoSet;
+  const seed = (card.seed ?? hashString(card.id)) + Date.now();
   return {
     card,
     set,
     prompts: selectPrompts(card, set, card.seed ?? hashString(card.id)),
     currentPromptIndex: 0,
+    question: pickOne(observingQuestions, seed + 13),
+    dwellCopy: pickOne(dwellingCopies, seed + 29),
+    reflectionStage: "observing",
+    inputOpen: false,
+    openedAt: performance.now(),
     selectedTags: new Set(),
     collectedTags: new Set(),
     answerText: "",
@@ -1924,18 +2553,47 @@ function syncActiveCard() {
   focusCard.style.aspectRatio = `${size.width} / ${size.height}`;
   drawCardCanvas(focusCtx, focusCard.width, focusCard.height, card);
   renderModalByMode();
+  scheduleDwellReveal(session);
   updateBatchNav();
   record("card_open", {
     cardId: card.id,
     setId: card.setId,
     title: card.title,
-    mode: state.mode,
+    mode: "presence",
     photoBatchId: state.activeBatchId,
     thumbnail: cardThumbnail(card),
   });
 }
 
+function scheduleDwellReveal(session) {
+  window.clearTimeout(state.activeDwellTimer);
+  if (session.reflectionStage !== "observing") return;
+  state.activeDwellTimer = window.setTimeout(() => {
+    if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
+    session.reflectionStage = "tagsVisible";
+    renderModalByMode();
+  }, 3500);
+}
+
 function closeModal() {
+  const session = getActiveSession();
+  if (session) {
+    const dwellMs = Math.round(performance.now() - session.openedAt);
+    if (dwellMs > 1800) {
+      record("question_action", {
+        mode: "presence",
+        action: "dwell",
+        cardId: session.card.id,
+        setId: session.card.setId,
+        promptId: getCurrentPrompt()?.id,
+        questionId: getCurrentPrompt()?.id,
+        dwellMs,
+        labels: [...session.selectedTags],
+        photoBatchId: state.activeBatchId,
+      });
+    }
+  }
+  window.clearTimeout(state.activeDwellTimer);
   cardModal.classList.remove("open");
   cardModal.setAttribute("aria-hidden", "true");
   state.activeCards = [];
@@ -2064,10 +2722,10 @@ function rememberSemanticPromptKeys(keys) {
 
 function renderCurrentPrompt() {
   promptLayer.innerHTML = "";
-  const prompt = getCurrentPrompt();
+  const session = getActiveSession();
   const bubble = document.createElement("span");
   bubble.className = "prompt-bubble";
-  bubble.textContent = prompt ? prompt.text : "已经完成";
+  bubble.textContent = session?.question || getCurrentPrompt()?.text || "先看一会儿也可以";
   promptLayer.appendChild(bubble);
 }
 
@@ -2101,12 +2759,106 @@ function renderLiveTags(text) {
 
 function renderModalByMode() {
   renderCurrentPrompt();
-  responseDock.dataset.mode = state.mode;
-  if (state.mode === "journal") {
-    renderJournalMode();
-  } else {
-    renderChoiceMode();
+  renderReflectionMode();
+}
+
+function renderReflectionMode() {
+  const session = getActiveSession();
+  if (!session) return;
+  const isWaiting = session.echoStatus === "floating" || session.echoStatus === "loading";
+  const hasResponse = session.hasResponse;
+  const hasDraft = session.answerText.trim().length > 0;
+  const showTags = session.reflectionStage === "tagsVisible" || session.inputOpen || hasResponse || isWaiting;
+  const tags = getSoftTagsForSession(session);
+  responseDock.dataset.mode = "presence";
+  responseDock.dataset.echo = session.echoStatus;
+  responseDock.classList.toggle("settled", showTags);
+  responseDock.innerHTML = `
+    <div class="reflection-dock">
+      ${
+        showTags
+          ? `<p class="dwell-copy">${session.dwellCopy}</p>
+             <div class="tag-result choice-tags soft-tags" id="softTagCloud"></div>`
+          : `<p class="quiet-space">先看着它，不用马上回答。</p>`
+      }
+      ${
+        hasResponse
+          ? `<div class="bottle-response visible">
+              <p class="echo-title">漂来的回声碎片</p>
+              <p class="echo-text" id="echoText"></p>
+            </div>`
+          : ""
+      }
+      ${
+        isWaiting
+          ? `<div class="echo-status visible" id="echoStatus">${
+              session.echoStatus === "floating" ? "这句话正在慢慢离开指尖。" : "回声正在从水面浮回来。"
+            }</div>`
+          : ""
+      }
+      ${
+        session.inputOpen && !hasResponse
+          ? `<div class="input-drawer open">
+              <textarea id="answerInput" placeholder="一个词、一句话，或者什么都不解释。" ${isWaiting ? "readonly" : ""}></textarea>
+              <button class="primary-button" id="castBottle" type="button" ${hasDraft && !isWaiting ? "" : "disabled"}>轻轻放下</button>
+            </div>`
+          : ""
+      }
+      <div class="reflection-actions">
+        ${
+          !session.inputOpen && !hasResponse
+            ? `<button class="secondary-button soft-open-input" id="openInputDrawer" type="button">留下一句话</button>`
+            : ""
+        }
+        <button class="secondary-button quiet-leave" id="keepBottle" type="button">回到画布</button>
+      </div>
+    </div>
+  `;
+
+  const tagRoot = responseDock.querySelector("#softTagCloud");
+  if (tagRoot) {
+    tags.forEach((tag, index) => {
+      const button = document.createElement("button");
+      button.className = `tag-chip soft-tag${session.selectedTags.has(tag.label) ? " active collected" : ""}`;
+      button.dataset.family = tag.family;
+      button.type = "button";
+      button.style.setProperty("--tag-delay", `${index * 56}ms`);
+      button.textContent = tag.label;
+      button.addEventListener("click", () => {
+        toggleSessionTag(session, tag);
+        record("tag", tagPayload(tag, "soft_absorb"));
+        renderReflectionMode();
+      });
+      tagRoot.appendChild(button);
+    });
   }
+
+  const textarea = responseDock.querySelector("#answerInput");
+  const castButton = responseDock.querySelector("#castBottle");
+  if (textarea) {
+    textarea.value = session.answerText;
+    textarea.addEventListener("input", () => {
+      session.answerText = textarea.value;
+      if (castButton) castButton.disabled = !session.answerText.trim() || isWaiting;
+    });
+  }
+  const echoText = responseDock.querySelector("#echoText");
+  if (echoText) echoText.textContent = session.echoText;
+  responseDock.querySelector("#openInputDrawer")?.addEventListener("click", () => {
+    session.inputOpen = true;
+    renderReflectionMode();
+    window.setTimeout(() => responseDock.querySelector("#answerInput")?.focus(), 80);
+  });
+  responseDock.querySelector("#castBottle")?.addEventListener("click", handleJournalCast);
+  responseDock.querySelector("#keepBottle")?.addEventListener("click", closeModal);
+}
+
+function getSoftTagsForSession(session) {
+  if (session.softTags) return session.softTags;
+  const promptTags = getPromptDisplayTags(getCurrentPrompt()).map((label) => ({ family: inferFamily(label), label }));
+  const base = uniqueTags([...promptTags, ...generateChoiceTags(getCurrentPrompt(), session.card), ...softTagPool]);
+  session.softTags = stableShuffle(base, (session.card.seed ?? hashString(session.card.id)) + hashString(session.question)).slice(0, 7);
+  return session.softTags;
 }
 
 function renderChoiceMode() {
@@ -2266,7 +3018,7 @@ async function handleJournalCast() {
   session.echoError = "";
   if (session.answerText.trim()) {
     record("answer", {
-      mode: "journal",
+      mode: "presence",
       action: "cast",
       cardId: session.card.id,
       setId: session.card.setId,
@@ -2277,22 +3029,41 @@ async function handleJournalCast() {
       photoBatchId: state.activeBatchId,
     });
   }
-  renderJournalMode();
+  renderReflectionMode();
   try {
     await wait(420);
     session.echoStatus = "loading";
-    renderJournalMode();
+    renderReflectionMode();
     await wait(680);
-    const echo = await requestEcho(answerText, { card: session.card, prompt, mode: state.mode });
+    const echo = await requestEcho(answerText, {
+      card: session.card,
+      prompt,
+      selectedTags: [...session.selectedTags],
+      dwellMs: Math.round(performance.now() - session.openedAt),
+      mode: "presence",
+    });
     session.responseTags = echo.tags;
     session.echoText = echo.echoText;
     session.hasResponse = true;
     session.echoStatus = "ready";
+    record("echo", {
+      mode: "presence",
+      action: "return",
+      cardId: session.card.id,
+      setId: session.card.setId,
+      promptId: prompt?.id,
+      questionId: prompt?.id,
+      text: echo.echoText,
+      labels: echo.tags.map((tag) => tag.label),
+      thumbnail: cardThumbnail(session.card),
+      visualKind: echo.visualKind,
+      photoBatchId: state.activeBatchId,
+    });
   } catch {
     session.echoStatus = "error";
     session.echoError = "这次回声没有顺利漂回来，可以稍后再试一次。";
   }
-  renderJournalMode();
+  renderReflectionMode();
 }
 
 function handleJournalExplore() {
@@ -2354,39 +3125,16 @@ function generateChoiceTags(prompt, card) {
 }
 
 async function requestEcho(answerText, context = {}) {
-  const fallbackTags = generateAiLikeTags(answerText, context);
-  const fallback = {
+  const selected = (context.selectedTags ?? []).map((label) =>
+    typeof label === "string" ? { family: inferFamily(label), label } : { family: label.family ?? inferFamily(label.label), label: label.label },
+  );
+  const fallbackTags = uniqueTags([...selected, ...generateAiLikeTags(answerText, context), ...softTagPool]).slice(0, 5);
+  return {
     echoText: generateEchoText(answerText, context, fallbackTags),
     tags: fallbackTags,
-    source: "local",
+    visualKind: pickOne(["paper", "mist", "tide", "shell", "glow"], hashString(answerText || context.card?.id || "echo")),
+    source: "mock",
   };
-  try {
-    const response = await fetch("/api/openai/echo", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        answerText,
-        promptText: context.prompt?.text ?? "",
-        cardId: context.card?.id ?? "",
-        cardTitle: context.card?.title ?? "",
-        mode: context.mode ?? state.mode,
-      }),
-    });
-    if (!response.ok) return fallback;
-    const data = await response.json();
-    const tags = Array.isArray(data.tags)
-      ? data.tags
-          .map((tag) => (typeof tag === "string" ? { family: inferFamily(tag), label: tag } : tag))
-          .filter((tag) => tag?.label)
-      : fallbackTags;
-    return {
-      echoText: data.echoText || fallback.echoText,
-      tags: uniqueTags(tags).slice(0, 9),
-      source: data.source ?? "api",
-    };
-  } catch {
-    return fallback;
-  }
 }
 
 function getPromptDisplayTags(prompt) {
@@ -2402,11 +3150,11 @@ function generateAiLikeTags(input, context = {}) {
 }
 
 function generateEchoText(input, context = {}, tags = []) {
-  const promptText = context.prompt?.text ? `在“${context.prompt.text}”旁边，` : "";
-  const picked = tags.slice(0, 3).map((tag) => stripTagPrefix(tag.label));
-  const fragments = picked.length ? picked.join("、") : "一点还没完全说清的感受";
-  const inputHint = input.length > 18 ? "这句话" : `“${input}”`;
-  return `${promptText}${inputHint}像是把${fragments}轻轻放在海面上。它不急着给出答案，只是在提醒你：这些细小的感觉，也可以先被看见。`;
+  const compact = input.trim().replace(/\s+/g, " ");
+  if (compact && compact.length <= 8) return `你提到的“${compact}”，还在轻轻回响。`;
+  const tagSeed = tags.map((tag) => tag.label).join("|");
+  const seed = hashString(`${compact}|${context.card?.id ?? ""}|${context.prompt?.id ?? ""}|${tagSeed}`);
+  return pickOne(localEchoFragments, seed);
 }
 
 function collectRuleTags(text, rules, family, fallback) {
@@ -2476,14 +3224,11 @@ function renderContentPanel() {
 
 function setMode(mode) {
   state.mode = mode;
-  localStorage.setItem(modeStoreKey, mode);
-  renderModeToggle();
   if (cardModal.classList.contains("open")) renderModalByMode();
 }
 
 function renderModeToggle() {
-  choiceModeToggle.classList.toggle("active", state.mode === "choice");
-  journalModeToggle.classList.toggle("active", state.mode === "journal");
+  return state.mode;
 }
 
 function updateBatchNav() {
@@ -2614,9 +3359,11 @@ function renderWeatherReviewDetail(fragment) {
 
 function appendWeatherRecordSections(rootEl, entries) {
   const answers = entries.filter((entry) => entry.type === "answer" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim());
+  const echoes = entries.filter((entry) => entry.type === "echo" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim());
   const labels = collectRecordLabels(entries);
   const words = entries.filter((entry) => entry.type === "keyword").map((entry) => entry.payload.text ?? "点亮的文字");
   [
+    ["回声碎片", echoes],
     ["留下的话", answers],
     ["轻轻靠近的词", labels],
     ["点亮过的文字", words],
@@ -2649,7 +3396,6 @@ function renderCalendar() {
   const monthDate = calendarState.month;
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
-  const first = new Date(year, month, 1);
   const days = new Date(year, month + 1, 0).getDate();
   const groups = groupedRecords();
   const monthLabel = String(month + 1).padStart(2, "0");
@@ -2662,18 +3408,24 @@ function renderCalendar() {
       </div>
       <button class="calendar-nav-button" id="nextMonth" type="button" aria-label="下个月">›</button>
     </div>
-    <div class="month-grid">
+    <div class="month-grid weather-month-grid">
   `;
-  ["日", "一", "二", "三", "四", "五", "六"].forEach((day) => {
-    html += `<span class="weekday">${day}</span>`;
-  });
-  for (let i = 0; i < first.getDay(); i += 1) html += `<span></span>`;
+  let visibleDays = 0;
   for (let day = 1; day <= days; day += 1) {
     const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const hasRecord = Boolean(groups[key]?.length);
-    const className = `day-button${hasRecord ? " has-record" : " no-record"}${calendarState.selectedDay === key ? " selected" : ""}`;
-    html += `<button class="${className}" data-day="${key}" type="button" ${hasRecord ? "" : "disabled"}>${day}</button>`;
+    const entries = groups[key] ?? [];
+    const meaningful = entries.filter((entry) => entry.type !== "app_visit");
+    const hasRecord = meaningful.length > 0;
+    const visitedOnly = !hasRecord && entries.some((entry) => entry.type === "app_visit");
+    if (!hasRecord && !visitedOnly) continue;
+    visibleDays += 1;
+    const density = clamp(meaningful.length, 1, 7);
+    const className = `day-button weather-day${hasRecord ? " has-record" : " visited-only"}${
+      calendarState.selectedDay === key ? " selected" : ""
+    }`;
+    html += `<button class="${className}" style="--density:${density}" data-day="${key}" type="button">${day}</button>`;
   }
+  if (!visibleDays) html += `<p class="empty-state month-empty">这个月还没有什么留下。</p>`;
   html += `</div>`;
   rootEl.innerHTML = html;
   rootEl.querySelector("#prevMonth").addEventListener("click", () => {
@@ -2684,13 +3436,13 @@ function renderCalendar() {
     calendarState.month = new Date(year, month + 1, 1);
     renderCalendar();
   });
-  rootEl.querySelectorAll(".day-button.has-record").forEach((button) => {
+  rootEl.querySelectorAll(".day-button").forEach((button) => {
     button.addEventListener("click", () => {
       calendarState.selectedDay = button.dataset.day;
       calendarState.detailCardKey = null;
       const entries = groups[calendarState.selectedDay] ?? [];
       renderCalendar();
-      if (entries.length) openCalendarReview(calendarState.selectedDay, entries);
+      openCalendarReview(calendarState.selectedDay, entries);
     });
   });
 }
@@ -2707,7 +3459,7 @@ function groupedRecords() {
 
 function isCalendarRecord(entry) {
   if (entry.type === "answer") return Boolean(entry.payload.text?.trim());
-  return ["tag", "keyword", "card_open", "question_action", "photo_upload"].includes(entry.type);
+  return ["tag", "keyword", "card_open", "question_action", "photo_upload", "app_visit", "echo"].includes(entry.type);
 }
 
 function groupEntriesByCard(entries) {
@@ -2745,6 +3497,8 @@ function calendarCardKey(entry) {
 }
 
 function calendarEntryTitle(entry) {
+  if (entry.type === "app_visit") return "轻轻经过";
+  if (entry.type === "echo") return "回声";
   if (entry.type === "keyword") return entry.payload.text ?? "点亮的文字";
   if (!entry.payload.cardId && !entry.payload.id) return "文字";
   return entry.payload.title ?? entry.payload.cardTitle ?? entry.payload.cardId ?? entry.payload.id ?? "卡牌";
@@ -2846,9 +3600,11 @@ function cardPreviewDataUrl(card) {
 function renderCalendarReviewDetail(group) {
   const questions = uniqueRecordValues(group.entries.map((entry) => promptTextForRecord(entry)).filter(Boolean));
   const answers = group.entries.filter((entry) => entry.type === "answer" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim());
+  const echoes = group.entries.filter((entry) => entry.type === "echo" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim());
   const labels = collectRecordLabels(group.entries);
   calendarReviewDetail.innerHTML = "";
   [
+    ["回声", echoes],
     ["设问", questions],
     ["输入", answers],
     ["标签", labels],
@@ -2870,7 +3626,7 @@ function renderCalendarReviewDetail(group) {
   if (!calendarReviewDetail.children.length) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "这张卡还没有留下可回看的输入或标签。";
+    empty.textContent = group.entries.some((entry) => entry.type === "app_visit") ? "这一天只是轻轻经过。" : "这张卡还没有留下可回看的输入或标签。";
     calendarReviewDetail.appendChild(empty);
   }
 }
@@ -2885,6 +3641,7 @@ function collectRecordLabels(entries) {
   entries.forEach((entry) => {
     if (entry.type === "tag") labels.push(stripTagPrefix(entry.payload.label ?? entry.payload.tag ?? ""));
     if (entry.type === "question_action") labels.push(...(entry.payload.labels ?? []));
+    if (entry.type === "echo") labels.push(...(entry.payload.labels ?? []));
   });
   return uniqueRecordValues(labels.filter(Boolean));
 }
@@ -2947,6 +3704,8 @@ function describeRecord(entry) {
   if (entry.type === "question_action") return describeAction(entry.payload.action);
   if (entry.type === "photo_upload") return "上传";
   if (entry.type === "card_open") return "打开";
+  if (entry.type === "app_visit") return "轻轻经过";
+  if (entry.type === "echo") return entry.payload.text ?? "回声";
   return entry.type;
 }
 
@@ -2981,20 +3740,13 @@ function formatRecordDay(value) {
 
 function rebuildScene() {
   planeCache.clear();
+  viewportDensityCache.clear();
   activeMeshes.forEach((mesh) => {
     scene.remove(mesh);
     mesh.material.dispose();
   });
   activeMeshes.clear();
-  state.lastChunkKey = "";
-  updateChunks(true);
-}
-
-function resetView() {
-  state.basePos.set(0, 0, initialCameraZ);
-  state.velocity.set(0, 0, 0);
-  state.targetVel.set(0, 0, 0);
-  state.scrollAccum = 0;
+  activeViewportDensityMeshIds.clear();
   state.lastChunkKey = "";
   updateChunks(true);
 }
@@ -3010,7 +3762,16 @@ function resize() {
 }
 
 function stableShuffle(items, seed) {
-  return [...items].sort((a, b) => seededRandom(seed + hashString(a.id)) - seededRandom(seed + hashString(b.id)));
+  return [...items].sort((a, b) => {
+    const aKey = String(a.id ?? a.label ?? a.text ?? "");
+    const bKey = String(b.id ?? b.label ?? b.text ?? "");
+    return seededRandom(seed + hashString(aKey)) - seededRandom(seed + hashString(bKey));
+  });
+}
+
+function pickOne(items, seed) {
+  if (!items.length) return "";
+  return items[Math.floor(seededRandom(seed) * items.length) % items.length];
 }
 
 function hashString(value) {
@@ -3049,6 +3810,29 @@ function togglePanel(panel) {
   }
 }
 
+function scheduleIntroWhisper(force = false) {
+  if (!force && localStorage.getItem(introStoreKey) === "seen") return;
+  window.clearTimeout(state.introTimer);
+  state.introTimer = window.setTimeout(() => {
+    showIntroWhisper(force);
+  }, force ? 80 : 600);
+}
+
+function showIntroWhisper(force = false) {
+  const seed = Date.now() + Math.floor(state.basePos.x * 10) + Math.floor(state.basePos.y * 10);
+  const text = introWhispers[Math.floor(seededRandom(seed) * introWhispers.length) % introWhispers.length];
+  introWhisper.textContent = text;
+  introWhisper.classList.add("visible");
+  if (!force) localStorage.setItem(introStoreKey, "seen");
+  window.clearTimeout(state.introTimer);
+  state.introTimer = window.setTimeout(() => hideIntroWhisper(), 3000);
+}
+
+function hideIntroWhisper() {
+  introWhisper.classList.remove("visible");
+  window.clearTimeout(state.introTimer);
+}
+
 renderer.domElement.addEventListener("pointerdown", onPointerDown);
 renderer.domElement.addEventListener("pointermove", onPointerMove);
 renderer.domElement.addEventListener("pointerup", onPointerUp);
@@ -3057,28 +3841,36 @@ renderer.domElement.addEventListener(
   "wheel",
   (event) => {
     event.preventDefault();
+    markCanvasInteraction();
+    hideIntroWhisper();
     state.scrollAccum += event.deltaY * 0.0048;
   },
   { passive: false },
 );
 renderer.domElement.addEventListener("mousemove", (event) => {
+  markCanvasInteraction();
   state.mouse.set((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
+  updateHover(event.clientX, event.clientY);
 });
+renderer.domElement.addEventListener("mouseleave", () => setHoveredMeshId(null));
 
-document.getElementById("resetView").addEventListener("click", resetView);
-document.getElementById("cardSetToggle").addEventListener("click", () => togglePanel(cardSetPanel));
+document.getElementById("introGuideToggle").addEventListener("click", () => scheduleIntroWhisper(true));
+document.getElementById("cardSetToggle").addEventListener("click", () => {
+  hideIntroWhisper();
+  togglePanel(cardSetPanel);
+});
 document.getElementById("calendarToggle").addEventListener("click", () => {
+  hideIntroWhisper();
   renderCalendar();
   togglePanel(calendarPanel);
 });
 weatherToggle.addEventListener("click", () => {
+  hideIntroWhisper();
   state.weatherEnabled = !state.weatherEnabled;
   localStorage.setItem(weatherStoreKey, state.weatherEnabled ? "on" : "off");
   renderWeatherButton();
   rebuildScene();
 });
-choiceModeToggle.addEventListener("click", () => setMode("choice"));
-journalModeToggle.addEventListener("click", () => setMode("journal"));
 document.getElementById("closeCardSetPanel").addEventListener("click", () => togglePanel(cardSetPanel));
 document.getElementById("closeCalendarPanel").addEventListener("click", () => togglePanel(calendarPanel));
 document.getElementById("closeCalendarReview").addEventListener("click", closeCalendarReview);
@@ -3104,6 +3896,5 @@ focusCard.addEventListener("touchend", (event) => {
   const delta = endX - state.touchStartX;
   if (Math.abs(delta) > 44) moveActiveCard(delta > 0 ? -1 : 1);
 });
-submitAnswerButton.addEventListener("click", submitAnswer);
 photoInput.addEventListener("change", handlePhotoUpload);
 window.addEventListener("resize", resize);

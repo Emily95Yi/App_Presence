@@ -12,27 +12,25 @@
       <header class="mobile-frame">
         <p class="brand">Presence</p>
         <nav class="top-actions" aria-label="工具">
-          <button id="resetView" class="icon-button" type="button" aria-label="重置视角">↺</button>
-          <div class="mode-switch" role="group" aria-label="模式选择">
-            <button id="choiceModeToggle" class="mode-option active" type="button">选择</button>
-            <button id="journalModeToggle" class="mode-option" type="button">记录</button>
-          </div>
-          <button id="cardSetToggle" class="icon-button" type="button" aria-label="卡组">
-            <span class="cards-icon" aria-hidden="true"></span>
+          <button id="introGuideToggle" class="icon-button help-button" type="button" aria-label="轻提示">
+            <span aria-hidden="true">?</span>
           </button>
           <button id="calendarToggle" class="icon-button" type="button" aria-label="日历">
             <span class="calendar-icon" aria-hidden="true"></span>
           </button>
-          <button id="weatherToggle" class="icon-button weather-button active" type="button" aria-label="最近漂来的碎片">
+          <button id="weatherToggle" class="icon-button weather-button" type="button" aria-label="回声层">
             <span class="weather-icon" aria-hidden="true"></span>
+          </button>
+          <button id="cardSetToggle" class="icon-button settings-button" type="button" aria-label="设置">
+            <span class="settings-icon" aria-hidden="true"></span>
           </button>
         </nav>
       </header>
 
       <aside class="side-panel" id="cardSetPanel" aria-hidden="true">
         <div class="panel-head">
-          <p class="panel-title">卡牌套组</p>
-          <button id="closeCardSetPanel" class="icon-button" type="button" aria-label="关闭卡组">×</button>
+          <p class="panel-title">设置</p>
+          <button id="closeCardSetPanel" class="icon-button" type="button" aria-label="关闭设置">×</button>
         </div>
         <input id="photoInput" class="visually-hidden" type="file" accept="image/*" capture="environment" multiple />
         <div id="cardSetList" class="set-list"></div>
@@ -80,18 +78,16 @@
       <section class="card-modal" id="cardModal" aria-hidden="true">
         <div class="modal-scrim" id="modalScrim"></div>
         <div class="modal-stage" role="dialog" aria-modal="true" aria-label="卡牌回应">
-          <button id="closeModal" class="icon-button close-modal" type="button" aria-label="关闭">×</button>
+          <button id="closeModal" class="icon-button close-modal" type="button" aria-label="回到画布">×</button>
           <button id="prevCard" class="icon-button batch-nav batch-prev" type="button" aria-label="上一张">‹</button>
           <button id="nextCard" class="icon-button batch-nav batch-next" type="button" aria-label="下一张">›</button>
           <canvas id="focusCard" width="512" height="680" aria-hidden="true"></canvas>
           <div id="promptLayer" class="prompt-layer"></div>
-          <div id="responseDock" class="response-dock">
-            <div id="liveTagResult" class="tag-result"></div>
-            <textarea id="answerInput" placeholder="一个词、一句话、一个画面都可以。"></textarea>
-            <button id="submitAnswer" class="primary-button" type="button">提交</button>
-          </div>
+          <div id="responseDock" class="response-dock"></div>
         </div>
       </section>
+
+      <div id="introWhisper" class="intro-whisper" aria-live="polite"></div>
     </main>
 
     <script type="module" src="/src/main.js"></script>
