@@ -728,19 +728,80 @@ button {
   inset: max(18px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
     max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   display: grid;
-  grid-template-rows: minmax(0, auto) auto auto;
+  grid-template-rows: 45vh auto minmax(0, 1fr);
   align-items: center;
   justify-items: center;
   gap: 10px;
   overflow: hidden;
 }
 
+.card-modal .modal-stage::before {
+  position: absolute;
+  inset: 6px 0;
+  z-index: 0;
+  border-radius: 30px;
+  content: "";
+  pointer-events: none;
+}
+
+.card-modal[data-stage="observing"] .modal-stage::before {
+  background: url("/assets/ritual/question-bg.png") center / cover no-repeat;
+  opacity: 0.6;
+}
+
+.card-modal[data-stage="fragments"] .modal-stage::before,
+.card-modal[data-stage="leaving"] .modal-stage::before {
+  background: url("/assets/ritual/fragment-bg.png") center / cover no-repeat;
+  opacity: 0.92;
+}
+
+.card-modal[data-stage="sending"] .modal-stage::before,
+.card-modal[data-stage="echoes"] .modal-stage::before {
+  background: url("/assets/ritual/echo-bg.png") center bottom / cover no-repeat;
+  opacity: 1;
+}
+
 .close-modal {
   position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 3;
-  background: rgba(255, 252, 245, 0.9);
+  top: 8px;
+  left: 8px;
+  z-index: 12;
+  display: grid;
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: rgba(51, 78, 87, 0.62);
+  font-size: 21px;
+  line-height: 1;
+}
+
+.modal-close-hint {
+  position: absolute;
+  top: 17px;
+  left: 48px;
+  z-index: 12;
+  max-width: min(74vw, 360px);
+  margin: 0;
+  color: rgba(51, 78, 87, 0.6);
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 520ms ease;
+}
+
+.modal-close-hint.visible {
+  opacity: 1;
+}
+
+.card-modal .batch-nav {
+  display: none !important;
+}
+
+.card-modal .close-modal {
+  display: grid !important;
 }
 
 .batch-nav {
@@ -767,15 +828,14 @@ button {
 #focusCard {
   position: relative;
   z-index: 2;
-  width: min(72vw, 360px);
-  max-width: min(78vw, 420px);
-  max-height: 42vh;
-  height: auto;
+  width: auto;
+  max-width: min(90vw, 520px);
+  height: 45vh;
+  max-height: 45vh;
   object-fit: contain;
   border-radius: 16px;
-  box-shadow:
-    0 24px 86px rgba(96, 84, 64, 0.24),
-    0 0 0 1px rgba(255, 252, 245, 0.54);
+  box-shadow: none;
+  align-self: start;
 }
 
 .prompt-layer {
@@ -788,6 +848,10 @@ button {
   width: min(520px, 100%);
   z-index: 3;
   pointer-events: none;
+}
+
+.prompt-layer[data-stage="observing"] {
+  width: min(760px, 94vw);
 }
 
 .prompt-bubble {
@@ -804,6 +868,27 @@ button {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   animation: soft-fade-in 360ms ease both;
+}
+
+.card-modal[data-stage="observing"] .prompt-bubble {
+  display: inline-block;
+  box-sizing: border-box;
+  width: auto;
+  max-width: min(74vw, 360px);
+  aspect-ratio: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(31, 46, 48, 0.64);
+  filter: none;
+  font-size: 15px;
+  line-height: 1.65;
+  text-align: center;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .prompt-bubble.answered {
@@ -1207,21 +1292,608 @@ button {
 .response-dock {
   position: relative;
   z-index: 4;
-  width: min(520px, 100%);
+  width: min(760px, 100%);
   min-height: 74px;
   padding: 0;
   border: 0;
   border-radius: 24px;
   background: transparent;
   box-shadow: none;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.card-modal[data-stage="observing"] .response-dock {
+  width: min(420px, 84vw);
+  min-height: 18px;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.ritual-question-stack {
+  position: relative;
+  display: grid;
+  gap: 30px;
+  width: min(740px, 94vw);
+  min-height: 176px;
+  height: auto;
+}
+
+.ritual-question {
+  position: relative;
+  opacity: 0;
+  --question-rotate: 0deg;
+  animation: ritual-question-in 400ms ease-in-out var(--question-delay) both;
+}
+
+.ritual-question:nth-child(1) {
+  justify-self: start;
+  --question-rotate: -2deg;
+}
+
+.ritual-question:nth-child(2) {
+  justify-self: end;
+  --question-rotate: 2deg;
+}
+
+.ritual-question:nth-child(3) {
+  justify-self: center;
+  --question-rotate: -1deg;
+}
+
+.observation-current {
+  display: grid;
+  justify-items: center;
+  padding: 4px 0;
+}
+
+.tide-progress {
+  position: relative;
+  width: min(320px, 70vw);
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(199, 215, 234, 0.1), rgba(199, 215, 234, 0.32), rgba(199, 215, 234, 0.1)),
+    rgba(255, 252, 245, 0.28);
+}
+
+.tide-progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 20% 50%, rgba(235, 249, 255, 0.94) 0 3px, transparent 4px),
+    radial-gradient(circle at 62% 55%, rgba(235, 249, 255, 0.68) 0 2px, transparent 3px),
+    linear-gradient(90deg, rgba(166, 206, 225, 0.28), rgba(113, 174, 205, 0.48), rgba(199, 229, 240, 0.34));
+  transform-origin: left center;
+  animation:
+    tide-progress-fill 8s linear both,
+    tide-progress-flow 2.4s ease-in-out infinite;
+}
+
+.tide-progress i {
+  position: absolute;
+  top: 1px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(235, 249, 255, 0.72);
+  animation: tide-bubble 3.4s ease-in-out infinite;
+}
+
+.tide-progress i:nth-child(2) {
+  left: 28%;
+}
+
+.tide-progress i:nth-child(3) {
+  left: 55%;
+  animation-delay: 700ms;
+}
+
+.tide-progress i:nth-child(4) {
+  left: 78%;
+  animation-delay: 1300ms;
+}
+
+.ritual-fragment-stage,
+.echo-return-stage {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(820px, 96vw);
+  min-height: min(44vh, 360px);
+  padding: 8px 22px 12px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: ritual-stage-fade 250ms ease-in-out both;
+}
+
+.ritual-fragment-stage {
+  background: transparent;
+}
+
+.ritual-fragment-stage > *,
+.echo-return-stage > * {
+  position: relative;
+  z-index: 1;
+}
+
+.echo-return-stage {
+  background: transparent;
+}
+
+.fragment-guide {
+  position: relative;
+  display: grid;
+  min-height: 48px;
+  place-items: center;
+  margin: 0;
+  color: rgba(22, 32, 27, 0.58);
+  font-size: 14px;
+  font-weight: 430;
+  line-height: 1.65;
+  text-align: center;
+  pointer-events: none;
+}
+
+.fragment-guide span {
+  grid-area: 1 / 1;
+  opacity: 0;
+  animation: fragment-guide-line 2.8s ease-in-out both;
+}
+
+.fragment-guide span:nth-child(2) {
+  animation-delay: 1.9s;
+}
+
+.sea-message,
+.quiet-input-area p {
+  margin: 0;
+  color: rgba(22, 32, 27, 0.58);
+  font-size: 14px;
+  font-weight: 430;
+  line-height: 1.65;
+  text-align: center;
+}
+
+.echo-message-cycle {
+  display: grid;
+  min-height: 50px;
+  place-items: center;
+}
+
+.echo-message-cycle span {
+  grid-area: 1 / 1;
+  opacity: 0;
+}
+
+.echo-message-cycle span:first-child {
+  animation: echo-first-message 5.4s ease both;
+}
+
+.echo-message-cycle span:nth-child(2) {
+  transform: translateY(-10px);
+  animation: echo-follow-message 600ms ease 5.1s both;
+}
+
+.echo-message-cycle span:nth-child(3) {
+  transform: translateY(12px);
+  animation: echo-follow-message 600ms ease 5.35s both;
+}
+
+.sea-fragment-field {
+  position: relative;
+  width: min(720px, 94vw);
+  height: clamp(250px, 32vh, 330px);
+  overflow: visible;
+  border-radius: 28px;
+  background: transparent;
+}
+
+.sea-fragment-field::before,
+.sea-fragment-field::after {
+  display: none;
+}
+
+.sea-fragment-field::before {
+  bottom: 14%;
+}
+
+.sea-fragment-field::after {
+  bottom: 0;
+  opacity: 0.52;
+  animation-delay: 1.8s;
+}
+
+.paper-fragment {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  z-index: 2;
+  display: grid;
+  width: 128px;
+  min-height: 70px;
+  max-width: 142px;
+  padding: 18px 18px 15px;
+  place-items: center;
+  border: 0;
+  background: url("/assets/ritual/paper.png") center / 100% 100% no-repeat;
+  box-shadow: none;
+  color: rgba(31, 38, 34, 0.76);
+  cursor: pointer;
+  font-family: "Segoe Print", "Kaiti SC", "STKaiti", cursive, sans-serif;
+  font-size: 14px;
+  line-height: 1.25;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(var(--tilt)) translate(var(--drift-x), var(--drift-y));
+  animation:
+    paper-arrive 420ms ease var(--fragment-delay) both,
+    paper-drift 8.4s ease-in-out calc(var(--fragment-delay) + var(--float-delay)) infinite;
+  transition:
+    opacity 320ms ease,
+    transform 300ms ease,
+    filter 300ms ease;
+  touch-action: none;
+}
+
+.paper-fragment.dragging {
+  z-index: 8;
+  animation-play-state: paused;
+  filter: drop-shadow(0 16px 24px rgba(70, 112, 158, 0.18));
+  cursor: grabbing;
+}
+
+.paper-fragment:nth-child(2n) {
+  background-image: url("/assets/ritual/paper-soft.png");
+}
+
+.paper-fragment::before {
+  display: none;
+}
+
+.paper-fragment:hover,
+.paper-fragment:focus-visible {
+  filter: drop-shadow(0 14px 22px rgba(70, 112, 158, 0.16));
+  transform: translate(-50%, -56%) rotate(calc(var(--tilt) * 0.5)) scale(1.03);
+}
+
+.paper-fragment.leaving {
+  pointer-events: none;
+  animation: paper-soft-leave 420ms ease-in both;
+  animation-delay: calc(var(--fragment-delay) * 0.12);
+}
+
+.paper-fragment.picked {
+  pointer-events: none;
+  animation: paper-picked 260ms ease-in both;
+}
+
+.paper-fragment.custom-fragment {
+  display: grid;
+  gap: 2px;
+  color: rgba(31, 38, 34, 0.44);
+}
+
+.paper-fragment.custom-add-fragment {
+  left: 76px;
+  top: calc(100% - 48px);
+  z-index: 5;
+  display: inline-flex;
+  width: auto;
+  min-height: 32px;
+  padding: 2px 4px;
+  gap: 5px;
+  align-items: center;
+  transform: translate(-50%, -50%) rotate(-4deg);
+  background: transparent;
+  color: rgba(31, 54, 60, 0.5);
+  filter: none;
+  font-family: "Yuanti SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  animation: paper-arrive 420ms ease 240ms both;
+}
+
+.paper-fragment.writing {
+  z-index: 4;
+  width: 150px;
+  min-width: 150px;
+  min-height: 78px;
+  padding: 18px 22px 15px;
+}
+
+.paper-fragment input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: rgba(31, 38, 34, 0.76);
+  font: inherit;
+  outline: 0;
+}
+
+.paper-plus {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 252, 245, 0.44);
+  color: rgba(70, 112, 158, 0.38);
+  font-family: "Yuanti SC", "PingFang SC", sans-serif;
+  font-weight: 760;
+}
+
+.drift-bottle {
+  position: absolute;
+  left: calc(50% + 86px);
+  bottom: 60px;
+  z-index: 4;
+  display: grid;
+  width: min(38vw, 154px);
+  height: min(47vw, 194px);
+  place-items: center;
+  background: url("/assets/ritual/bottle-open.png") center / contain no-repeat;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.drift-bottle.sent-ready {
+  animation: bottle-fade-out 420ms ease-in both;
+}
+
+.drift-bottle .bottle-neck,
+.drift-bottle .bottle-body,
+.sent-bottle .bottle-neck,
+.sent-bottle .bottle-body {
+  display: none;
+}
+
+.bottle-neck,
+.bottle-body {
+  position: absolute;
+  border: 1px solid rgba(70, 112, 158, 0.26);
+  background:
+    linear-gradient(130deg, rgba(255, 252, 245, 0.5), rgba(166, 206, 225, 0.18)),
+    rgba(235, 249, 255, 0.22);
+  box-shadow: inset 8px 0 18px rgba(255, 255, 255, 0.28);
+}
+
+.bottle-neck {
+  top: 8px;
+  width: 24px;
+  height: 34px;
+  border-radius: 9px 9px 4px 4px;
+  transform: rotate(8deg);
+}
+
+.bottle-body {
+  bottom: 10px;
+  width: 58px;
+  height: 72px;
+  border-radius: 42% 58% 48% 52% / 54% 48% 52% 46%;
+  transform: rotate(8deg);
+}
+
+.drift-bottle.glowing .bottle-body {
+  box-shadow:
+    inset 8px 0 18px rgba(255, 255, 255, 0.28),
+    0 0 28px rgba(156, 220, 210, 0.34);
+}
+
+.drift-bottle.glowing::after {
+  position: absolute;
+  inset: 24px 6px 2px;
+  border: 1px solid rgba(156, 220, 210, 0.2);
+  border-radius: 50%;
+  content: "";
+  animation: bottle-ripple 900ms ease-out infinite;
+}
+
+.bottle-contents {
+  position: absolute;
+  inset: -30px -74px -16px -74px;
+  z-index: 2;
+  display: block;
+  pointer-events: none;
+}
+
+.bottle-piece {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: 86px;
+  overflow: hidden;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 252, 245, 0.62);
+  background: rgba(255, 252, 245, 0.7);
+  color: rgba(31, 38, 34, 0.68);
+  font-size: 11px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: fragment-to-bottle 300ms ease var(--piece-delay) both;
+}
+
+.bottle-piece:nth-child(6n + 1) {
+  background: rgba(219, 236, 230, 0.76);
+  transform: translate(-76px, -26px) rotate(-8deg);
+}
+
+.bottle-piece:nth-child(6n + 2) {
+  background: rgba(255, 239, 198, 0.78);
+  transform: translate(-70px, 28px) rotate(6deg);
+}
+
+.bottle-piece:nth-child(6n + 3) {
+  background: rgba(215, 196, 215, 0.64);
+  transform: translate(34px, -34px) rotate(8deg);
+}
+
+.bottle-piece:nth-child(6n + 4) {
+  background: rgba(199, 215, 234, 0.76);
+  transform: translate(36px, 28px) rotate(-5deg);
+}
+
+.bottle-piece:nth-child(6n + 5) {
+  background: rgba(232, 213, 190, 0.72);
+  transform: translate(-36px, -58px) rotate(4deg);
+}
+
+.bottle-piece:nth-child(6n) {
+  background: rgba(223, 162, 143, 0.5);
+  transform: translate(-22px, 54px) rotate(-7deg);
+}
+
+.ritual-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(360px, 88vw);
+  margin-top: 0;
+}
+
+.ritual-actions.actions-leaving {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.ritual-actions .primary-button {
+  margin-top: 0;
+}
+
+.sent-bottle {
+  position: relative;
+  width: 112px;
+  height: 142px;
+  background: url("/assets/ritual/bottle-open.png") center / contain no-repeat;
+  animation: bottle-send-away 1100ms ease-in-out both;
+}
+
+.sent-bottle span:not(.bottle-neck):not(.bottle-body) {
+  position: relative;
+  z-index: 2;
+  top: 55px;
+  display: inline-block;
+  max-width: 64px;
+  overflow: hidden;
+  margin: 2px;
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: rgba(255, 252, 245, 0.56);
+  color: rgba(31, 38, 34, 0.5);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.echo-cloud {
+  position: relative;
+  display: block;
+  width: min(680px, 94vw);
+  height: 258px;
+  margin-top: 2px;
+}
+
+.echo-fragment {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: min(188px, 42vw);
+  max-width: min(188px, 42vw);
+  min-height: 42px;
+  padding: 10px 13px;
+  border: 1px solid rgba(70, 112, 158, 0.14);
+  border-radius: 13px 17px 12px 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 253, 246, 0.92), rgba(219, 236, 230, 0.74)),
+    rgba(255, 252, 245, 0.82);
+  box-shadow: 0 12px 30px rgba(70, 112, 158, 0.1);
+  color: rgba(31, 38, 34, 0.72);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.55;
+  opacity: 0;
+  transform: rotate(var(--tilt));
+  animation:
+    echo-float-in 500ms ease var(--echo-delay) both,
+    echo-bob 5.4s ease-in-out calc(var(--echo-delay) + 600ms) infinite;
+}
+
+.echo-fragment.collected {
+  border-color: rgba(84, 142, 166, 0.28);
+  background:
+    linear-gradient(145deg, rgba(235, 249, 255, 0.9), rgba(255, 252, 245, 0.84)),
+    rgba(255, 252, 245, 0.82);
+  box-shadow:
+    0 12px 30px rgba(70, 112, 158, 0.1),
+    0 0 0 3px rgba(166, 206, 225, 0.18);
+  opacity: 0.92;
+}
+
+.echo-fragment.collected::after {
+  position: absolute;
+  right: 9px;
+  bottom: 7px;
+  color: rgba(51, 78, 87, 0.48);
+  content: "已收藏";
+  font-size: 10px;
+}
+
+.quiet-input-area {
+  display: grid;
+  gap: 8px;
+  width: min(520px, 92vw);
+  justify-items: center;
+  animation: input-drawer-in 300ms ease both;
+}
+
+.quiet-input-area textarea {
+  width: min(420px, 88vw);
+  min-height: 72px;
+  border-radius: 14px 18px 14px 20px;
+  background: rgba(255, 252, 245, 0.46);
+}
+
+.quiet-input-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: rgba(22, 32, 27, 0.54);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.quiet-input-toggle i {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 252, 245, 0.28);
+  color: rgba(51, 78, 87, 0.56);
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .response-dock.settled {
-  padding: 12px;
-  background: rgba(255, 252, 245, 0.42);
-  box-shadow: 0 18px 70px rgba(96, 84, 64, 0.1);
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .reflection-dock {
@@ -1412,12 +2084,33 @@ button {
 
 .secondary-button {
   min-height: 44px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 999px;
-  background: rgba(255, 252, 245, 0.86);
-  color: var(--ink);
+  background: rgba(255, 252, 245, 0.38);
+  color: rgba(31, 54, 60, 0.5);
   cursor: pointer;
-  font-weight: 720;
+  font-family: "Yuanti SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-weight: 520;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.secondary-button:hover,
+.secondary-button:focus-visible,
+.primary-button:hover,
+.primary-button:focus-visible {
+  background: rgba(255, 252, 245, 0.5);
+  box-shadow: 0 8px 18px rgba(84, 142, 166, 0.1);
+  transform: translateY(-1px);
+}
+
+.secondary-button:active,
+.primary-button:active {
+  box-shadow: 0 3px 8px rgba(84, 142, 166, 0.08);
+  transform: translateY(1px);
 }
 
 .journal-actions .secondary-button {
@@ -1450,11 +2143,15 @@ textarea:focus {
   margin-top: 10px;
   border: 0;
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 50% 20%, rgba(255, 252, 245, 0.42), transparent 58%),
-    rgba(143, 184, 165, 0.86);
-  color: rgba(31, 38, 34, 0.78);
-  font-weight: 720;
+  background: rgba(207, 228, 235, 0.42);
+  color: rgba(31, 54, 60, 0.56);
+  font-family: "Yuanti SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-weight: 560;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .primary-button:disabled {
@@ -1471,7 +2168,7 @@ textarea:focus {
 
 .journal-actions .primary-button {
   margin-top: 0;
-  background: rgba(52, 125, 112, 0.82);
+  background: rgba(207, 228, 235, 0.42);
   box-shadow: 0 12px 34px rgba(52, 125, 112, 0.14);
 }
 
@@ -1688,6 +2385,258 @@ textarea:focus {
   }
 }
 
+@keyframes ritual-question-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) rotate(var(--question-rotate));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(var(--question-rotate));
+  }
+}
+
+@keyframes ritual-stage-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tide-progress-fill {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes tide-progress-flow {
+  0%,
+  100% {
+    filter: saturate(0.92) brightness(1);
+  }
+
+  50% {
+    filter: saturate(1.12) brightness(1.05);
+  }
+}
+
+@keyframes tide-bubble {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 0.72;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes quiet-swell {
+  0%,
+  100% {
+    transform: translateX(-12px) scaleX(1);
+  }
+
+  50% {
+    transform: translateX(12px) scaleX(1.04);
+  }
+}
+
+@keyframes fragment-guide-line {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  18%,
+  70% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes echo-first-message {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  12%,
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes echo-follow-message {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes paper-arrive {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translate(-50%, -34%) rotate(calc(var(--tilt) - 7deg)) scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate(-50%, -50%) rotate(var(--tilt)) translate(var(--drift-x), var(--drift-y));
+  }
+}
+
+@keyframes paper-drift {
+  0%,
+  100% {
+    opacity: 0.92;
+    transform: translate(-50%, -50%) rotate(var(--tilt)) translate(var(--drift-x), var(--drift-y));
+  }
+
+  50% {
+    opacity: 1;
+    transform: translate(-50%, calc(-50% - 3px)) rotate(calc(var(--tilt) + 0.8deg)) translate(calc(var(--drift-x) * -0.2), calc(var(--drift-y) * 0.4));
+  }
+}
+
+@keyframes fragment-to-bottle {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes paper-picked {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate(-50%, -50%) rotate(var(--tilt)) translate(var(--drift-x), var(--drift-y)) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translate(72%, 32%) rotate(calc(var(--tilt) + 16deg)) scale(0.62);
+  }
+}
+
+@keyframes paper-soft-leave {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(var(--tilt)) translate(var(--drift-x), var(--drift-y));
+  }
+
+  100% {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translate(-50%, -50%) rotate(var(--tilt)) translate(var(--drift-x), var(--drift-y)) scale(0.96);
+  }
+}
+
+@keyframes bottle-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes bottle-ripple {
+  from {
+    opacity: 0.58;
+    transform: scale(0.76);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes bottle-send-away {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(5deg);
+  }
+
+  100% {
+    opacity: 0.18;
+    transform: translate(120px, -74px) scale(0.42) rotate(14deg);
+  }
+}
+
+@keyframes echo-float-in {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(12px) rotate(calc(var(--tilt) - 5deg));
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) rotate(var(--tilt));
+  }
+}
+
+@keyframes echo-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--tilt));
+  }
+
+  50% {
+    transform: translateY(-5px) rotate(calc(var(--tilt) + 1deg));
+  }
+}
+
+@keyframes echo-to-shell {
+  from {
+    opacity: 0;
+    transform: translateX(-18px) scale(1.04);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1729,6 +2678,129 @@ textarea:focus {
   .weather-review-head h2 {
     font-size: 22px;
   }
+
+  .modal-stage {
+    grid-template-rows: 45vh auto minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  #focusCard {
+    width: auto;
+    max-width: min(88vw, 420px);
+    height: 45vh;
+    max-height: 45vh;
+  }
+
+  .ritual-question-stack {
+    width: min(360px, 94vw);
+    min-height: 178px;
+    height: auto;
+    gap: 30px;
+  }
+
+  .card-modal[data-stage="observing"] .prompt-bubble {
+    width: auto;
+    max-width: min(78vw, 310px);
+    padding: 0;
+    font-size: 14px;
+  }
+
+  .ritual-question:nth-child(1) {
+    justify-self: start;
+  }
+
+  .ritual-question:nth-child(2) {
+    justify-self: end;
+  }
+
+  .ritual-question:nth-child(3) {
+    justify-self: center;
+  }
+
+  .ritual-fragment-stage,
+  .echo-return-stage {
+    width: min(94vw, 420px);
+    min-height: min(38vh, 300px);
+    padding: 8px 12px 12px;
+    border-radius: 0;
+  }
+
+  .sea-fragment-field {
+    width: 100%;
+    height: 238px;
+  }
+
+  .paper-fragment {
+    width: 112px;
+    min-height: 62px;
+    padding: 15px 15px 12px;
+    font-size: 12px;
+  }
+
+  .paper-fragment.custom-add-fragment {
+    left: 72px;
+    top: calc(100% - 36px);
+    width: auto;
+    min-height: 30px;
+    padding: 2px 4px;
+  }
+
+  .drift-bottle {
+    left: calc(50% + 72px);
+    bottom: 58px;
+    width: 108px;
+    height: 138px;
+  }
+
+  .bottle-contents {
+    inset: -26px -72px -18px -72px;
+  }
+
+  .bottle-piece {
+    max-width: 76px;
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+
+  .bottle-piece:nth-child(6n + 1) {
+    transform: translate(-68px, -24px) rotate(-8deg);
+  }
+
+  .bottle-piece:nth-child(6n + 2) {
+    transform: translate(-64px, 24px) rotate(6deg);
+  }
+
+  .bottle-piece:nth-child(6n + 3) {
+    transform: translate(32px, -34px) rotate(8deg);
+  }
+
+  .bottle-piece:nth-child(6n + 4) {
+    transform: translate(32px, 26px) rotate(-5deg);
+  }
+
+  .bottle-piece:nth-child(6n + 5) {
+    transform: translate(-34px, -54px) rotate(4deg);
+  }
+
+  .bottle-piece:nth-child(6n) {
+    transform: translate(-22px, 50px) rotate(-7deg);
+  }
+
+  .ritual-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(320px, 82vw);
+  }
+
+  .echo-cloud {
+    height: 250px;
+  }
+
+  .echo-fragment {
+    width: min(156px, 40vw);
+    max-width: min(156px, 40vw);
+    padding: 9px 11px;
+    font-size: 12px;
+  }
 }
 
 @media (min-width: 760px) {
@@ -1744,7 +2816,10 @@ textarea:focus {
   }
 
   #focusCard {
-    width: min(34vw, 360px);
+    width: auto;
+    max-width: min(76vw, 520px);
+    height: 45vh;
+    max-height: 45vh;
   }
 
   .modal-stage {

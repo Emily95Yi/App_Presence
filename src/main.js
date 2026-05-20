@@ -7,6 +7,7 @@ const focusCard = document.getElementById("focusCard");
 const focusCtx = focusCard.getContext("2d");
 const promptLayer = document.getElementById("promptLayer");
 const responseDock = document.getElementById("responseDock");
+const modalCloseHint = document.getElementById("modalCloseHint");
 const cardSetPanel = document.getElementById("cardSetPanel");
 const calendarPanel = document.getElementById("calendarPanel");
 const calendarReview = document.getElementById("calendarReview");
@@ -307,18 +308,18 @@ const introWhispers = [
 ];
 
 const observingQuestions = [
-  "你在画面中看到了什么？",
-  "你被卡牌的哪里吸引着？",
-  "这里有什么还不需要马上清楚？",
-  "你的目光先停在哪里？",
-  "如果它是一种天气，会是什么？",
+  "你先看到了什么？",
+  "什么吸引了你的注意？",
+  "有没有什么地方让你想靠近？",
+  "有没有什么地方让你有点想离开？",
+  "如果停留久一点，你又会注意到什么？",
 ];
 
 const dwellingCopies = [
-  "你似乎在这里停留了一会儿。",
-  "也许有几个词，正慢慢靠近。",
-  "不用选对，只是把贴近的留下。",
-  "沉默也可以先留在这里。",
+  "拾起引起你共鸣的词语",
+  "海面慢慢漂来一些词语",
+  "不用选对，只是把贴近的留下",
+  "哪些纸片让你有感觉或是有了启发？",
 ];
 
 const softTagPool = [
@@ -337,25 +338,20 @@ const softTagPool = [
 ];
 
 const localEchoFragments = [
-  "你似乎在反复经过这里。",
-  "有些东西还没有被说完。",
-  "这里有一点慢下来的声音。",
-  "你刚才靠近了一个很轻的地方。",
-  "那句没有解释的话，也被留下了。",
-  "有个词像雾一样停着。",
-  "你没有急着离开，这已经算回应。",
-  "这里像是暂时不用整理。",
-  "有一点光，没有被拿走。",
-  "你提到的部分，还在轻轻回响。",
-  "这张图接住了一点沉默。",
+  "有些感受，不急着解释。",
+  "你已经听见了自己的一部分。",
+  "也许此刻，只需要被轻轻放下。",
+  "不是所有答案都要马上出现。",
+  "这份感觉，已经被好好接住了。",
+  "有些沉默，也会被温柔地听见。",
+  "海面没有催促，它只是托住了一点点。",
+  "你留下的不是答案，是一小片此刻。",
+  "那一点不确定，也可以先漂在这里。",
   "有些靠近，是很小声的。",
-  "刚才那一下停顿，被空间记住了。",
-  "你放下的不是答案，是一小片天气。",
-  "这里还有一点未完成的柔软。",
-  "像有什么从边缘慢慢浮回来。",
-  "那一点不确定，也可以先在这里。",
-  "你没有把它说清，但它被看见了。",
-  "有个地方，似乎还想再停一会儿。",
+  "你没有急着离开，这已经算回应。",
+  "世界轻轻收下了这句话。",
+  "有一点光，没有被拿走。",
+  "没有说清的部分，也被安静地放好了。",
   "这不是结论，只是一点回声。",
 ];
 
@@ -586,6 +582,8 @@ const state = {
   hoveredMeshId: null,
   introTimer: null,
   activeDwellTimer: null,
+  closeHintTimer: null,
+  modalTimers: [],
   lastInteractionAt: performance.now(),
   lastFrameAt: performance.now(),
   interactionFloatBoost: 0,
@@ -2396,23 +2394,42 @@ function openCardExperience(cards, initialIndex = 0, batchId = null) {
 function createCardSession(card) {
   const set = [...projectionSets, photoSet].find((candidate) => candidate.id === card.setId) ?? photoSet;
   const seed = (card.seed ?? hashString(card.id)) + Date.now();
+  const questions = selectRitualQuestions(card, set, seed);
   return {
     card,
     set,
     prompts: selectPrompts(card, set, card.seed ?? hashString(card.id)),
     currentPromptIndex: 0,
-    question: pickOne(observingQuestions, seed + 13),
-    dwellCopy: pickOne(dwellingCopies, seed + 29),
+    question: questions[0],
+    questions,
+    dwellCopy: "哪些纸片让你有感觉或是有了启发？",
     reflectionStage: "observing",
+    ritualStage: "observing",
+    ritualSeed: seed,
+    questionStartedAt: performance.now(),
     inputOpen: false,
     openedAt: performance.now(),
     selectedTags: new Set(),
     collectedTags: new Set(),
+    selectedFragments: new Map(),
+    collectedEchoes: new Set(),
+    customFragmentOpen: false,
+    customFragmentText: "",
+    customFragmentCount: 0,
     answerText: "",
+    inputSaveTimer: null,
+    customSaveTimer: null,
+    fragments: [],
     responseTags: [],
+    echoMessages: [],
     echoText: "",
     echoStatus: "idle",
     echoError: "",
+    bottleSent: false,
+    finalVisible: false,
+    inputExpanded: false,
+    closeHintSeenStep1: false,
+    closeHintSeenStep3: false,
     hasResponse: false,
   };
 }
@@ -2431,52 +2448,53 @@ function syncActiveCard() {
   focusCard.style.aspectRatio = `${size.width} / ${size.height}`;
   drawCardCanvas(focusCtx, focusCard.width, focusCard.height, card);
   renderModalByMode();
-  scheduleDwellReveal(session);
+  scheduleObservationFlow(session);
   updateBatchNav();
   record("card_open", {
     cardId: card.id,
     setId: card.setId,
     title: card.title,
     mode: "presence",
+    openedAt: new Date().toISOString(),
     photoBatchId: state.activeBatchId,
     thumbnail: cardThumbnail(card),
   });
 }
 
-function scheduleDwellReveal(session) {
-  window.clearTimeout(state.activeDwellTimer);
-  if (session.reflectionStage !== "observing") return;
+function scheduleObservationFlow(session) {
+  clearModalTimers();
+  if (session.ritualStage !== "observing") return;
   state.activeDwellTimer = window.setTimeout(() => {
     if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
-    session.reflectionStage = "tagsVisible";
+    session.ritualStage = "fragments";
+    session.reflectionStage = "fragments";
+    session.fragments = createRitualFragments(session);
     renderModalByMode();
-  }, 3500);
+  }, 8000);
+  state.modalTimers.push(state.activeDwellTimer);
 }
 
 function closeModal() {
   const session = getActiveSession();
+  clearModalTimers();
   if (session) {
-    const dwellMs = Math.round(performance.now() - session.openedAt);
-    if (dwellMs > 1800) {
-      record("question_action", {
-        mode: "presence",
-        action: "dwell",
-        cardId: session.card.id,
-        setId: session.card.setId,
-        promptId: getCurrentPrompt()?.id,
-        questionId: getCurrentPrompt()?.id,
-        dwellMs,
-        labels: [...session.selectedTags],
-        photoBatchId: state.activeBatchId,
-      });
-    }
+    flushAnswerSave(session);
+    window.clearTimeout(session.inputSaveTimer);
+    window.clearTimeout(session.customSaveTimer);
   }
-  window.clearTimeout(state.activeDwellTimer);
   cardModal.classList.remove("open");
   cardModal.setAttribute("aria-hidden", "true");
   state.activeCards = [];
   state.activeCardIndex = 0;
   state.activeBatchId = null;
+}
+
+function clearModalTimers() {
+  window.clearTimeout(state.activeDwellTimer);
+  window.clearTimeout(state.closeHintTimer);
+  state.closeHintTimer = null;
+  state.modalTimers.forEach((timer) => window.clearTimeout(timer));
+  state.modalTimers = [];
 }
 
 function getActiveSession() {
@@ -2489,6 +2507,25 @@ function getActiveSession() {
 function getCurrentPrompt() {
   const session = getActiveSession();
   return session?.prompts[session.currentPromptIndex] ?? null;
+}
+
+function selectRitualQuestions(card, set, seed) {
+  const first = pickOne(observingQuestions, seed + 13) || observingQuestions[0];
+  const semantic = card.semanticProfile ? selectPrompts(card, set, seed + 41).map((prompt) => softenQuestionText(prompt.text)) : [];
+  const generic = stableShuffle(observingQuestions, seed + 73).filter((text) => text !== first);
+  const rest = uniqueStrings([...semantic, ...generic])
+    .filter((text) => text && text !== first)
+    .slice(0, 2);
+  return [first, ...rest, ...generic].slice(0, 3);
+}
+
+function softenQuestionText(text = "") {
+  return String(text)
+    .replace(/如果它是一种天气，会是什么？/g, "它像哪一种天气？")
+    .replace(/身体里哪个地方和它有一点像？/g, "身体里有没有一点点相似的地方？")
+    .replace(/这里还有什么是完整的？/g, "这里还有什么安静地留着？")
+    .replace(/会发生什么/g, "会看见什么")
+    .replace(/？?$/, "？");
 }
 
 function selectPrompts(card, set, seed) {
@@ -2601,243 +2638,610 @@ function rememberSemanticPromptKeys(keys) {
 function renderCurrentPrompt() {
   promptLayer.innerHTML = "";
   const session = getActiveSession();
-  const bubble = document.createElement("span");
-  bubble.className = "prompt-bubble";
-  bubble.textContent = session?.question || getCurrentPrompt()?.text || "先看一会儿也可以";
-  promptLayer.appendChild(bubble);
-}
-
-function renderLiveTags(text) {
-  liveTagResult.innerHTML = "";
-  generateTags(text).forEach((tag) => {
-    const button = document.createElement("button");
-    button.className = `tag-chip${state.selectedTags.has(tag.label) ? " active" : ""}`;
-    button.dataset.family = tag.family;
-    button.type = "button";
-    button.textContent = tag.label;
-    button.addEventListener("click", () => {
-      if (state.selectedTags.has(tag.label)) {
-        state.selectedTags.delete(tag.label);
-        button.classList.remove("active");
-      } else {
-        state.selectedTags.add(tag.label);
-        button.classList.add("active");
-      }
-      record("tag", {
-        label: tag.label,
-        family: tag.family,
-        cardId: state.selectedCard?.id ?? "unknown",
-        setId: state.selectedCard?.setId ?? "unknown",
-        promptId: getCurrentPrompt()?.id,
-      });
-    });
-    liveTagResult.appendChild(button);
+  promptLayer.dataset.stage = session?.ritualStage ?? "idle";
+  if (!session || session.ritualStage !== "observing") return;
+  const stack = document.createElement("div");
+  stack.className = "ritual-question-stack";
+  session.questions.forEach((question, index) => {
+    const bubble = document.createElement("span");
+    bubble.className = "prompt-bubble ritual-question";
+    bubble.style.setProperty("--question-delay", `${index * 1350}ms`);
+    bubble.textContent = question;
+    stack.appendChild(bubble);
   });
+  promptLayer.appendChild(stack);
 }
 
 function renderModalByMode() {
+  const session = getActiveSession();
+  if (session) cardModal.dataset.stage = session.ritualStage;
+  updateModalCloseHint(session);
   renderCurrentPrompt();
-  renderReflectionMode();
+  renderRitualMode();
 }
 
-function renderReflectionMode() {
+function updateModalCloseHint(session) {
+  if (!modalCloseHint || !session) return;
+  window.clearTimeout(state.closeHintTimer);
+  modalCloseHint.classList.remove("visible", "persistent");
+
+  if (session.ritualStage === "observing" && !session.closeHintSeenStep1) {
+    session.closeHintSeenStep1 = true;
+    modalCloseHint.classList.add("visible");
+    state.closeHintTimer = window.setTimeout(() => {
+      modalCloseHint.classList.remove("visible");
+    }, 3000);
+    return;
+  }
+
+  if (session.ritualStage === "echoes") {
+    if (session.closeHintSeenStep3) {
+      modalCloseHint.classList.add("visible", "persistent");
+      return;
+    }
+    session.closeHintSeenStep3 = true;
+    state.closeHintTimer = window.setTimeout(() => {
+      if (!cardModal.classList.contains("open") || getActiveSession() !== session || session.ritualStage !== "echoes") return;
+      modalCloseHint.classList.add("visible", "persistent");
+    }, 5000);
+  }
+}
+
+function renderRitualMode() {
   const session = getActiveSession();
   if (!session) return;
-  const isWaiting = session.echoStatus === "floating" || session.echoStatus === "loading";
-  const hasResponse = session.hasResponse;
-  const hasDraft = session.answerText.trim().length > 0;
-  const showTags = session.reflectionStage === "tagsVisible" || session.inputOpen || hasResponse || isWaiting;
-  const tags = getSoftTagsForSession(session);
   responseDock.dataset.mode = "presence";
   responseDock.dataset.echo = session.echoStatus;
-  responseDock.classList.toggle("settled", showTags);
-  responseDock.innerHTML = `
-    <div class="reflection-dock">
-      ${
-        showTags
-          ? `<p class="dwell-copy">${session.dwellCopy}</p>
-             <div class="tag-result choice-tags soft-tags" id="softTagCloud"></div>`
-          : `<p class="quiet-space">先看着它，不用马上回答。</p>`
-      }
-      ${
-        hasResponse
-          ? `<div class="bottle-response visible">
-              <p class="echo-title">漂来的回声碎片</p>
-              <p class="echo-text" id="echoText"></p>
-            </div>`
-          : ""
-      }
-      ${
-        isWaiting
-          ? `<div class="echo-status visible" id="echoStatus">${
-              session.echoStatus === "floating" ? "这句话正在慢慢离开指尖。" : "回声正在从水面浮回来。"
-            }</div>`
-          : ""
-      }
-      ${
-        session.inputOpen && !hasResponse
-          ? `<div class="input-drawer open">
-              <textarea id="answerInput" placeholder="一个词、一句话，或者什么都不解释。" ${isWaiting ? "readonly" : ""}></textarea>
-              <button class="primary-button" id="castBottle" type="button" ${hasDraft && !isWaiting ? "" : "disabled"}>轻轻放下</button>
-            </div>`
-          : ""
-      }
-      <div class="reflection-actions">
-        ${
-          !session.inputOpen && !hasResponse
-            ? `<button class="secondary-button soft-open-input" id="openInputDrawer" type="button">留下一句话</button>`
-            : ""
-        }
-        <button class="secondary-button quiet-leave" id="keepBottle" type="button">回到画布</button>
+  responseDock.classList.toggle("settled", session.ritualStage !== "observing");
+
+  if (session.ritualStage === "observing") {
+    responseDock.innerHTML = `
+      <div class="observation-current">
+        <div class="tide-progress" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
       </div>
-    </div>
+    `;
+    return;
+  }
+
+  if (session.ritualStage === "fragments" || session.ritualStage === "leaving") {
+    renderFragmentStage(session);
+    return;
+  }
+
+  renderEchoStage(session);
+}
+
+function getSoftTagsForSession(session) {
+  if (session.fragments?.length) return session.fragments.filter((fragment) => !fragment.custom);
+  const promptTags = getPromptDisplayTags(getCurrentPrompt()).map((label) => ({ family: inferFamily(label), label }));
+  const base = uniqueTags([...promptTags, ...generateChoiceTags(getCurrentPrompt(), session.card), ...softTagPool]);
+  return stableShuffle(base, session.ritualSeed + hashString(session.question)).slice(0, 9);
+}
+
+function renderFragmentStage(session) {
+  if (!session.fragments.length) session.fragments = createRitualFragments(session);
+  const selected = [...session.selectedFragments.values()];
+  const isLeaving = session.ritualStage === "leaving";
+  responseDock.innerHTML = `
+    <section class="ritual-fragment-stage${isLeaving ? " leaving" : ""}" aria-label="共鸣碎片">
+      <div class="fragment-guide" aria-live="polite">
+        <span>海面上冲来了漂流瓶</span>
+        <span>哪些只言片语让你很有感觉，点击即可放进你的漂流瓶</span>
+      </div>
+      <div class="sea-fragment-field" id="seaFragmentField"></div>
+      <div class="drift-bottle${selected.length ? " glowing" : ""}" id="driftBottle" aria-label="小漂流瓶区域">
+        <span class="bottle-neck"></span>
+        <span class="bottle-body"></span>
+        <div class="bottle-contents" id="bottleContents"></div>
+      </div>
+      ${
+        isLeaving
+          ? ""
+          : `<div class="modal-actions ritual-actions">
+              <button class="secondary-button" id="regretFragments" type="button">后悔了</button>
+              <button class="primary-button" id="sendFragments" type="button">选好了</button>
+            </div>`
+      }
+    </section>
   `;
 
-  const tagRoot = responseDock.querySelector("#softTagCloud");
-  if (tagRoot) {
-    tags.forEach((tag, index) => {
+  const field = responseDock.querySelector("#seaFragmentField");
+  session.fragments.forEach((fragment) => renderFragmentPiece(session, fragment, { isLeaving, field }));
+
+  const bottleContents = responseDock.querySelector("#bottleContents");
+  renderBottleContents(session, bottleContents, selected);
+
+  responseDock.querySelector("#regretFragments")?.addEventListener("click", () => resetFragments(session));
+  responseDock.querySelector("#sendFragments")?.addEventListener("click", () => handleSendBottle(session));
+}
+
+function renderFragmentPiece(session, fragment, { isLeaving = false, field = responseDock.querySelector("#seaFragmentField") } = {}) {
+  if (!field || session.selectedFragments.has(fragment.id)) return null;
+  const piece = document.createElement("button");
+  piece.className = `paper-fragment${fragment.custom ? " custom-fragment" : ""}${fragment.customAdd ? " custom-add-fragment" : ""}${fragment.writing ? " writing" : ""}${isLeaving ? " leaving" : ""}`;
+  piece.type = "button";
+  piece.dataset.fragmentId = fragment.id;
+  piece.dataset.family = fragment.family;
+  piece.style.setProperty("--x", `${fragment.x}%`);
+  piece.style.setProperty("--y", `${fragment.y}%`);
+  piece.style.setProperty("--tilt", `${fragment.tilt}deg`);
+  piece.style.setProperty("--float-delay", `${fragment.floatDelay}ms`);
+  piece.style.setProperty("--fragment-delay", `${fragment.delay}ms`);
+  piece.style.setProperty("--drift-x", `${fragment.driftX}px`);
+  piece.style.setProperty("--drift-y", `${fragment.driftY}px`);
+
+  if (fragment.writing) {
+    piece.innerHTML = `<input type="text" maxlength="18" placeholder="自己写下" aria-label="自己写下一个词语" />`;
+    const input = piece.querySelector("input");
+    input.value = fragment.draft ?? "";
+    input.addEventListener("click", (event) => event.stopPropagation());
+    input.addEventListener("input", () => {
+      fragment.draft = input.value;
+      debounceCustomFragment(session, fragment);
+    });
+    window.setTimeout(() => input.focus(), 40);
+  } else {
+    piece.innerHTML = fragment.customAdd ? `<span class="custom-placeholder">自己写下</span><span class="paper-plus">+</span>` : `<span>${escapeHtml(fragment.label)}</span>`;
+  }
+
+  if (!isLeaving) {
+    piece.addEventListener("click", () => {
+      if (piece.dataset.dragged === "true") return;
+      if (fragment.customAdd) {
+        addCustomWritingFragment(session);
+        return;
+      }
+      handleFragmentClick(session, fragment, piece);
+    });
+    makeFragmentDraggable(piece, fragment, field);
+  }
+  field.appendChild(piece);
+  return piece;
+}
+
+function makeFragmentDraggable(piece, fragment, field) {
+  if (!field || fragment.customAdd) return;
+  let startX = 0;
+  let startY = 0;
+  let moved = false;
+  piece.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("input")) return;
+    startX = event.clientX;
+    startY = event.clientY;
+    moved = false;
+    piece.classList.add("dragging");
+    piece.setPointerCapture?.(event.pointerId);
+  });
+  piece.addEventListener("pointermove", (event) => {
+    if (!piece.classList.contains("dragging")) return;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    if (Math.hypot(dx, dy) < 4 && !moved) return;
+    moved = true;
+    const rect = field.getBoundingClientRect();
+    fragment.x = clamp(((event.clientX - rect.left) / rect.width) * 100, 12, 88);
+    fragment.y = clamp(((event.clientY - rect.top) / rect.height) * 100, 12, 86);
+    piece.style.setProperty("--x", `${fragment.x}%`);
+    piece.style.setProperty("--y", `${fragment.y}%`);
+  });
+  piece.addEventListener("pointerup", (event) => {
+    if (moved) {
+      piece.dataset.dragged = "true";
+      if (isPointInsideBottle(event.clientX, event.clientY)) {
+        handleFragmentClick(getActiveSession(), fragment, piece);
+      }
+      window.setTimeout(() => {
+        delete piece.dataset.dragged;
+      }, 80);
+    }
+    piece.classList.remove("dragging");
+    piece.releasePointerCapture?.(event.pointerId);
+  });
+  piece.addEventListener("pointercancel", () => {
+    piece.classList.remove("dragging");
+  });
+}
+
+function isPointInsideBottle(x, y) {
+  const bottle = responseDock.querySelector("#driftBottle");
+  if (!bottle) return false;
+  const rect = bottle.getBoundingClientRect();
+  const pad = 18;
+  return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad;
+}
+
+function renderBottleContents(session, root = responseDock.querySelector("#bottleContents"), selected = [...session.selectedFragments.values()]) {
+  if (!root) return;
+  root.innerHTML = "";
+  selected.forEach((fragment, index) => {
+    const chip = document.createElement("span");
+    chip.className = "bottle-piece";
+    chip.dataset.family = fragment.family;
+    chip.style.setProperty("--piece-delay", `${index * 38}ms`);
+    chip.style.setProperty("--piece-index", index);
+    chip.textContent = fragment.label;
+    root.appendChild(chip);
+  });
+}
+
+function renderEchoStage(session) {
+  const isSending = session.ritualStage === "sending";
+  responseDock.innerHTML = `
+    <section class="echo-return-stage${isSending ? " sending" : ""}" aria-label="漂流瓶回声">
+      ${
+        isSending
+          ? `<p class="sea-message">你的感受被大海接住，珍藏了起来</p>`
+          : `<div class="sea-message echo-message-cycle" aria-live="polite">
+              <span>海面上飘回了一些回应</span>
+              <span>选择你想收藏的回应</span>
+              <span>此刻的你的感受有被好好看见</span>
+            </div>`
+      }
+      ${
+        !isSending
+          ? `<div class="echo-cloud" id="echoCloud"></div>
+             <div class="quiet-input-area">
+              ${
+                session.inputExpanded
+                  ? `<textarea id="answerInput" aria-label="留下点什么"></textarea>`
+                  : `<button class="quiet-input-toggle" id="unfoldInput" type="button">
+                      <span>如果你还想留下一些话…</span>
+                      <i aria-hidden="true">⌄</i>
+                    </button>`
+              }
+             </div>`
+          : ""
+      }
+    </section>
+  `;
+
+  const echoCloud = responseDock.querySelector("#echoCloud");
+  if (echoCloud) {
+    session.echoMessages.forEach((echo, index) => {
       const button = document.createElement("button");
-      button.className = `tag-chip soft-tag${session.selectedTags.has(tag.label) ? " active collected" : ""}`;
-      button.dataset.family = tag.family;
+      button.className = `echo-fragment${session.collectedEchoes.has(echo.id) ? " collected" : ""}`;
       button.type = "button";
-      button.style.setProperty("--tag-delay", `${index * 56}ms`);
-      button.textContent = tag.label;
-      button.addEventListener("click", () => {
-        toggleSessionTag(session, tag);
-        record("tag", tagPayload(tag, "soft_absorb"));
-        renderReflectionMode();
-      });
-      tagRoot.appendChild(button);
+      button.style.setProperty("--echo-delay", `${index * 180}ms`);
+      button.style.setProperty("--tilt", `${echo.tilt}deg`);
+      button.style.setProperty("--x", `${echo.x}%`);
+      button.style.setProperty("--y", `${echo.y}%`);
+      button.textContent = echo.text;
+      button.addEventListener("click", () => collectEcho(session, echo, button));
+      echoCloud.appendChild(button);
     });
   }
 
   const textarea = responseDock.querySelector("#answerInput");
-  const castButton = responseDock.querySelector("#castBottle");
   if (textarea) {
     textarea.value = session.answerText;
     textarea.addEventListener("input", () => {
       session.answerText = textarea.value;
-      if (castButton) castButton.disabled = !session.answerText.trim() || isWaiting;
+      debounceAnswerSave(session);
     });
   }
-  const echoText = responseDock.querySelector("#echoText");
-  if (echoText) echoText.textContent = session.echoText;
-  responseDock.querySelector("#openInputDrawer")?.addEventListener("click", () => {
-    session.inputOpen = true;
-    renderReflectionMode();
-    window.setTimeout(() => responseDock.querySelector("#answerInput")?.focus(), 80);
+  responseDock.querySelector("#unfoldInput")?.addEventListener("click", () => {
+    expandQuietInput(session);
   });
-  responseDock.querySelector("#castBottle")?.addEventListener("click", handleJournalCast);
-  responseDock.querySelector("#keepBottle")?.addEventListener("click", closeModal);
 }
 
-function getSoftTagsForSession(session) {
-  if (session.softTags) return session.softTags;
-  const promptTags = getPromptDisplayTags(getCurrentPrompt()).map((label) => ({ family: inferFamily(label), label }));
-  const base = uniqueTags([...promptTags, ...generateChoiceTags(getCurrentPrompt(), session.card), ...softTagPool]);
-  session.softTags = stableShuffle(base, (session.card.seed ?? hashString(session.card.id)) + hashString(session.question)).slice(0, 7);
-  return session.softTags;
+function createRitualFragments(session) {
+  const base = uniqueTags([
+    ...semanticFragmentsForCard(session.card),
+    ...getPromptDisplayTags(getCurrentPrompt()).map((label) => ({ family: inferFamily(label), label })),
+    ...generateChoiceTags(getCurrentPrompt(), session.card),
+    ...softTagPool,
+    ...defaultTags,
+  ]);
+  const count = 7 + Math.floor(seededRandom(session.ritualSeed + 501) * 3);
+  const placed = [];
+  return stableShuffle(base, session.ritualSeed + 619)
+    .slice(0, count)
+    .map((tag, index) => decorateFragment(tag, index, session.ritualSeed, placed))
+    .concat(decorateFragment({ family: "related", label: "自己写下", customAdd: true }, count, session.ritualSeed, placed));
 }
 
-function renderChoiceMode() {
-  const session = getActiveSession();
-  const prompt = getCurrentPrompt();
-  const tags = generateChoiceTags(prompt, session.card);
-  const canStay = session.selectedTags.size > 0;
-  const isLast = session.currentPromptIndex >= session.prompts.length - 1;
-  responseDock.innerHTML = `
-    <div class="tag-result choice-tags" id="liveTagResult"></div>
-    <div class="modal-actions">
-      <button class="secondary-button" id="leaveCard" type="button">↙ 离开</button>
-      <button class="primary-button" id="stayCard" type="button" ${canStay ? "" : "disabled"}>${isLast ? "✦ 放手" : "◌ 停留"}</button>
-    </div>
-  `;
-  const tagRoot = responseDock.querySelector("#liveTagResult");
-  tags.forEach((tag) => {
-    const button = document.createElement("button");
-    button.className = `tag-chip${session.selectedTags.has(tag.label) ? " active" : ""}`;
-    button.dataset.family = tag.family;
-    button.type = "button";
-    button.textContent = tag.label;
-    button.addEventListener("click", () => {
-      toggleSessionTag(session, tag);
-      record("tag", tagPayload(tag, "choice_select"));
-      renderChoiceMode();
+function semanticFragmentsForCard(card) {
+  const profile = card.semanticProfile;
+  const semanticLabels = profile ? [...getProfileVectorTokens(profile), ...getProfileVisualTokens(profile)].map(translateSemanticToken).filter(Boolean) : [];
+  const titleLabels = generateAiLikeTags(card.title ?? "", { card }).map((tag) => tag.label);
+  return uniqueStrings([...semanticLabels, ...titleLabels])
+    .slice(0, 8)
+    .map((label) => ({ family: inferFamily(label), label }));
+}
+
+function decorateFragment(tag, index, seed, placed = []) {
+  const batchDelay = Math.floor(index / (seededRandom(seed + index * 17) > 0.55 ? 1 : 2)) * 80;
+  const position = pickFragmentPosition(index, seed, placed);
+  placed.push(position);
+  return {
+    id: tag.customAdd ? "custom-add-fragment" : tag.custom ? `custom-fragment-${index}-${hashString(tag.label)}` : `fragment-${index}-${hashString(tag.label)}`,
+    label: tag.label,
+    family: tag.family ?? inferFamily(tag.label),
+    custom: Boolean(tag.custom),
+    customAdd: Boolean(tag.customAdd),
+    x: position.x,
+    y: position.y,
+    tilt: Math.round((seededRandom(seed + index * 173) - 0.5) * 16),
+    driftX: Math.round((seededRandom(seed + index * 211) - 0.5) * 8),
+    driftY: Math.round((seededRandom(seed + index * 257) - 0.5) * 6),
+    floatDelay: 520 + Math.round(seededRandom(seed + index * 293) * 2600),
+    delay: batchDelay,
+  };
+}
+
+function pickFragmentPosition(index, seed, placed) {
+  let best = null;
+  let bestDistance = -1;
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const candidate = {
+      x: Math.round(18 + seededRandom(seed + index * 397 + attempt * 53) * 64),
+      y: Math.round(12 + seededRandom(seed + index * 431 + attempt * 71) * 58),
+    };
+    if (candidate.x < 42 && candidate.y > 54) continue;
+    const nearest = placed.length
+      ? Math.min(...placed.map((item) => Math.hypot((candidate.x - item.x) * 1.2, candidate.y - item.y)))
+      : 100;
+    if (nearest > bestDistance) {
+      best = candidate;
+      bestDistance = nearest;
+    }
+    if (nearest >= 22) return candidate;
+  }
+  return best ?? { x: 50, y: 50 };
+}
+
+function addCustomWritingFragment(session) {
+  const index = session.fragments.length + session.customFragmentCount;
+  const customSlots = [
+    { x: 25, y: 70 },
+    { x: 46, y: 70 },
+    { x: 25, y: 52 },
+    { x: 46, y: 52 },
+    { x: 67, y: 64 },
+    { x: 67, y: 46 },
+  ];
+  const slot = customSlots[session.customFragmentCount % customSlots.length];
+  const cycle = Math.floor(session.customFragmentCount / customSlots.length);
+  const position = {
+    x: clamp(slot.x + cycle * 4, 18, 82),
+    y: clamp(slot.y - cycle * 4, 20, 78),
+  };
+  const fragment = {
+    id: `custom-fragment-${Date.now()}-${session.customFragmentCount}`,
+    label: "自己写下",
+    family: "related",
+    custom: true,
+    writing: true,
+    draft: "",
+    x: position.x,
+    y: position.y,
+    tilt: Math.round((seededRandom(session.ritualSeed + index * 173) - 0.5) * 12),
+    driftX: Math.round((seededRandom(session.ritualSeed + index * 211) - 0.5) * 8),
+    driftY: Math.round((seededRandom(session.ritualSeed + index * 257) - 0.5) * 6),
+    floatDelay: 520,
+    delay: 0,
+  };
+  session.customFragmentCount += 1;
+  const addIndex = session.fragments.findIndex((item) => item.customAdd);
+  if (addIndex >= 0) {
+    session.fragments.splice(addIndex, 0, fragment);
+  } else {
+    session.fragments.push(fragment);
+  }
+  renderFragmentPiece(session, fragment);
+}
+
+function handleFragmentClick(session, fragment, element = null) {
+  if (session.ritualStage !== "fragments") return;
+  if (fragment.writing && !fragment.draft?.trim()) {
+    element?.querySelector("input")?.focus();
+    return;
+  }
+  const label = fragment.custom ? fragment.draft.trim() : fragment.label;
+  if (!label || session.selectedFragments.has(fragment.id)) return;
+  const selected = { ...fragment, label, family: fragment.family ?? inferFamily(label) };
+  session.selectedFragments.set(fragment.id, selected);
+  session.selectedTags.add(label);
+  record("tag", tagPayload({ label, family: selected.family }, fragment.custom ? "custom_fragment_select" : "bottle_fragment_select"));
+  element?.classList.add("picked");
+  window.setTimeout(() => element?.remove(), 260);
+  responseDock.querySelector("#driftBottle")?.classList.add("glowing");
+  renderBottleContents(session);
+}
+
+function debounceCustomFragment(session, fragment) {
+  window.clearTimeout(session.customSaveTimer);
+  session.customSaveTimer = window.setTimeout(() => {
+    if (fragment && session.customFragmentText.trim()) handleFragmentClick(session, fragment);
+    if (fragment?.draft?.trim()) {
+      const element = responseDock.querySelector(`[data-fragment-id="${fragment.id}"]`);
+      handleFragmentClick(session, fragment, element);
+    }
+  }, 520);
+}
+
+function resetFragments(session) {
+  session.selectedFragments.clear();
+  session.selectedTags.clear();
+  session.customFragmentOpen = false;
+  session.customFragmentText = "";
+  session.customFragmentCount = 0;
+  session.fragments = createRitualFragments(session);
+  record("question_action", {
+    mode: "presence",
+    action: "fragment_reset",
+    cardId: session.card.id,
+    setId: session.card.setId,
+    photoBatchId: state.activeBatchId,
+  });
+  const field = responseDock.querySelector("#seaFragmentField");
+  const bottle = responseDock.querySelector("#driftBottle");
+  if (!field || !bottle) {
+    renderRitualMode();
+    return;
+  }
+  field.innerHTML = "";
+  session.fragments.forEach((fragment) => renderFragmentPiece(session, fragment, { field }));
+  renderBottleContents(session);
+  bottle.classList.remove("glowing");
+}
+
+function handleSendBottle(session) {
+  if (session.ritualStage !== "fragments") return;
+  clearModalTimers();
+  session.echoStatus = "floating";
+  session.bottleSent = true;
+  session.ritualStage = "leaving";
+  cardModal.dataset.stage = session.ritualStage;
+  renderCurrentPrompt();
+
+  const stage = responseDock.querySelector(".ritual-fragment-stage");
+  if (stage) {
+    stage.classList.add("leaving");
+    stage.querySelector(".ritual-actions")?.classList.add("actions-leaving");
+    stage.querySelectorAll(".paper-fragment").forEach((piece) => {
+      if (!session.selectedFragments.has(piece.dataset.fragmentId)) piece.classList.add("leaving");
     });
-    tagRoot.appendChild(button);
-  });
-  responseDock.querySelector("#leaveCard").addEventListener("click", closeModal);
-  responseDock.querySelector("#stayCard").addEventListener("click", handleChoiceStay);
+    responseDock.querySelector("#driftBottle")?.classList.add("glowing", "sent-ready");
+  } else {
+    renderModalByMode();
+  }
+  const sendTimer = window.setTimeout(() => {
+    if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
+    session.ritualStage = "sending";
+    renderModalByMode();
+  }, 460);
+  const returnTimer = window.setTimeout(() => {
+    if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
+    session.ritualStage = "echoes";
+    session.echoStatus = "ready";
+    session.hasResponse = true;
+    session.inputOpen = true;
+    session.finalVisible = true;
+    session.echoMessages = createEchoMessages(session);
+    session.echoText = session.echoMessages.map((echo) => echo.text).join("\n");
+    saveReturnedEchoes(session);
+    renderModalByMode();
+    scheduleInputRevealIfNeeded(session);
+  }, 3400);
+  state.modalTimers.push(sendTimer, returnTimer);
 }
 
-function renderJournalMode() {
-  const session = getActiveSession();
-  const hasDraft = session.answerText.trim().length > 0;
-  const hasResponse = session.hasResponse;
-  const isWaiting = session.echoStatus === "floating" || session.echoStatus === "loading";
-  const hasError = session.echoStatus === "error";
-  const isLast = session.currentPromptIndex >= session.prompts.length - 1;
-  responseDock.dataset.echo = session.echoStatus;
-  responseDock.innerHTML = `
-    <div class="journal-sea" aria-hidden="true">
-      <span class="sea-glow"></span>
-      <span class="paper-drift"></span>
-    </div>
-    <p class="journal-boundary">这里不会替你说明什么，也不会把你推向结论。它只是帮你把刚才的话轻轻放一放。</p>
-    <textarea id="answerInput" placeholder="把此刻的一句话放进瓶子里。" ${hasResponse || isWaiting ? "readonly" : ""}></textarea>
-    <div class="echo-status${isWaiting || hasError ? " visible" : ""}" id="echoStatus">
-      ${hasError ? "这次回声没有顺利漂回来，可以稍后再试一次。" : "海面正在把话带回来……"}
-    </div>
-    <div class="bottle-response${hasResponse ? " visible" : ""}">
-      <p class="echo-title">漂来的回声碎片</p>
-      <p class="echo-text" id="echoText"></p>
-      <p class="echo-prompt">哪些部分贴近你？</p>
-      <div class="tag-result bottle-tags" id="bottleTags"></div>
-      <p class="bottle-hint" id="bottleHint">拾起回声碎片装进漂流瓶。</p>
-    </div>
-    <div class="modal-actions journal-actions${hasResponse ? " has-echo" : ""}${hasResponse && isLast ? " final-question" : ""}">
-      ${hasResponse && !isLast ? '<button class="secondary-button" id="exploreCard" type="button">再等会儿</button>' : ""}
-      ${!hasResponse ? `<button class="primary-button" id="castBottle" type="button" ${hasDraft && !isWaiting ? "" : "disabled"}>留下这些</button>` : ""}
-      <button class="secondary-button" id="keepBottle" type="button">收好离开</button>
-    </div>
-  `;
-  const textarea = responseDock.querySelector("#answerInput");
-  const castButton = responseDock.querySelector("#castBottle");
+function createEchoMessages(session) {
+  const labels = [...session.selectedFragments.values()].map((fragment) => fragment.label).join("|");
+  const count = 5;
+  const pool = stableShuffle(localEchoFragments, session.ritualSeed + hashString(labels || "sea"));
+  const slots = [
+    { x: 5, y: 2 },
+    { x: 52, y: 2 },
+    { x: 8, y: 38 },
+    { x: 56, y: 38 },
+    { x: 30, y: 74 },
+  ];
+  return pool.slice(0, count).map((text, index) => ({
+    id: `echo-${index}-${hashString(text)}`,
+    text,
+    tilt: Math.round((seededRandom(session.ritualSeed + index * 307) - 0.5) * 10),
+    x: clamp(slots[index].x + Math.round((seededRandom(session.ritualSeed + index * 331) - 0.5) * 4), 4, 70),
+    y: clamp(slots[index].y + Math.round((seededRandom(session.ritualSeed + index * 353) - 0.5) * 2), 1, 78),
+  }));
+}
+
+function saveReturnedEchoes(session) {
+  if (session.echoesSaved) return;
+  session.echoesSaved = true;
+  session.echoMessages.forEach((echo) => {
+    record("echo", {
+      mode: "presence",
+      action: "return",
+      cardId: session.card.id,
+      setId: session.card.setId,
+      promptId: getCurrentPrompt()?.id,
+      questionId: getCurrentPrompt()?.id,
+      text: echo.text,
+      labels: [...session.selectedTags],
+      thumbnail: cardThumbnail(session.card),
+      visualKind: "paper",
+      photoBatchId: state.activeBatchId,
+    });
+  });
+}
+
+function collectEcho(session, echo, element = null) {
+  if (session.collectedEchoes.has(echo.id)) return;
+  session.collectedEchoes.add(echo.id);
+  record("echo", {
+    mode: "presence",
+    action: "collect",
+    cardId: session.card.id,
+    setId: session.card.setId,
+    promptId: getCurrentPrompt()?.id,
+    questionId: getCurrentPrompt()?.id,
+    text: echo.text,
+    labels: [...session.selectedTags],
+    thumbnail: cardThumbnail(session.card),
+    visualKind: "echo",
+    photoBatchId: state.activeBatchId,
+  });
+  session.inputOpen = false;
+  session.finalVisible = true;
+  session.inputExpanded = false;
+  element?.classList.add("collected");
+}
+
+function scheduleInputRevealIfNeeded(session) {
+  session.inputOpen = true;
+  session.finalVisible = true;
+}
+
+function expandQuietInput(session) {
+  const inputArea = responseDock.querySelector(".quiet-input-area");
+  const unfold = responseDock.querySelector("#unfoldInput");
+  if (!inputArea || !unfold || responseDock.querySelector("#answerInput")) return;
+  session.inputExpanded = true;
+  const textarea = document.createElement("textarea");
+  textarea.id = "answerInput";
+  textarea.setAttribute("aria-label", "留下点什么");
   textarea.value = session.answerText;
   textarea.addEventListener("input", () => {
     session.answerText = textarea.value;
-    if (castButton) {
-      castButton.disabled = !session.answerText.trim() || session.hasResponse || session.echoStatus === "floating" || session.echoStatus === "loading";
-    }
+    debounceAnswerSave(session);
   });
-  const echoText = responseDock.querySelector("#echoText");
-  if (echoText) echoText.textContent = session.echoText;
-  const tagRoot = responseDock.querySelector("#bottleTags");
-  session.responseTags.forEach((tag) => {
-    const button = document.createElement("button");
-    button.className = `tag-chip echo-chip${session.collectedTags.has(tag.label) ? " active collected" : ""}`;
-    button.dataset.family = tag.family;
-    button.type = "button";
-    button.textContent = tag.label;
-    button.addEventListener("click", () => {
-      if (session.collectedTags.has(tag.label)) return;
-      session.collectedTags.add(tag.label);
-      record("tag", tagPayload(tag, "journal_collect"));
-      renderJournalMode();
-    });
-    tagRoot.appendChild(button);
+  unfold.replaceWith(textarea);
+  window.setTimeout(() => textarea.focus(), 40);
+}
+
+function debounceAnswerSave(session) {
+  window.clearTimeout(session.inputSaveTimer);
+  session.inputSaveTimer = window.setTimeout(() => {
+    flushAnswerSave(session);
+  }, 620);
+}
+
+function flushAnswerSave(session) {
+  if (!session) return;
+  const text = session.answerText.trim();
+  if (!text || text === session.lastSavedAnswerText) return;
+  session.lastSavedAnswerText = text;
+  record("answer", {
+    mode: "presence",
+    action: "draft",
+    cardId: session.card.id,
+    setId: session.card.setId,
+    promptId: getCurrentPrompt()?.id,
+    questionId: getCurrentPrompt()?.id,
+    text,
+    thumbnail: cardThumbnail(session.card),
+    photoBatchId: state.activeBatchId,
   });
-  if (!session.responseTags.length && hasResponse) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "这次只有很轻的一点回声。";
-    tagRoot.appendChild(empty);
-  }
-  responseDock.querySelector("#castBottle")?.addEventListener("click", () => {
-    handleJournalCast();
-  });
-  responseDock.querySelector("#exploreCard")?.addEventListener("click", handleJournalExplore);
-  responseDock.querySelector("#keepBottle").addEventListener("click", closeModal);
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function toggleSessionTag(session, tag) {
@@ -2887,89 +3291,18 @@ function handleChoiceStay() {
   syncActiveCard();
 }
 
-async function handleJournalCast() {
+function handleJournalCast() {
   const session = getActiveSession();
-  if (!session.answerText.trim() || session.hasResponse || session.echoStatus === "floating" || session.echoStatus === "loading") return;
-  const prompt = getCurrentPrompt();
-  const answerText = session.answerText.trim();
-  session.echoStatus = "floating";
-  session.echoError = "";
-  if (session.answerText.trim()) {
-    record("answer", {
-      mode: "presence",
-      action: "cast",
-      cardId: session.card.id,
-      setId: session.card.setId,
-      promptId: prompt?.id,
-      questionId: prompt?.id,
-      text: answerText,
-      thumbnail: cardThumbnail(session.card),
-      photoBatchId: state.activeBatchId,
-    });
-  }
-  renderReflectionMode();
-  try {
-    await wait(420);
-    session.echoStatus = "loading";
-    renderReflectionMode();
-    await wait(680);
-    const echo = await requestEcho(answerText, {
-      card: session.card,
-      prompt,
-      selectedTags: [...session.selectedTags],
-      dwellMs: Math.round(performance.now() - session.openedAt),
-      mode: "presence",
-    });
-    session.responseTags = echo.tags;
-    session.echoText = echo.echoText;
-    session.hasResponse = true;
-    session.echoStatus = "ready";
-    record("echo", {
-      mode: "presence",
-      action: "return",
-      cardId: session.card.id,
-      setId: session.card.setId,
-      promptId: prompt?.id,
-      questionId: prompt?.id,
-      text: echo.echoText,
-      labels: echo.tags.map((tag) => tag.label),
-      thumbnail: cardThumbnail(session.card),
-      visualKind: echo.visualKind,
-      photoBatchId: state.activeBatchId,
-    });
-  } catch {
-    session.echoStatus = "error";
-    session.echoError = "这次回声没有顺利漂回来，可以稍后再试一次。";
-  }
-  renderReflectionMode();
+  if (session?.ritualStage === "fragments") handleSendBottle(session);
 }
 
 function handleJournalExplore() {
   const session = getActiveSession();
-  if (!session.hasResponse) return;
-  const prompt = getCurrentPrompt();
-  record("question_action", {
-    mode: "journal",
-    action: "explore",
-    cardId: session.card.id,
-    setId: session.card.setId,
-    promptId: prompt?.id,
-    questionId: prompt?.id,
-    photoBatchId: state.activeBatchId,
-  });
-  if (session.currentPromptIndex >= session.prompts.length - 1) {
-    closeModal();
-    return;
+  if (session?.ritualStage === "echoes") {
+    session.inputOpen = true;
+    session.finalVisible = true;
+    renderRitualMode();
   }
-  session.currentPromptIndex += 1;
-  session.answerText = "";
-  session.responseTags = [];
-  session.collectedTags = new Set();
-  session.echoText = "";
-  session.echoError = "";
-  session.echoStatus = "idle";
-  session.hasResponse = false;
-  syncActiveCard();
 }
 
 function wait(ms) {
