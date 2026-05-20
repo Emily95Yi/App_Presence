@@ -33,33 +33,28 @@ const introStoreKey = "presence.intro.v1";
 const dbName = "presence.db.v1";
 const dbVersion = 1;
 const canvasGenerationConfig = {
-  minCardsPerViewport: 7,
-  maxCardsPerViewport: 10,
-  minBubblesPerViewport: 5,
-  maxBubblesPerViewport: 8,
-  chunkSize: 92,
-  clusterRadius: 58,
-  minDistanceBetweenCards: 130,
-  minDistanceBetweenBubbles: 78,
-  minDistanceCardToBubble: 112,
-  minOpacity: 0.35,
-  spawnPaddingAroundViewport: 0.22,
+  chunkSize: 76,
+  clusterRadius: 42,
+  minDistanceBetweenCards: 104,
+  minDistanceBetweenBubbles: 60,
+  minDistanceCardToBubble: 88,
 };
 
 const chunkSize = canvasGenerationConfig.chunkSize;
-const renderDistance = 2;
-const chunkFadeMargin = 1.2;
-const depthFadeStart = 122;
-const depthFadeEnd = 330;
+const renderDistance = 2.2;
+const chunkFadeMargin = 1.35;
+const depthFadeStart = 150;
+const depthFadeEnd = 390;
+const lookaheadChunkSteps = 3;
 const maxVelocity = 2.9;
 const velocityLerp = 0.16;
 const velocityDecay = 0.9;
 const initialCameraZ = 92;
 const maxPromptsPerCard = 3;
-const maxItemsPerChunk = canvasGenerationConfig.maxCardsPerViewport + canvasGenerationConfig.maxBubblesPerViewport;
+const maxItemsPerChunk = 7;
 const flowBendStrength = 38;
 const flowJitterStrength = 24;
-const poissonPlacementAttempts = 30;
+const poissonPlacementAttempts = 36;
 const cardCenterMinDistancePx = canvasGenerationConfig.minDistanceBetweenCards;
 const wordCenterMinDistancePx = canvasGenerationConfig.minDistanceBetweenBubbles;
 const idleCruiseDelayMs = 2000;
@@ -531,10 +526,8 @@ if (savedVisibility) {
 
 const records = readJson(recordStoreKey, []);
 const planeCache = new Map();
-const viewportDensityCache = new Map();
 const textureCache = new Map();
 const activeMeshes = new Map();
-const activeViewportDensityMeshIds = new Set();
 const raycaster = new THREE.Raycaster();
 const pointerNdc = new THREE.Vector2();
 const reusableVector = new THREE.Vector3();
@@ -1004,12 +997,11 @@ async function persistEvent(entry) {
 
 function makeChunkOffsets() {
   const offsets = [];
-  const maxDist = renderDistance + chunkFadeMargin;
-  for (let dx = -3; dx <= 3; dx += 1) {
-    for (let dy = -3; dy <= 3; dy += 1) {
-      for (let dz = -5; dz <= 2; dz += 1) {
+  for (let dx = -2; dx <= 2; dx += 1) {
+    for (let dy = -2; dy <= 2; dy += 1) {
+      for (let dz = -4; dz <= 2; dz += 1) {
         const dist = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
-        if (dist <= maxDist + 2) offsets.push({ dx, dy, dz, dist });
+        offsets.push({ dx, dy, dz, dist });
       }
     }
   }
@@ -1165,31 +1157,15 @@ function updateChunks(force = false) {
   const cx = Math.floor(state.basePos.x / chunkSize);
   const cy = Math.floor(state.basePos.y / chunkSize);
   const cz = Math.floor(state.basePos.z / chunkSize);
-  const weatherKey = state.weatherEnabled ? state.weatherFragments.map((item) => item.id).join("|") : "quiet";
-  const enabledKey =
-    [...getEnabledProjectionSets(), ...wordGroups.filter((group) => group.enabled), ...(photoSet.enabled ? [photoSet] : [])]
-      .map((item) => item.id)
-      .join("|") || "none";
-  const sceneKey = `${enabledKey},${weatherKey}`;
-  const key = `${cx},${cy},${cz},${sceneKey}`;
-  if (!force && key === state.lastChunkKey) {
-    ensureViewportDensity(sceneKey);
-    return;
-  }
+  const sceneKey = getSceneKey();
+  const lookaheadKey = getLookaheadKey();
+  const key = `${cx},${cy},${cz},${lookaheadKey},${sceneKey}`;
+  if (!force && key === state.lastChunkKey) return;
   state.lastChunkKey = key;
 
   const needed = new Set();
-  activeViewportDensityMeshIds.forEach((id) => removeMeshById(id));
-  activeViewportDensityMeshIds.clear();
-  chunkOffsets.forEach((offset) => {
-    generateChunkPlanesCached(cx + offset.dx, cy + offset.dy, cz + offset.dz).forEach((item) => {
-      needed.add(item.id);
-      if (!activeMeshes.has(item.id)) {
-        const mesh = createMesh(item);
-        activeMeshes.set(item.id, mesh);
-        scene.add(mesh);
-      }
-    });
+  mergeChunkOffsets(chunkOffsets, getLookaheadChunkOffsets()).forEach((offset) => {
+    addChunkMeshes(cx + offset.dx, cy + offset.dy, cz + offset.dz, needed);
   });
 
   activeMeshes.forEach((mesh, id) => {
@@ -1197,188 +1173,79 @@ function updateChunks(force = false) {
       removeMeshById(id);
     }
   });
-  ensureViewportDensity(sceneKey);
 }
 
-function ensureViewportDensity(sceneKey) {
-  const densityKey = getViewportDensityKey(sceneKey);
-  activeViewportDensityMeshIds.forEach((id) => {
-    const item = activeMeshes.get(id)?.userData;
-    if (item?.viewportDensityKey !== densityKey) {
-      removeMeshById(id);
-      activeViewportDensityMeshIds.delete(id);
+function addChunkMeshes(cx, cy, cz, needed) {
+  generateChunkPlanesCached(cx, cy, cz).forEach((item) => {
+    needed.add(item.id);
+    if (!activeMeshes.has(item.id)) {
+      const mesh = createMesh(item);
+      activeMeshes.set(item.id, mesh);
+      scene.add(mesh);
     }
   });
+}
 
-  const counts = countViewportDensity();
-  const missingCards =
-    counts.cards < canvasGenerationConfig.minCardsPerViewport
-      ? Math.min(canvasGenerationConfig.minCardsPerViewport - counts.cards, Math.max(0, canvasGenerationConfig.maxCardsPerViewport - counts.cards))
-      : 0;
-  const missingWords =
-    counts.words < canvasGenerationConfig.minBubblesPerViewport
-      ? Math.min(canvasGenerationConfig.minBubblesPerViewport - counts.words, Math.max(0, canvasGenerationConfig.maxBubblesPerViewport - counts.words))
-      : 0;
-  if (!missingCards && !missingWords) return;
+function getSceneKey() {
+  const weatherKey = state.weatherEnabled ? state.weatherFragments.map((item) => item.id).join("|") : "quiet";
+  const enabledKey =
+    [...getEnabledProjectionSets(), ...wordGroups.filter((group) => group.enabled), ...(photoSet.enabled ? [photoSet] : [])]
+      .map((item) => item.id)
+      .join("|") || "none";
+  return `${enabledKey},${weatherKey}`;
+}
 
-  if (!viewportDensityCache.has(densityKey)) {
-    const existingItems = getPlacementItemsNearViewport(canvasGenerationConfig.spawnPaddingAroundViewport);
-    viewportDensityCache.set(densityKey, makeViewportDensityItems(densityKey, missingCards, missingWords, existingItems));
-    if (viewportDensityCache.size > 180) viewportDensityCache.delete(viewportDensityCache.keys().next().value);
-  }
-
-  viewportDensityCache.get(densityKey).forEach((item) => {
-    if (activeMeshes.has(item.id)) return;
-    const mesh = createMesh(item);
-    activeMeshes.set(item.id, mesh);
-    activeViewportDensityMeshIds.add(item.id);
-    scene.add(mesh);
+function mergeChunkOffsets(...groups) {
+  const byKey = new Map();
+  groups.flat().forEach((offset) => {
+    const key = `${offset.dx}:${offset.dy}:${offset.dz}`;
+    if (!byKey.has(key)) byKey.set(key, offset);
   });
+  return [...byKey.values()];
 }
 
-function getViewportDensityKey(sceneKey) {
-  const width = Math.max(1, getVisibleWorldWidth() * 0.72);
-  const height = Math.max(1, getVisibleWorldHeight() * 0.72);
-  const vx = Math.floor((state.basePos.x + state.drift.x) / width);
-  const vy = Math.floor((state.basePos.y + state.drift.y) / height);
-  const vz = Math.floor(state.basePos.z / chunkSize);
-  return `${sceneKey}|viewport:${vx}:${vy}:${vz}`;
-}
+function getLookaheadChunkOffsets() {
+  const direction = getCameraTravelDirection();
+  if (direction.lengthSq() < 0.01) return [];
+  const offsets = [];
+  const horizontal = new THREE.Vector2(direction.x, direction.y);
+  const hasHorizontal = horizontal.lengthSq() > 0.01;
+  const side = hasHorizontal ? new THREE.Vector2(-horizontal.y, horizontal.x).normalize() : new THREE.Vector2(0, 0);
+  const baseStart = 4;
 
-function countViewportDensity() {
-  const counts = { cards: 0, words: 0 };
-  activeMeshes.forEach((mesh) => {
-    const item = mesh.userData;
-    if (item.kind !== "card" && item.kind !== "word") return;
-    if (!isItemInReadableViewport(item, -0.12)) return;
-    if (item.kind === "card") counts.cards += 1;
-    if (item.kind === "word") counts.words += 1;
-  });
-  return counts;
-}
-
-function getPlacementItemsNearViewport(padding) {
-  return [...activeMeshes.values()]
-    .map((mesh) => mesh.userData)
-    .filter((item) => (item.kind === "card" || item.kind === "word") && isItemInReadableViewport(item, padding + 0.18));
-}
-
-function isItemInProjectedViewport(item, padding) {
-  reusableVector.copy(item.position).project(camera);
-  const relativeDepth = state.basePos.z - item.position.z;
-  return (
-    relativeDepth > -26 &&
-    Math.abs(relativeDepth) < depthFadeEnd &&
-    reusableVector.x >= -1 - padding &&
-    reusableVector.x <= 1 + padding &&
-    reusableVector.y >= -1 - padding &&
-    reusableVector.y <= 1 + padding
-  );
-}
-
-function isItemInReadableViewport(item, padding) {
-  reusableVector.copy(item.position).project(camera);
-  const relativeDepth = state.basePos.z - item.position.z;
-  return (
-    relativeDepth > 8 &&
-    relativeDepth <= depthFadeStart &&
-    reusableVector.x >= -1 - padding &&
-    reusableVector.x <= 1 + padding &&
-    reusableVector.y >= -1 - padding &&
-    reusableVector.y <= 1 + padding
-  );
-}
-
-function makeViewportDensityItems(densityKey, missingCards, missingWords, existingItems) {
-  const cards = getEnabledCards();
-  const enabledWords = getEnabledWords();
-  const items = [];
-  const seed = hashString(densityKey);
-  const bounds = getViewportWorldBounds(state.basePos.z - 72, canvasGenerationConfig.spawnPaddingAroundViewport);
-  const clusters = makeViewportDensityClusters(bounds, seed);
-  const clusterRadius = screenPixelsToWorldUnits(canvasGenerationConfig.clusterRadius);
-  const kinds = [
-    ...Array.from({ length: cards.length ? missingCards : 0 }, () => "card"),
-    ...Array.from({ length: enabledWords.length ? missingWords : 0 }, () => "word"),
-  ];
-
-  kinds.forEach((kind, index) => {
-    const item = makePoissonViewportItem(
-      {
-        cards,
-        enabledWords,
-        clusters,
-        clusterRadius,
-        densityKey,
-        itemIndex: index,
-        itemSeed: seed + index * 1291,
-        kind,
-      },
-      [...existingItems, ...items],
-    );
-    if (item) items.push(item);
-  });
-
-  return items;
-}
-
-function makeViewportDensityClusters(bounds, seed) {
-  const count = 2 + (seededRandom(seed + 17) > 0.62 ? 1 : 0);
-  return Array.from({ length: count }, (_, index) => {
-    const s = seed + index * 2161;
-    const r = (n) => seededRandom(s + n);
-    return {
-      id: `viewport-cluster:${index}`,
-      center: new THREE.Vector3(lerp(bounds.minX, bounds.maxX, r(1)), lerp(bounds.minY, bounds.maxY, r(2)), bounds.z + (r(3) - 0.5) * chunkSize * 0.38),
-      semanticKey: ["standard", "round", "relationship", "present", "angel"][Math.floor(r(4) * 5) % 5],
-      flowRotation: (r(5) - 0.5) * 0.32,
-      seed: s,
+  for (let step = baseStart; step < baseStart + lookaheadChunkSteps; step += 1) {
+    const base = {
+      dx: Math.round(direction.x * step),
+      dy: Math.round(direction.y * step),
+      dz: Math.round(direction.z * step),
     };
-  });
-}
-
-function makePoissonViewportItem(args, placedItems) {
-  const attempts = poissonPlacementAttempts * 2;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const itemSeed = args.itemSeed + attempt * 7919;
-    const cluster = args.clusters[Math.floor(seededRandom(itemSeed + 5) * args.clusters.length) % args.clusters.length];
-    const radius = args.clusterRadius * (1 + (attempt / attempts) * 2.4);
-    const item = makeClusterItem({
-      cards: args.cards,
-      enabledWords: args.enabledWords,
-      weatherFragments: [],
-      cluster,
-      key: args.densityKey,
-      itemIndex: args.itemIndex,
-      itemSeed,
-      kind: args.kind,
-      position: placeAroundCluster(cluster, radius, itemSeed),
-      attempt,
-    });
-    if (item && isPoissonPlacementValid(item, placedItems)) {
-      item.isViewportSupplemental = true;
-      item.viewportDensityKey = args.densityKey;
-      if (item.kind === "card") item.scale.multiplyScalar(0.72);
-      if (item.kind === "word") item.scale.multiplyScalar(0.92);
-      return item;
+    for (let spread = -1; spread <= 1; spread += 1) {
+      offsets.push({
+        dx: base.dx + Math.round(side.x * spread),
+        dy: base.dy + Math.round(side.y * spread),
+        dz: base.dz,
+        dist: step,
+      });
     }
   }
-  return null;
+  return offsets;
 }
 
-function getViewportWorldBounds(z, padding) {
-  const distance = Math.max(1, camera.position.z - z);
-  const height = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
-  const width = height * camera.aspect;
-  const padX = width * padding;
-  const padY = height * padding;
-  return {
-    minX: camera.position.x - width / 2 - padX,
-    maxX: camera.position.x + width / 2 + padX,
-    minY: camera.position.y - height / 2 - padY,
-    maxY: camera.position.y + height / 2 + padY,
-    z,
-  };
+function getCameraTravelDirection() {
+  reusableVector.copy(state.velocity);
+  if (reusableVector.lengthSq() < 0.0025) reusableVector.copy(state.targetVel);
+  if (reusableVector.lengthSq() < 0.0025) {
+    reusableVector.set(state.mouse.x * 0.12, state.mouse.y * 0.12, state.scrollAccum);
+  }
+  return reusableVector.lengthSq() > 0 ? reusableVector.normalize().clone() : new THREE.Vector3(0, 0, 0);
+}
+
+function getLookaheadKey() {
+  const source = state.velocity.lengthSq() >= 0.0025 ? state.velocity : state.targetVel;
+  const x = Math.abs(source.x) > 0.12 ? Math.sign(source.x) : 0;
+  const y = Math.abs(source.y) > 0.12 ? Math.sign(source.y) : 0;
+  const z = Math.abs(source.z) > 0.12 ? Math.sign(source.z) : 0;
+  return `${x}:${y}:${z}`;
 }
 
 function removeMeshById(id) {
@@ -1391,12 +1258,7 @@ function removeMeshById(id) {
 }
 
 function generateChunkPlanesCached(cx, cy, cz) {
-  const weatherKey = state.weatherEnabled ? state.weatherFragments.map((item) => item.id).join("|") : "quiet";
-  const enabledKey =
-    [...getEnabledProjectionSets(), ...wordGroups.filter((group) => group.enabled), ...(photoSet.enabled ? [photoSet] : [])]
-      .map((item) => item.id)
-      .join("|") || "none";
-  const key = `${cx},${cy},${cz},${enabledKey},${weatherKey}`;
+  const key = `${cx},${cy},${cz},${getSceneKey()}`;
   if (planeCache.has(key)) return planeCache.get(key);
 
   const cards = getEnabledCards();
@@ -1408,8 +1270,8 @@ function generateChunkPlanesCached(cx, cy, cz) {
   const clusterRadius = screenPixelsToWorldUnits(canvasGenerationConfig.clusterRadius);
   let itemIndex = 0;
 
-  const desiredCards = cards.length ? 1 + (seededRandom(seed + 11) > 0.72 ? 1 : 0) : 0;
-  const desiredWords = enabledWords.length && seededRandom(seed + 13) > 0.45 ? 1 : 0;
+  const desiredCards = cards.length ? 2 + (seededRandom(seed + 11) > 0.54 ? 1 : 0) + (isNearInitialView(cx, cy, cz) ? 1 : 0) : 0;
+  const desiredWords = enabledWords.length ? 1 + (seededRandom(seed + 13) > 0.58 ? 1 : 0) : 0;
   const desiredWeather = weatherFragments.length && seededRandom(seed + 17) > 0.82 ? 1 : 0;
   const itemKinds = [
     ...Array.from({ length: desiredCards }, () => "card"),
@@ -1487,16 +1349,16 @@ function generateChunkPlanesCached(cx, cy, cz) {
 }
 
 function makeChunkClusters(cx, cy, cz, seed) {
-  const count = 1 + (seededRandom(seed + 31) > 0.42 ? 1 : 0) + (seededRandom(seed + 37) > 0.82 ? 1 : 0);
+  const count = 1 + (seededRandom(seed + 31) > 0.34 ? 1 : 0) + (seededRandom(seed + 37) > 0.78 ? 1 : 0);
   return Array.from({ length: count }, (_, index) => makeChunkCluster(cx, cy, cz, seed + index * 2017, index));
 }
 
 function makeChunkCluster(cx, cy, cz, seed, index) {
   const r = (n) => seededRandom(seed + n);
   const center = new THREE.Vector3(
-    cx * chunkSize + (r(1) - 0.5) * chunkSize * 0.86,
-    cy * chunkSize + (r(2) - 0.5) * chunkSize * 0.86,
-    cz * chunkSize + (r(3) - 0.5) * chunkSize * 0.5,
+    cx * chunkSize + (r(1) - 0.5) * chunkSize * 0.68,
+    cy * chunkSize + (r(2) - 0.5) * chunkSize * 0.68,
+    cz * chunkSize + (r(3) - 0.5) * chunkSize * 0.42,
   );
   const semanticKeys = ["standard", "round", "relationship", "photos", "present", "angel", "mist", "seen", "weather", "body", "light"];
   return {
@@ -1512,7 +1374,7 @@ function placeAroundCluster(cluster, radius, seed) {
   const r = (n) => seededRandom(seed + n);
   const angle = r(1) * Math.PI * 2;
   const distance = Math.sqrt(r(2)) * radius;
-  const depth = (r(3) - 0.5) * chunkSize * 0.28;
+  const depth = (r(3) - 0.5) * chunkSize * 0.22;
   return new THREE.Vector3(
     cluster.center.x + Math.cos(angle) * distance,
     cluster.center.y + Math.sin(angle) * distance,
@@ -1704,7 +1566,7 @@ function makeCardStreamItem(base, cards, semanticKey, seed) {
   const pool = matching.length ? matching : cards;
   const card = pool[Math.floor(seededRandom(seed + 31) * pool.length) % pool.length];
   const set = [...projectionSets, photoSet].find((candidate) => candidate.id === card.setId) ?? photoSet;
-  const cardHeight = 13.5 + seededRandom(seed + 37) * 13.5;
+  const cardHeight = 16 + seededRandom(seed + 37) * 16;
   const cardAspect = getCardAspect(card);
   return {
     ...base,
@@ -1714,7 +1576,7 @@ function makeCardStreamItem(base, cards, semanticKey, seed) {
     set,
     semanticKey: getCardSemanticKey(card),
     floatSpeed: getCardFloatSpeed(card),
-    scale: new THREE.Vector3(clamp(cardHeight * cardAspect, 8.5, 29), cardHeight, 1),
+    scale: new THREE.Vector3(clamp(cardHeight * cardAspect, 10, 35), cardHeight, 1),
   };
 }
 
@@ -2271,11 +2133,11 @@ function animate() {
   camera.position.set(state.basePos.x + state.drift.x, state.basePos.y + state.drift.y, state.basePos.z);
   camera.lookAt(state.basePos.x + state.drift.x * 0.2, state.basePos.y + state.drift.y * 0.2, state.basePos.z - 126);
   updateChunks();
-  updateMeshVisibility();
+  updateMeshVisibility(deltaSeconds);
   renderer.render(scene, camera);
 }
 
-function updateMeshVisibility() {
+function updateMeshVisibility(deltaSeconds = 1 / 60) {
   const cx = Math.floor(state.basePos.x / chunkSize);
   const cy = Math.floor(state.basePos.y / chunkSize);
   const cz = Math.floor(state.basePos.z / chunkSize);
@@ -2305,29 +2167,45 @@ function updateMeshVisibility() {
     const relativeDepth = state.basePos.z - reusableVector.z;
     const absDepth = Math.abs(relativeDepth);
     const gridFade = dist <= renderDistance ? 1 : Math.max(0, 1 - (dist - renderDistance) / chunkFadeMargin);
-    const depthFade =
+    const farDepthFade =
       absDepth <= depthFadeStart ? 1 : Math.max(0, 1 - (absDepth - depthFadeStart) / (depthFadeEnd - depthFadeStart));
-    const depthRatio = clamp(absDepth / depthFadeEnd, 0, 1);
+    const nearDepthFade = clamp((relativeDepth - 10) / 34, 0, 1);
+    const depthFade = nearDepthFade * farDepthFade;
+    const depthRatio = clamp(relativeDepth / depthFadeEnd, 0, 1);
     reusableVector.copy(mesh.position).project(camera);
     const edgeDistance = Math.max(Math.abs(reusableVector.x), Math.abs(reusableVector.y));
-    const edgeFade = edgeDistance < 0.72 ? 1 : clamp(1 - (edgeDistance - 0.72) / 0.34, 0, 1);
+    const edgeFade = edgeDistance < 0.74 ? 1 : clamp(1 - (edgeDistance - 0.74) / 0.5, 0, 1);
     const tooCloseWord = item.kind === "word" && relativeDepth < 24;
     const depthSoftness = item.kind === "weather" ? depthFade : depthFade * depthFade;
-    const observable = relativeDepth > -26 && !tooCloseWord && gridFade > 0 && depthSoftness > 0 && edgeFade > 0;
-    const rawTarget = observable ? Math.min(gridFade, depthSoftness, edgeFade) : 0;
-    const target = observable && (item.kind === "card" || item.kind === "word") ? Math.max(canvasGenerationConfig.minOpacity, rawTarget) : rawTarget;
+    const observable = relativeDepth > 0 && !tooCloseWord && gridFade > 0 && depthSoftness > 0 && edgeFade > 0;
+    const distanceDimming = 1 - depthRatio * (item.kind === "weather" ? 0.08 : 0.2);
+    const rawTarget = observable ? Math.min(gridFade, depthSoftness, edgeFade) * distanceDimming : 0;
+    const target = rawTarget;
     const isHovered = state.hoveredMeshId === item.id;
     const hoverBoost = isHovered ? (item.kind === "weather" ? 0.24 : 0.16) : 0;
-    mesh.material.opacity += (Math.min(1, target + hoverBoost) - mesh.material.opacity) * 0.16;
+    const targetOpacity = Math.min(1, target + hoverBoost);
+    const fadeSeconds = targetOpacity > mesh.material.opacity ? getFadeInSeconds(item) : getFadeOutSeconds(item);
+    const fadeStep = 1 - Math.exp(-deltaSeconds / fadeSeconds);
+    mesh.material.opacity += (targetOpacity - mesh.material.opacity) * fadeStep;
     mesh.material.color.setHex(isHovered && item.kind === "weather" ? 0xfff4bb : 0xffffff);
     const breatheAmp = item.kind === "weather" ? 0.035 : item.kind === "card" ? 0.018 : 0.012;
-    const zoomSoftness = 1 - depthRatio * (item.kind === "weather" ? 0.08 : 0.16);
+    const zoomSoftness = 1 - depthRatio * (item.kind === "weather" ? 0.08 : 0.18);
     const hoverScale = item.kind === "weather" && isHovered ? 1.04 : hover.scale;
-    const breathe = (1 + Math.sin((now * floatSpeed + phaseOffset) * 0.82) * breatheAmp) * zoomSoftness * hoverScale;
+    const presenceScale = 0.94 + easeOutCubic(clamp(mesh.material.opacity, 0, 1)) * 0.06;
+    const breathe = (1 + Math.sin((now * floatSpeed + phaseOffset) * 0.82) * breatheAmp) * zoomSoftness * hoverScale * presenceScale;
     mesh.scale.set(item.scale.x * breathe, item.scale.y * breathe, item.scale.z);
-    mesh.material.depthWrite = mesh.material.opacity > 0.98;
-    mesh.visible = mesh.material.opacity > 0.012;
+    mesh.renderOrder = Math.round((1 - depthRatio) * 1000) + (item.kind === "card" ? 20 : item.kind === "word" ? 10 : 0);
+    mesh.material.depthWrite = false;
+    mesh.visible = mesh.material.opacity > 0.004;
   });
+}
+
+function getFadeInSeconds(item) {
+  return lerp(item.kind === "card" ? 0.72 : 0.6, item.kind === "weather" ? 1.2 : 1.08, seededRandom(item.seed + 501));
+}
+
+function getFadeOutSeconds(item) {
+  return lerp(item.kind === "card" ? 0.92 : 0.8, item.kind === "weather" ? 1.5 : 1.38, seededRandom(item.seed + 907));
 }
 
 function updateIdleCruise(nowMs, deltaSeconds) {
@@ -3740,13 +3618,11 @@ function formatRecordDay(value) {
 
 function rebuildScene() {
   planeCache.clear();
-  viewportDensityCache.clear();
   activeMeshes.forEach((mesh) => {
     scene.remove(mesh);
     mesh.material.dispose();
   });
   activeMeshes.clear();
-  activeViewportDensityMeshIds.clear();
   state.lastChunkKey = "";
   updateChunks(true);
 }
