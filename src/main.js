@@ -2328,6 +2328,7 @@ function lerp(a, b, t) {
 }
 
 function onPointerDown(event) {
+  if (closeCalendarPanelFromOutsideTap(event)) return;
   markCanvasInteraction();
   hideIntroWhisper();
   renderer.domElement.setPointerCapture(event.pointerId);
@@ -2367,6 +2368,7 @@ function onPointerUp(event) {
 }
 
 function handleTap(x, y) {
+  if (calendarPanel.classList.contains("open")) return;
   pointerNdc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(pointerNdc, camera);
   const hits = raycaster.intersectObjects([...activeMeshes.values()].filter((mesh) => mesh.visible), false);
@@ -2426,6 +2428,8 @@ function createCardSession(card) {
     collectedTags: new Set(),
     selectedFragments: new Map(),
     collectedEchoes: new Set(),
+    savedFragmentIds: new Set(),
+    savedEchoIds: new Set(),
     customFragmentOpen: false,
     customFragmentText: "",
     customFragmentCount: 0,
@@ -2444,6 +2448,8 @@ function createCardSession(card) {
     closeHintSeenStep1: false,
     closeHintSeenStep3: false,
     hasResponse: false,
+    hasOpened: false,
+    openRecordSaved: false,
   };
 }
 
@@ -2463,15 +2469,23 @@ function syncActiveCard() {
   renderModalByMode();
   scheduleObservationFlow(session);
   updateBatchNav();
-  record("card_open", {
-    cardId: card.id,
-    setId: card.setId,
-    title: card.title,
-    mode: "presence",
-    openedAt: new Date().toISOString(),
-    photoBatchId: state.activeBatchId,
-    thumbnail: cardThumbnail(card),
-  });
+  session.hasOpened = true;
+  if (!session.openRecordSaved) {
+    session.openRecordSaved = true;
+    const prompt = getSessionPrompt(session);
+    record("card_open", {
+      cardId: card.id,
+      setId: card.setId,
+      title: card.title,
+      mode: "presence",
+      promptId: prompt?.id,
+      questionId: prompt?.id,
+      questionText: session.question,
+      openedAt: new Date().toISOString(),
+      photoBatchId: state.activeBatchId,
+      thumbnail: cardThumbnail(card),
+    });
+  }
 }
 
 function scheduleObservationFlow(session) {
@@ -2492,10 +2506,13 @@ function closeModal() {
   clearModalTimers();
   if (session) {
     captureAnswerTextFromDom(session);
-    flushAnswerSave(session);
-    window.clearTimeout(session.inputSaveTimer);
-    window.clearTimeout(session.customSaveTimer);
   }
+  state.cardSessions.forEach((cardSession) => {
+    if (!cardSession.hasOpened) return;
+    flushSessionExitRecords(cardSession);
+    window.clearTimeout(cardSession.inputSaveTimer);
+    window.clearTimeout(cardSession.customSaveTimer);
+  });
   cardModal.classList.remove("open");
   cardModal.setAttribute("aria-hidden", "true");
   state.activeCards = [];
@@ -2525,7 +2542,11 @@ function getActiveSession() {
 
 function getCurrentPrompt() {
   const session = getActiveSession();
-  return session?.prompts[session.currentPromptIndex] ?? null;
+  return getSessionPrompt(session);
+}
+
+function getSessionPrompt(session) {
+  return session?.prompts?.[session.currentPromptIndex] ?? null;
 }
 
 function selectRitualQuestions(card, set, seed) {
@@ -2757,8 +2778,18 @@ function renderFragmentStage(session) {
         isLeaving
           ? ""
           : `<div class="modal-actions ritual-actions">
-              <button class="secondary-button" id="regretFragments" type="button">后悔了</button>
-              <button class="primary-button" id="sendFragments" type="button">选好了</button>
+              <button class="primary-button" id="sendFragments" type="button">
+                <span class="action-icon check-icon" aria-hidden="true"></span>
+                <span>选好了</span>
+              </button>
+              <button class="secondary-button" id="regretFragments" type="button">
+                <span class="action-icon delete-icon" aria-hidden="true"></span>
+                <span>后悔了</span>
+              </button>
+              <button class="secondary-button skip-button" id="skipFragments" type="button">
+                <span class="action-icon arrow-icon" aria-hidden="true"></span>
+                <span>跳过</span>
+              </button>
             </div>`
       }
     </section>
@@ -2771,6 +2802,7 @@ function renderFragmentStage(session) {
   renderBottleContents(session, bottleContents, selected);
 
   responseDock.querySelector("#regretFragments")?.addEventListener("click", () => resetFragments(session));
+  responseDock.querySelector("#skipFragments")?.addEventListener("click", () => skipFragments(session));
   responseDock.querySelector("#sendFragments")?.addEventListener("click", () => handleSendBottle(session));
 }
 
@@ -3010,12 +3042,12 @@ function pickFragmentPosition(index, seed, placed) {
 function addCustomWritingFragment(session) {
   const index = session.fragments.length + session.customFragmentCount;
   const customSlots = [
-    { x: 25, y: 70 },
-    { x: 46, y: 70 },
-    { x: 25, y: 52 },
-    { x: 46, y: 52 },
-    { x: 67, y: 64 },
-    { x: 67, y: 46 },
+    { x: 76, y: 66 },
+    { x: 86, y: 52 },
+    { x: 70, y: 44 },
+    { x: 84, y: 72 },
+    { x: 62, y: 58 },
+    { x: 74, y: 30 },
   ];
   const slot = customSlots[session.customFragmentCount % customSlots.length];
   const cycle = Math.floor(session.customFragmentCount / customSlots.length);
@@ -3059,7 +3091,6 @@ function handleFragmentClick(session, fragment, element = null) {
   const selected = { ...fragment, label, family: fragment.family ?? inferFamily(label) };
   session.selectedFragments.set(fragment.id, selected);
   session.selectedTags.add(label);
-  record("tag", tagPayload({ label, family: selected.family }, fragment.custom ? "custom_fragment_select" : "bottle_fragment_select"));
   element?.classList.add("picked");
   window.setTimeout(() => element?.remove(), 260);
   responseDock.querySelector("#driftBottle")?.classList.add("glowing");
@@ -3096,11 +3127,26 @@ function resetFragments(session) {
   bottle.classList.remove("glowing");
 }
 
-function handleSendBottle(session) {
+function skipFragments(session) {
+  if (session.ritualStage !== "fragments") return;
+  session.selectedFragments.clear();
+  session.selectedTags.clear();
+  record("question_action", {
+    mode: "presence",
+    action: "fragment_skip",
+    cardId: session.card.id,
+    setId: session.card.setId,
+    photoBatchId: state.activeBatchId,
+  });
+  handleSendBottle(session, { skipped: true });
+}
+
+function handleSendBottle(session, options = {}) {
   if (session.ritualStage !== "fragments") return;
   clearModalTimers();
   session.echoStatus = "floating";
   session.bottleSent = true;
+  session.skippedFragments = Boolean(options.skipped);
   session.ritualStage = "leaving";
   cardModal.dataset.stage = session.ritualStage;
   renderCurrentPrompt();
@@ -3141,11 +3187,11 @@ function createEchoMessages(session) {
   const count = 5;
   const pool = stableShuffle(localEchoFragments, session.ritualSeed + hashString(labels || "sea"));
   const slots = [
-    { x: 5, y: 2 },
-    { x: 52, y: 2 },
-    { x: 8, y: 38 },
-    { x: 56, y: 38 },
-    { x: 30, y: 74 },
+    { x: 9, y: 4 },
+    { x: 52, y: 4 },
+    { x: 12, y: 34 },
+    { x: 56, y: 34 },
+    { x: 32, y: 64 },
   ];
   return pool.slice(0, count).map((text, index) => ({
     id: `echo-${index}-${hashString(text)}`,
@@ -3179,20 +3225,6 @@ function saveReturnedEchoes(session) {
 function collectEcho(session, echo, element = null) {
   if (session.collectedEchoes.has(echo.id)) return;
   session.collectedEchoes.add(echo.id);
-  record("echo", {
-    mode: "presence",
-    action: "collect",
-    cardId: session.card.id,
-    setId: session.card.setId,
-    promptId: getCurrentPrompt()?.id,
-    questionId: getCurrentPrompt()?.id,
-    questionText: session.question,
-    text: echo.text,
-    labels: [...session.selectedTags],
-    thumbnail: cardThumbnail(session.card),
-    visualKind: "echo",
-    photoBatchId: state.activeBatchId,
-  });
   session.inputOpen = false;
   session.finalVisible = true;
   session.inputExpanded = false;
@@ -3232,18 +3264,50 @@ function flushAnswerSave(session) {
   const text = session.answerText.trim();
   if (!text || text === session.lastSavedAnswerText) return;
   session.lastSavedAnswerText = text;
+  const prompt = getSessionPrompt(session);
   record("answer", {
     mode: "presence",
     action: "exit_save",
     cardId: session.card.id,
     setId: session.card.setId,
-    promptId: getCurrentPrompt()?.id,
-    questionId: getCurrentPrompt()?.id,
+    promptId: prompt?.id,
+    questionId: prompt?.id,
     questionText: session.question,
     text,
     thumbnail: cardThumbnail(session.card),
     photoBatchId: state.activeBatchId,
   });
+}
+
+function flushSessionExitRecords(session) {
+  if (!session) return;
+  [...session.selectedFragments.values()].forEach((fragment) => {
+    if (session.savedFragmentIds.has(fragment.id)) return;
+    session.savedFragmentIds.add(fragment.id);
+    record("tag", sessionTagPayload(session, { label: fragment.label, family: fragment.family }, fragment.custom ? "custom_fragment_select" : "bottle_fragment_select"));
+  });
+  session.echoMessages
+    .filter((echo) => session.collectedEchoes.has(echo.id))
+    .forEach((echo) => {
+      if (session.savedEchoIds.has(echo.id)) return;
+      session.savedEchoIds.add(echo.id);
+      const prompt = getSessionPrompt(session);
+      record("echo", {
+        mode: "presence",
+        action: "collect",
+        cardId: session.card.id,
+        setId: session.card.setId,
+        promptId: prompt?.id,
+        questionId: prompt?.id,
+        questionText: session.question,
+        text: echo.text,
+        labels: [...session.selectedTags],
+        thumbnail: cardThumbnail(session.card),
+        visualKind: "echo",
+        photoBatchId: state.activeBatchId,
+      });
+    });
+  flushAnswerSave(session);
 }
 
 function escapeHtml(value = "") {
@@ -3264,7 +3328,11 @@ function toggleSessionTag(session, tag) {
 
 function tagPayload(tag, action) {
   const session = getActiveSession();
-  const prompt = getCurrentPrompt();
+  return sessionTagPayload(session, tag, action);
+}
+
+function sessionTagPayload(session, tag, action) {
+  const prompt = getSessionPrompt(session);
   return {
     label: tag.label,
     family: tag.family,
@@ -3275,6 +3343,7 @@ function tagPayload(tag, action) {
     promptId: prompt?.id,
     questionId: prompt?.id,
     questionText: session.question,
+    thumbnail: cardThumbnail(session.card),
     photoBatchId: state.activeBatchId,
   };
 }
@@ -3624,10 +3693,13 @@ function renderCalendar() {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const days = new Date(year, month + 1, 0).getDate();
-  const firstWeekday = new Date(year, month, 1).getDay();
   const groups = groupedRecords();
   const monthLabel = `${month + 1}月`;
   const footerCopy = calendarState.footerCopy || pickCalendarFooterCopy();
+  const recordDays = Array.from({ length: days }, (_, index) => index + 1).filter((day) => {
+    const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return (groups[key] ?? []).length > 0;
+  });
   let html = `
     <div class="calendar-headline">
       <button class="calendar-nav-button" id="prevMonth" type="button" aria-label="上个月">‹</button>
@@ -3639,26 +3711,18 @@ function renderCalendar() {
       <button class="calendar-nav-button" id="nextMonth" type="button" aria-label="下个月">›</button>
       <button class="calendar-close-button" id="closeCalendarInline" type="button" aria-label="关闭日历">×</button>
     </div>
-    <div class="weekday-row" aria-hidden="true">
-      <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
-    </div>
     <div class="month-grid calendar-month-grid">
   `;
-  for (let blank = 0; blank < firstWeekday; blank += 1) {
-    html += `<span class="calendar-day-spacer"></span>`;
+  if (!recordDays.length) {
+    html += `<p class="month-empty empty-state">这个月还没有留下记录。</p>`;
   }
-  for (let day = 1; day <= days; day += 1) {
+  recordDays.forEach((day) => {
     const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const entries = groups[key] ?? [];
-    const hasRecord = entries.length > 0;
     const density = clamp(entries.length || 1, 1, 7);
-    if (!hasRecord) {
-      html += `<span class="calendar-day-spacer"></span>`;
-      continue;
-    }
     const className = `day-button calendar-day has-record${calendarState.selectedDay === key ? " selected" : ""}`;
     html += `<button class="${className}" style="--density:${density}" data-day="${key}" type="button">${day}</button>`;
-  }
+  });
   html += `</div><p class="calendar-footer-copy">${footerCopy}</p>`;
   rootEl.innerHTML = html;
   rootEl.querySelector("#prevMonth").addEventListener("click", () => {
@@ -3696,6 +3760,7 @@ function groupedRecords() {
 }
 
 function isCalendarRecord(entry) {
+  if (entry.type === "card_open") return Boolean(entry.payload.cardId);
   if (entry.type === "tag") return ["bottle_fragment_select", "custom_fragment_select"].includes(entry.payload.action);
   if (entry.type === "echo") return entry.payload.action === "collect" && Boolean(entry.payload.text?.trim());
   if (entry.type === "answer") return entry.payload.action === "exit_save" && Boolean(entry.payload.text?.trim());
@@ -3750,7 +3815,7 @@ function openCalendarReview(day, entries) {
   const groups = groupEntriesByCard(entries);
   calendarState.reviewGroups = groups;
   calendarState.reviewActiveKey = null;
-  calendarReviewDate.innerHTML = `<span>${formatReviewDate(day)}</span><small>${formatReviewWeekday(day)}</small>`;
+  calendarReviewDate.innerHTML = `<span>${formatReviewDate(day)}</span>`;
   calendarReview.classList.add("open");
   calendarReview.setAttribute("aria-hidden", "false");
   renderCalendarReview();
@@ -3774,6 +3839,7 @@ function renderCalendarReview() {
     const button = document.createElement("button");
     button.className = `review-card${group.key === calendarState.reviewActiveKey ? " active" : ""}`;
     if (group.key.startsWith("keyword:")) button.classList.add("shell-review-card");
+    if (group.card?.setId) button.classList.add(`${group.card.setId}-review-card`);
     button.type = "button";
     button.style.setProperty("--tilt", `${((index % 7) - 3) * 2.4}deg`);
     button.style.setProperty("--rise", `${Math.abs((index % 5) - 2) * 7}px`);
@@ -4062,6 +4128,18 @@ function togglePanel(panel) {
   }
 }
 
+function closeCalendarPanelFromOutsideTap(event) {
+  if (!calendarPanel.classList.contains("open")) return false;
+  const target = event.target;
+  if (calendarPanel.contains(target) || document.getElementById("calendarToggle")?.contains(target)) return false;
+  calendarPanel.classList.remove("open");
+  calendarPanel.setAttribute("aria-hidden", "true");
+  state.pointers.clear();
+  state.lastPointer = null;
+  state.isDragging = false;
+  return true;
+}
+
 function scheduleIntroWhisper(force = false) {
   if (!force && localStorage.getItem(introStoreKey) === "seen") return;
   window.clearTimeout(state.introTimer);
@@ -4139,6 +4217,18 @@ weatherReview?.querySelectorAll(".weather-window-option").forEach((button) => {
 });
 document.getElementById("closeModal").addEventListener("click", closeModal);
 document.getElementById("modalScrim").addEventListener("click", closeModal);
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (!calendarPanel.classList.contains("open")) return;
+    const target = event.target;
+    if (calendarPanel.contains(target) || document.getElementById("calendarToggle")?.contains(target)) return;
+    closeCalendarPanelFromOutsideTap(event);
+    event.preventDefault();
+    event.stopPropagation();
+  },
+  { capture: true },
+);
 prevCardButton.addEventListener("click", () => moveActiveCard(-1));
 nextCardButton.addEventListener("click", () => moveActiveCard(1));
 focusCard.addEventListener("touchstart", (event) => {

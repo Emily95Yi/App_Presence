@@ -53,8 +53,9 @@
       <section class="card-modal" id="cardModal" aria-hidden="true">
         <div class="modal-scrim" id="modalScrim"></div>
         <div class="modal-stage" role="dialog" aria-modal="true" aria-label="卡牌回应">
-          <button id="closeModal" class="icon-button close-modal" type="button" aria-label="回到画布">←</button>
-          <p id="modalCloseHint" class="modal-close-hint">关闭窗口后可在日历中查看卡牌和你的回应</p>
+          <button id="closeModal" class="icon-button close-modal" type="button" aria-label="保存并回到画布">
+            <span class="save-icon" aria-hidden="true"></span>
+          </button>
           <button id="prevCard" class="icon-button batch-nav batch-prev" type="button" aria-label="上一张">‹</button>
           <button id="nextCard" class="icon-button batch-nav batch-next" type="button" aria-label="下一张">›</button>
           <canvas id="focusCard" width="512" height="680" aria-hidden="true"></canvas>
