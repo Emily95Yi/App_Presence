@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import "@phosphor-icons/web/duotone";
 import "./styles.css";
 
 const root = document.getElementById("sceneRoot");
@@ -7,19 +8,12 @@ const focusCard = document.getElementById("focusCard");
 const focusCtx = focusCard.getContext("2d");
 const promptLayer = document.getElementById("promptLayer");
 const responseDock = document.getElementById("responseDock");
-const modalCloseHint = document.getElementById("modalCloseHint");
 const cardSetPanel = document.getElementById("cardSetPanel");
 const calendarPanel = document.getElementById("calendarPanel");
 const calendarReview = document.getElementById("calendarReview");
 const calendarReviewDate = document.getElementById("calendarReviewDate");
 const calendarReviewDeck = document.getElementById("calendarReviewDeck");
 const calendarReviewDetail = document.getElementById("calendarReviewDetail");
-const weatherToggle = document.getElementById("weatherToggle");
-const weatherReview = document.getElementById("weatherReview");
-const weatherReviewTitle = document.getElementById("weatherReviewTitle");
-const weatherReviewCopy = document.getElementById("weatherReviewCopy");
-const weatherReviewDeck = document.getElementById("weatherReviewDeck");
-const weatherReviewDetail = document.getElementById("weatherReviewDetail");
 const photoInput = document.getElementById("photoInput");
 const prevCardButton = document.getElementById("prevCard");
 const nextCardButton = document.getElementById("nextCard");
@@ -28,7 +22,6 @@ const introWhisper = document.getElementById("introWhisper");
 const recordStoreKey = "presence.records.v1";
 const visibilityStoreKey = "presence.contentVisibility.v1";
 const userStoreKey = "presence.localUserId.v1";
-const weatherStoreKey = "presence.weatherFragments.v1";
 const recentSemanticPromptStoreKey = "presence.recentSemanticPrompts.v1";
 const introStoreKey = "presence.intro.v1";
 const dbName = "presence.db.v1";
@@ -53,8 +46,6 @@ const velocityDecay = 0.9;
 const initialCameraZ = 92;
 const maxPromptsPerCard = 3;
 const maxItemsPerChunk = 7;
-const flowBendStrength = 38;
-const flowJitterStrength = 24;
 const poissonPlacementAttempts = 36;
 const cardCenterMinDistancePx = canvasGenerationConfig.minDistanceBetweenCards;
 const wordCenterMinDistancePx = canvasGenerationConfig.minDistanceBetweenBubbles;
@@ -70,7 +61,6 @@ const floatSpeeds = {
   round: 0.22,
   relationship: 0.18,
   word: 0.3,
-  weather: 0.18,
 };
 const hoverLift = {
   enterMs: 200,
@@ -363,7 +353,6 @@ const supplementalObservationPerspectives = [
     compatibleVisualFeatures: ["open-space", "hands", "center-focus", "small-human-figure", "close-up"],
     intensity: 0.35,
     tone: "gentle-attention",
-    modeCompatibility: ["choice", "journal"],
     avoidRecentKey: "nearest",
     displayTags: ["距离", "靠近", "看见"],
   },
@@ -374,7 +363,6 @@ const supplementalObservationPerspectives = [
     compatibleVisualFeatures: ["figure-at-edge", "open-space", "soft-boundaries", "narrow-space", "corner"],
     intensity: 0.28,
     tone: "ambiguous",
-    modeCompatibility: ["choice", "journal"],
     avoidRecentKey: "edge",
     displayTags: ["边缘", "等待", "留白"],
   },
@@ -385,7 +373,6 @@ const supplementalObservationPerspectives = [
     compatibleVisualFeatures: ["slow-rotation", "drifting", "stillness", "open-surface", "soft-boundaries"],
     intensity: 0.3,
     tone: "soft-imaginal",
-    modeCompatibility: ["choice", "journal"],
     avoidRecentKey: "slower",
     displayTags: ["慢一点", "停留", "流动"],
   },
@@ -396,7 +383,6 @@ const supplementalObservationPerspectives = [
     compatibleVisualFeatures: ["center-focus", "light-from-above", "grid-pattern", "back-facing", "open-field"],
     intensity: 0.22,
     tone: "observational",
-    modeCompatibility: ["choice", "journal"],
     avoidRecentKey: "first-look",
     displayTags: ["第一眼", "位置", "观察"],
   },
@@ -407,7 +393,6 @@ const supplementalObservationPerspectives = [
     compatibleVisualFeatures: ["warm-light", "bright-flame", "light-from-above", "golden-yellow", "white-light"],
     intensity: 0.36,
     tone: "gentle-attention",
-    modeCompatibility: ["choice", "journal"],
     avoidRecentKey: "light",
     displayTags: ["光线", "保留", "靠近"],
   },
@@ -418,7 +403,6 @@ const supplementalObservationPerspectives = [
     compatibleVisualFeatures: ["broken-object", "scattered-fragments", "fragmented-objects", "fragmentation", "debris"],
     intensity: 0.48,
     tone: "quiet-precise",
-    modeCompatibility: ["choice", "journal"],
     avoidRecentKey: "complete",
     displayTags: ["完整", "碎片", "停留"],
   },
@@ -461,17 +445,6 @@ const resonanceTagRules = [
   { match: ["关系", "爱", "恨", "依靠"], tags: ["关系牵动", "想被看见"] },
   { match: ["光", "亮", "开始"], tags: ["一点希望", "微小开始"] },
   { match: ["雾", "雨", "风", "傍晚"], tags: ["天气一样", "情绪在流动"] },
-];
-
-const weatherSimilarityGroups = [
-  { key: "mist", family: "feeling", title: "像雾一样", match: ["雾", "模糊", "不清楚", "不确定", "没答案", "还没想好"] },
-  { key: "low", family: "feeling", title: "有点低低地漂着", match: ["累", "疲", "困", "闷", "空", "低能量", "酸涩", "躲"] },
-  { key: "seen", family: "relation", title: "想被轻轻看见", match: ["靠近", "看见", "抱", "陪", "接住", "支持"] },
-  { key: "body", family: "body", title: "身体还在轻声说", match: ["身体", "心", "胸", "胃", "肩", "呼吸"] },
-  { key: "weather", family: "feeling", title: "同一片天气", match: ["天气", "雨", "风", "傍晚", "海", "漂浮"] },
-  { key: "distance", family: "relation", title: "距离还在摇晃", match: ["距离", "边界", "退后", "离远", "保护", "亲密"] },
-  { key: "light", family: "shift", title: "一点亮还留着", match: ["光", "亮", "希望", "开始", "保留"] },
-  { key: "soft-stop", family: "related", title: "柔软的停顿", match: ["慢", "停留", "先放", "不解释", "没关系", "沉默"] },
 ];
 
 const cardImageManifest = {
@@ -530,7 +503,6 @@ const reusableVector = new THREE.Vector3();
 const calendarState = {
   month: new Date(),
   selectedDay: formatRecordDay(new Date().toISOString()),
-  detailCardKey: null,
   reviewGroups: [],
   reviewActiveKey: null,
   footerCopy: "",
@@ -564,27 +536,17 @@ const state = {
   lastPointer: null,
   lastTouchDist: 0,
   scrollAccum: 0,
-  mode: "journal",
   activeCards: [],
   activeCardIndex: 0,
   activeBatchId: null,
   cardSessions: new Map(),
   touchStartX: 0,
   selectedCard: null,
-  selectedPrompts: [],
-  currentPromptIndex: 0,
-  answerSubmitted: false,
   selectedTags: new Set(),
   lastChunkKey: "",
-  weatherEnabled: false,
-  weatherWindowDays: 30,
-  weatherFragments: [],
-  activeWeatherId: null,
-  activeWeatherCardKey: null,
   hoveredMeshId: null,
   introTimer: null,
   activeDwellTimer: null,
-  closeHintTimer: null,
   modalTimers: [],
   lastInteractionAt: performance.now(),
   lastFrameAt: performance.now(),
@@ -595,8 +557,6 @@ const chunkOffsets = makeChunkOffsets();
 resize();
 renderContentPanel();
 renderCalendar();
-refreshWeatherFragments(false);
-renderWeatherButton();
 recordAppVisit();
 updateChunks(true);
 animate();
@@ -632,7 +592,6 @@ function createObservationPerspectiveBank(profiles) {
       compatibleVisualFeatures: visualTokens,
       intensity,
       tone: inferPerspectiveTone(text, profile),
-      modeCompatibility: ["choice", "journal"],
       avoidRecentKey: normalizePerspectiveKey(text),
       sourceProfileId: profile.id,
       displayTags: createDisplayTagsForPerspective(text, profile),
@@ -951,7 +910,6 @@ function record(type, payload) {
   writeJson(recordStoreKey, records);
   persistEvent(entry);
   renderCalendar();
-  refreshWeatherFragments();
 }
 
 function recordAppVisit() {
@@ -1021,141 +979,10 @@ function getEnabledWords() {
   return wordGroups.filter((group) => group.enabled).flatMap((group) => group.words.map((word) => ({ ...word, groupId: group.id })));
 }
 
-function refreshWeatherFragments(shouldRebuild = true) {
-  if (!state.weatherEnabled) {
-    state.weatherFragments = [];
-    return;
-  }
-  const previousKey = state.weatherFragments.map((fragment) => fragment.id).join("|");
-  state.weatherFragments = buildWeatherFragments(30);
-  renderWeatherButton();
-  const nextKey = state.weatherFragments.map((fragment) => fragment.id).join("|");
-  if (shouldRebuild && previousKey !== nextKey) rebuildScene();
-}
-
-function buildWeatherFragments(windowDays) {
-  const cutoff = Date.now() - windowDays * 24 * 60 * 60 * 1000;
-  const buckets = new Map();
-  collectWeatherPieces(windowDays, cutoff).forEach((piece) => {
-    const bucketKey = weatherBucketKey(piece);
-    if (!buckets.has(bucketKey)) {
-      const softGroup = weatherSimilarityGroups.find((group) => bucketKey === `soft:${group.key}`);
-      buckets.set(bucketKey, {
-        key: bucketKey,
-        title: softGroup?.title ?? "",
-        family: softGroup?.family ?? piece.family ?? inferFamily(piece.label),
-        fragments: new Map(),
-        entries: new Map(),
-        days: new Set(),
-      });
-    }
-    const bucket = buckets.get(bucketKey);
-    bucket.fragments.set(piece.label, (bucket.fragments.get(piece.label) ?? 0) + 1);
-    bucket.entries.set(piece.entry.id, piece.entry);
-    bucket.days.add(piece.day);
-  });
-
-  return [...buckets.values()]
-    .filter((bucket) => [...bucket.entries.values()].some((entry) => entry.type === "echo") || bucket.entries.size >= 2 || bucket.days.size >= 2)
-    .sort((a, b) => b.days.size - a.days.size || b.entries.size - a.entries.size || a.key.localeCompare(b.key))
-    .slice(0, 5)
-    .map((bucket, index) => {
-      const fragments = [...bucket.fragments.entries()]
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .map(([label]) => label)
-        .slice(0, 5);
-      const title = bucket.title || fragments[0] || "轻轻停留";
-      return {
-        id: `weather-${windowDays}-${bucket.key}`,
-        title,
-        fragments,
-        relatedEntries: [...bucket.entries.values()].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()),
-        windowDays,
-        seed: hashString(`${windowDays}-${bucket.key}-${fragments.join("|")}`),
-        visualKind: ["shell", "paper", "tide", "glow"][index % 4],
-      };
-    });
-}
-
-function collectWeatherPieces(windowDays, cutoff) {
-  const pieces = [];
-  records.forEach((entry) => {
-    const at = new Date(entry.at).getTime();
-    if (!Number.isFinite(at) || at < cutoff || !isWeatherRecord(entry)) return;
-    const day = entry.dateKey ?? formatRecordDay(entry.at);
-    weatherLabelsForEntry(entry).forEach((tag) => {
-      const label = normalizeWeatherLabel(tag.label);
-      if (!label) return;
-      pieces.push({
-        label,
-        family: tag.family ?? inferFamily(label),
-        entry,
-        day,
-        windowDays,
-      });
-    });
-  });
-  return pieces;
-}
-
-function isWeatherRecord(entry) {
-  return ["tag", "keyword", "question_action", "answer", "echo"].includes(entry.type);
-}
-
-function weatherLabelsForEntry(entry) {
-  if (entry.type === "tag") {
-    return [{ label: entry.payload.label ?? entry.payload.tag ?? "", family: entry.payload.family }];
-  }
-  if (entry.type === "keyword") {
-    return [{ label: entry.payload.text ?? "", family: "related" }];
-  }
-  if (entry.type === "question_action") {
-    return (entry.payload.labels ?? []).map((label) => ({ label, family: inferFamily(label) }));
-  }
-  if (entry.type === "answer") {
-    return answerWeatherLabels(entry.payload.text ?? "");
-  }
-  if (entry.type === "echo") {
-    return [
-      { label: entry.payload.text ?? "回声", family: "resonance" },
-      ...(entry.payload.labels ?? []).map((label) => ({ label, family: inferFamily(label) })),
-    ];
-  }
-  return [];
-}
-
-function answerWeatherLabels(text) {
-  const trimmed = text.trim();
-  if (!trimmed) return [];
-  const tags = generateAiLikeTags(trimmed).map((tag) => ({ label: tag.label, family: tag.family }));
-  const direct = trimmed.length <= 10 ? [{ label: trimmed, family: inferFamily(trimmed) }] : [];
-  return uniqueTags([...direct, ...tags]).slice(0, 4);
-}
-
-function normalizeWeatherLabel(value = "") {
-  return translateEnglishDisplayText(stripTagPrefix(value))
-    .replace(/[，。！？、,.!?]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 16);
-}
-
 function translateEnglishDisplayText(value = "") {
   const text = String(value).trim();
   if (!/^[A-Za-z][A-Za-z /-]*$/.test(text)) return text;
   return angelTranslationMap.get(text.toLowerCase()) ?? "";
-}
-
-function weatherBucketKey(piece) {
-  const softGroup = weatherSimilarityGroups.find((group) => group.match.some((word) => piece.label.includes(word)));
-  if (softGroup) return `soft:${softGroup.key}`;
-  return `${piece.family ?? inferFamily(piece.label)}:${piece.label}`;
-}
-
-function renderWeatherButton() {
-  if (!weatherToggle) return;
-  weatherToggle.classList.toggle("active", state.weatherEnabled);
-  weatherToggle.classList.toggle("has-fragments", state.weatherFragments.length > 0);
 }
 
 function updateChunks(force = false) {
@@ -1192,12 +1019,11 @@ function addChunkMeshes(cx, cy, cz, needed) {
 }
 
 function getSceneKey() {
-  const weatherKey = state.weatherEnabled ? state.weatherFragments.map((item) => item.id).join("|") : "quiet";
   const enabledKey =
     [...getEnabledProjectionSets(), ...wordGroups.filter((group) => group.enabled), ...(photoSet.enabled ? [photoSet] : [])]
       .map((item) => item.id)
       .join("|") || "none";
-  return `${enabledKey},${weatherKey}`;
+  return enabledKey;
 }
 
 function mergeChunkOffsets(...groups) {
@@ -1268,7 +1094,6 @@ function generateChunkPlanesCached(cx, cy, cz) {
 
   const cards = getEnabledCards();
   const enabledWords = getEnabledWords();
-  const weatherFragments = state.weatherEnabled ? state.weatherFragments : [];
   const items = [];
   const seed = hashString(key);
   const clusters = makeChunkClusters(cx, cy, cz, seed);
@@ -1277,11 +1102,9 @@ function generateChunkPlanesCached(cx, cy, cz) {
 
   const desiredCards = cards.length ? 2 + (seededRandom(seed + 11) > 0.54 ? 1 : 0) + (isNearInitialView(cx, cy, cz) ? 1 : 0) : 0;
   const desiredWords = enabledWords.length ? 1 + (seededRandom(seed + 13) > 0.58 ? 1 : 0) : 0;
-  const desiredWeather = weatherFragments.length && seededRandom(seed + 17) > 0.82 ? 1 : 0;
   const itemKinds = [
     ...Array.from({ length: desiredCards }, () => "card"),
     ...Array.from({ length: desiredWords }, () => "word"),
-    ...Array.from({ length: desiredWeather }, () => "weather"),
   ];
 
   itemKinds.forEach((kind, index) => {
@@ -1291,7 +1114,6 @@ function generateChunkPlanesCached(cx, cy, cz) {
       {
         cards,
         enabledWords,
-        weatherFragments,
         clusters,
         clusterRadius,
         key,
@@ -1307,34 +1129,13 @@ function generateChunkPlanesCached(cx, cy, cz) {
     }
   });
 
-  if (state.weatherEnabled && weatherFragments.length && isNearInitialView(cx, cy, cz) && !items.some((item) => item.kind === "weather")) {
-    const echoItem = makeWeatherStreamItem(
-      {
-        id: `${key}-weather-echo-surface`,
-        chunkKey: key,
-        streamId: clusters[0]?.id ?? key,
-        semanticKey: "weather",
-        flowRotation: (clusters[0]?.flowRotation ?? 0) + 0.08,
-        floatPhase: seededRandom(seed + 88) * Math.PI * 2,
-        floatAmp: 1.4,
-        position: placeAroundCluster(clusters[0] ?? makeChunkCluster(cx, cy, cz, seed + 88, "fallback"), clusterRadius, seed + 909),
-        seed: seed + 909,
-        lit: true,
-      },
-      weatherFragments,
-      seed + 909,
-    );
-    if (echoItem) items.push(echoItem);
-  }
-
   if (!items.length) {
-    const fallbackKind = cards.length ? "card" : enabledWords.length ? "word" : weatherFragments.length ? "weather" : null;
+    const fallbackKind = cards.length ? "card" : enabledWords.length ? "word" : null;
     if (fallbackKind) {
       const item = makePoissonClusterItem(
         {
           cards,
           enabledWords,
-          weatherFragments,
           clusters,
           clusterRadius,
           key,
@@ -1365,7 +1166,7 @@ function makeChunkCluster(cx, cy, cz, seed, index) {
     cy * chunkSize + (r(2) - 0.5) * chunkSize * 0.68,
     cz * chunkSize + (r(3) - 0.5) * chunkSize * 0.42,
   );
-  const semanticKeys = ["standard", "round", "relationship", "photos", "present", "angel", "mist", "seen", "weather", "body", "light"];
+  const semanticKeys = ["standard", "round", "relationship", "photos", "present", "angel"];
   return {
     id: `${cx}:${cy}:${cz}:cluster:${index}`,
     center,
@@ -1403,11 +1204,11 @@ function makePoissonClusterItem(args, placedItems) {
   return null;
 }
 
-function makeClusterItem({ cards, enabledWords, weatherFragments, cluster, key, itemIndex, itemSeed, kind, position, attempt }) {
+function makeClusterItem({ cards, enabledWords, cluster, key, itemIndex, itemSeed, kind, position, attempt }) {
   const base = {
     id: `${key}-${cluster.id}-${kind}-${itemIndex}-${attempt}`,
     chunkKey: key,
-    streamId: cluster.id,
+    clusterId: cluster.id,
     semanticKey: cluster.semanticKey,
     flowRotation: cluster.flowRotation,
     floatPhase: seededRandom(itemSeed + 3) * Math.PI * 2,
@@ -1416,71 +1217,8 @@ function makeClusterItem({ cards, enabledWords, weatherFragments, cluster, key, 
     seed: itemSeed,
     lit: false,
   };
-  if (kind === "card") return makeCardStreamItem(base, cards, cluster.semanticKey, itemSeed);
-  if (kind === "word") return makeWordStreamItem(base, enabledWords, cluster.semanticKey, itemSeed);
-  if (kind === "weather") return makeWeatherStreamItem(base, weatherFragments, itemSeed);
-  return null;
-}
-
-function makeStreamAnchors(cx, cy, cz, seed) {
-  if (isBreathingVoid(cx, cy, cz) && !isNearInitialView(cx, cy, cz) && seededRandom(seed + 71) > 0.42) return [];
-  const streamCount = isNearInitialView(cx, cy, cz) ? 2 : Math.floor(seededRandom(seed + 17) * 4);
-  return Array.from({ length: streamCount }, (_, index) => {
-    const s = seed + index * 2017;
-    const r = (n) => seededRandom(s + n);
-    const center = new THREE.Vector3(
-      cx * chunkSize + (r(1) - 0.5) * chunkSize,
-      cy * chunkSize + (r(2) - 0.5) * chunkSize,
-      cz * chunkSize + (r(3) - 0.5) * chunkSize,
-    );
-    const flow = flowAt(center.x, center.y, center.z, seed);
-    const angle = Math.atan2(flow.y, flow.x);
-    const semanticKeys = ["standard", "round", "relationship", "photos", "present", "angel", "mist", "seen", "weather", "body", "light"];
-    return {
-      id: `${cx}:${cy}:${cz}:${index}`,
-      center,
-      angle,
-      bend: (r(4) - 0.5) * flowBendStrength,
-      length: chunkSize * (0.86 + r(5) * 0.78),
-      semanticKey: semanticKeys[Math.floor(r(6) * semanticKeys.length) % semanticKeys.length],
-      density: r(7),
-      seed: s,
-      groupRotation: (r(8) - 0.5) * 0.32,
-    };
-  });
-}
-
-function flowAt(x, y, z, seed) {
-  const a = Math.sin(x * 0.011 + z * 0.006 + seed * 0.0001);
-  const b = Math.cos(y * 0.013 - z * 0.004 + seed * 0.00013);
-  const c = Math.sin((x + y) * 0.006 + seed * 0.00017);
-  const angle = a * 1.35 + b * 0.85 + c * 0.7;
-  return new THREE.Vector2(Math.cos(angle), Math.sin(angle)).normalize();
-}
-
-function placeAlongStream(stream, t, jitterSeed) {
-  const r = (n) => seededRandom(jitterSeed + n);
-  const u = (t - 0.5) * 2;
-  const dir = new THREE.Vector2(Math.cos(stream.angle), Math.sin(stream.angle));
-  const normal = new THREE.Vector2(-dir.y, dir.x);
-  const curve = Math.sin(u * Math.PI) * stream.bend;
-  const side = (r(1) - 0.5) * flowJitterStrength * (0.45 + Math.abs(u));
-  const depth = (r(2) - 0.5) * chunkSize * 0.5;
-  return new THREE.Vector3(
-    stream.center.x + dir.x * u * stream.length * 0.5 + normal.x * (curve + side),
-    stream.center.y + dir.y * u * stream.length * 0.5 + normal.y * (curve + side),
-    stream.center.z + depth,
-  );
-}
-
-function makePoissonStreamItem(args, placedItems) {
-  for (let attempt = 0; attempt < poissonPlacementAttempts; attempt += 1) {
-    const item = makeStreamItem({
-      ...args,
-      itemSeed: args.itemSeed + attempt * 7919,
-    });
-    if (item && isPoissonPlacementValid(item, placedItems)) return item;
-  }
+  if (kind === "card") return makeCardClusterItem(base, cards, cluster.semanticKey, itemSeed);
+  if (kind === "word") return makeWordClusterItem(base, enabledWords, cluster.semanticKey, itemSeed);
   return null;
 }
 
@@ -1529,44 +1267,7 @@ function centerDistance2d(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function makeStreamItem({ cards, enabledWords, weatherFragments, stream, key, itemIndex, itemSeed }) {
-  const r = (n) => seededRandom(itemSeed + n);
-  const semanticKey = stream.semanticKey;
-  const t = (itemIndex + 0.35 + r(1) * 0.42) / (2 + Math.floor(stream.density * 5));
-  const position = placeAlongStream(stream, t % 1, itemSeed);
-  const base = {
-    id: `${key}-${stream.id}-${itemIndex}`,
-    chunkKey: key,
-    streamId: stream.id,
-    semanticKey,
-    flowRotation: stream.groupRotation + (r(2) - 0.5) * 0.18,
-    floatPhase: r(3) * Math.PI * 2,
-    floatAmp: 0.45 + r(4) * 1.4,
-    position,
-    seed: itemSeed,
-    lit: false,
-  };
-  const kind = chooseStreamKind({ cards, enabledWords, weatherFragments, semanticKey, seed: itemSeed });
-  if (kind === "card") return makeCardStreamItem(base, cards, semanticKey, itemSeed);
-  if (kind === "weather") return makeWeatherStreamItem(base, weatherFragments, itemSeed);
-  if (kind === "word") return makeWordStreamItem(base, enabledWords, semanticKey, itemSeed);
-  return null;
-}
-
-function chooseStreamKind({ cards, enabledWords, weatherFragments, semanticKey, seed }) {
-  const hasCards = cards.length > 0;
-  const hasWords = enabledWords.length > 0;
-  const hasWeather = weatherFragments.length > 0;
-  const r = seededRandom(seed + 23);
-  if (hasWeather && ["mist", "seen", "weather", "body", "light"].includes(semanticKey) && r > 0.48) return "weather";
-  if (hasWords && (semanticKey === "present" || semanticKey === "angel" || r < 0.34)) return "word";
-  if (hasCards) return "card";
-  if (hasWeather) return "weather";
-  if (hasWords) return "word";
-  return null;
-}
-
-function makeCardStreamItem(base, cards, semanticKey, seed) {
+function makeCardClusterItem(base, cards, semanticKey, seed) {
   const matching = cards.filter((card) => getCardSemanticKey(card) === semanticKey);
   const pool = matching.length ? matching : cards;
   const card = pool[Math.floor(seededRandom(seed + 31) * pool.length) % pool.length];
@@ -1585,7 +1286,7 @@ function makeCardStreamItem(base, cards, semanticKey, seed) {
   };
 }
 
-function makeWordStreamItem(base, enabledWords, semanticKey, seed) {
+function makeWordClusterItem(base, enabledWords, semanticKey, seed) {
   const matching = enabledWords.filter((word) => getWordSemanticKey(word) === semanticKey);
   const pool = matching.length ? matching : enabledWords;
   const word = pool[Math.floor(seededRandom(seed + 41) * pool.length) % pool.length];
@@ -1610,21 +1311,6 @@ function getWordDisplayText(word) {
   return translateEnglishDisplayText(text) || "轻轻停留";
 }
 
-function makeWeatherStreamItem(base, weatherFragments, seed) {
-  if (!weatherFragments.length) return null;
-  const fragment = weatherFragments[Math.floor(seededRandom(seed + 53) * weatherFragments.length) % weatherFragments.length];
-  const scale = getWeatherPlaneScale(fragment.title, fragment.visualKind);
-  return {
-    ...base,
-    id: `${base.id}-${fragment.id}`,
-    kind: "weather",
-    fragment,
-    semanticKey: getWeatherSemanticKey(fragment),
-    floatSpeed: floatSpeeds.weather,
-    scale: new THREE.Vector3(scale.width, scale.height, 1),
-  };
-}
-
 function getCardSemanticKey(card) {
   return card?.setId ?? "card";
 }
@@ -1639,44 +1325,15 @@ function getWordSemanticKey(word) {
   return word?.groupId ?? word?.tags?.[0] ?? "word";
 }
 
-function getWeatherSemanticKey(fragment) {
-  if (!fragment) return "weather";
-  const matched = weatherSimilarityGroups.find((group) => fragment.id.includes(group.key) || fragment.fragments?.some((text) => group.match.some((word) => text.includes(word))));
-  return matched?.key ?? fragment.visualKind ?? "weather";
-}
-
-function isBreathingVoid(cx, cy, cz) {
-  if (isNearInitialView(cx, cy, cz)) return false;
-  return seededRandom(hashString(`${cx}:${cy}:${cz}:void`)) > 0.78;
-}
-
 function isNearInitialView(cx, cy, cz) {
   return Math.abs(cx) <= 1 && Math.abs(cy) <= 1 && cz >= 0 && cz <= 2;
-}
-
-function makeFallbackStream(cx, cy, cz, seed) {
-  const center = new THREE.Vector3(cx * chunkSize, cy * chunkSize, cz * chunkSize);
-  const flow = flowAt(center.x, center.y, center.z, seed);
-  return {
-    id: `${cx}:${cy}:${cz}:fallback`,
-    center,
-    angle: Math.atan2(flow.y, flow.x),
-    bend: 0,
-    length: chunkSize,
-    semanticKey: "standard",
-    density: 0.58,
-    seed,
-    groupRotation: 0,
-  };
 }
 
 function createMesh(item) {
   const texture =
     item.kind === "card"
       ? makeCardTexture(item.card)
-      : item.kind === "weather"
-        ? makeWeatherTexture(item.fragment, item.seed)
-        : makeWordTexture(item.text, false, item.seed);
+      : makeWordTexture(item.text, false, item.seed);
   const material = new THREE.MeshBasicMaterial({
     map: texture,
     transparent: true,
@@ -1752,79 +1409,6 @@ function makeWordTexture(text, lit, seed) {
   return texture;
 }
 
-function makeWeatherTexture(fragment, seed) {
-  const key = `weather-${fragment.id}-${seed % 9}`;
-  if (textureCache.has(key)) return textureCache.get(key);
-  const canvas = document.createElement("canvas");
-  const size = getWeatherTextureSize(fragment.title);
-  canvas.width = size.width;
-  canvas.height = size.height;
-  const ctx = canvas.getContext("2d");
-  const kind = fragment.visualKind;
-  const colors = {
-    shell: ["rgba(255, 255, 246, 0.98)", "rgba(255, 229, 150, 0.82)", "rgba(156, 220, 210, 0.42)"],
-    paper: ["rgba(255, 255, 250, 0.96)", "rgba(156, 220, 210, 0.76)", "rgba(255, 229, 150, 0.36)"],
-    tide: ["rgba(255, 255, 245, 0.92)", "rgba(205, 187, 235, 0.72)", "rgba(156, 220, 210, 0.38)"],
-    glow: ["rgba(255, 255, 250, 0.98)", "rgba(255, 229, 150, 0.86)", "rgba(205, 187, 235, 0.46)"],
-  }[kind] ?? ["rgba(255, 255, 250, 0.96)", "rgba(255, 229, 150, 0.76)", "rgba(156, 220, 210, 0.38)"];
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.save();
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.rotate((seededRandom(seed + 3) - 0.5) * 0.14);
-  ctx.shadowColor = "rgba(255, 214, 111, 0.76)";
-  ctx.shadowBlur = 44;
-  ctx.beginPath();
-  if (kind === "shell") {
-    ctx.moveTo(-canvas.width * 0.34, -canvas.height * 0.04);
-    ctx.bezierCurveTo(-canvas.width * 0.24, -canvas.height * 0.42, canvas.width * 0.25, -canvas.height * 0.46, canvas.width * 0.34, -canvas.height * 0.06);
-    ctx.bezierCurveTo(canvas.width * 0.4, canvas.height * 0.24, canvas.width * 0.12, canvas.height * 0.38, -canvas.width * 0.26, canvas.height * 0.24);
-    ctx.bezierCurveTo(-canvas.width * 0.38, canvas.height * 0.18, -canvas.width * 0.42, canvas.height * 0.08, -canvas.width * 0.34, -canvas.height * 0.04);
-  } else if (kind === "paper" || kind === "glow") {
-    ctx.moveTo(-canvas.width * 0.36, -canvas.height * 0.28);
-    ctx.lineTo(canvas.width * 0.3, -canvas.height * 0.34);
-    ctx.quadraticCurveTo(canvas.width * 0.4, -canvas.height * 0.1, canvas.width * 0.34, canvas.height * 0.28);
-    ctx.lineTo(-canvas.width * 0.3, canvas.height * 0.34);
-    ctx.quadraticCurveTo(-canvas.width * 0.44, canvas.height * 0.04, -canvas.width * 0.36, -canvas.height * 0.28);
-  } else {
-    ctx.moveTo(-canvas.width * 0.38, -canvas.height * 0.06);
-    ctx.bezierCurveTo(-canvas.width * 0.18, -canvas.height * 0.34, canvas.width * 0.18, -canvas.height * 0.28, canvas.width * 0.38, -canvas.height * 0.02);
-    ctx.bezierCurveTo(canvas.width * 0.18, canvas.height * 0.3, -canvas.width * 0.14, canvas.height * 0.34, -canvas.width * 0.38, canvas.height * 0.06);
-    ctx.bezierCurveTo(-canvas.width * 0.32, canvas.height * 0.02, -canvas.width * 0.32, -canvas.height * 0.02, -canvas.width * 0.38, -canvas.height * 0.06);
-  }
-  const gradient = ctx.createRadialGradient(0, -canvas.height * 0.12, 12, 0, 0, canvas.width * 0.44);
-  gradient.addColorStop(0, colors[0]);
-  gradient.addColorStop(0.72, colors[1]);
-  gradient.addColorStop(1, colors[2]);
-  ctx.fillStyle = gradient;
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = "rgba(22, 32, 27, 0.12)";
-  ctx.lineWidth = 3;
-  ctx.stroke();
-  ctx.globalAlpha = 0.64;
-  ctx.strokeStyle = "rgba(255, 250, 210, 0.86)";
-  ctx.lineWidth = 5;
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-  ctx.restore();
-
-  ctx.shadowColor = "rgba(255, 229, 150, 0.72)";
-  ctx.shadowBlur = 16;
-  ctx.fillStyle = "rgba(31, 38, 34, 0.78)";
-  ctx.font = `${size.lines.length > 1 ? 700 : 760} ${size.lines.length > 1 ? 30 : 34}px Inter, system-ui, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const lineHeight = size.lines.length > 1 ? 38 : 42;
-  const startY = canvas.height / 2 - ((size.lines.length - 1) * lineHeight) / 2;
-  size.lines.forEach((line, index) => {
-    ctx.fillText(line, canvas.width / 2, startY + index * lineHeight, canvas.width - 92);
-  });
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  textureCache.set(key, texture);
-  return texture;
-}
-
 function getWordTextureSize(text) {
   const chars = [...text];
   const lines = chars.length > 15 ? splitTextLines(chars, 2) : [text];
@@ -1846,18 +1430,6 @@ function splitTextLines(chars, maxLines) {
 function getWordPlaneScale(text) {
   const size = getWordTextureSize(text);
   const height = size.lines.length > 1 ? 8.6 : 6.6;
-  return { width: height * (size.width / size.height), height };
-}
-
-function getWeatherTextureSize(text) {
-  const chars = [...text];
-  const lines = chars.length > 9 ? splitTextLines(chars, 2) : [text];
-  return { width: 520, height: lines.length > 1 ? 250 : 210, lines };
-}
-
-function getWeatherPlaneScale(text, visualKind) {
-  const size = getWeatherTextureSize(text);
-  const height = visualKind === "tide" || visualKind === "glow" ? 10.8 : 9.6;
   return { width: height * (size.width / size.height), height };
 }
 
@@ -2187,21 +1759,21 @@ function updateMeshVisibility(deltaSeconds = 1 / 60) {
     const edgeDistance = Math.max(Math.abs(reusableVector.x), Math.abs(reusableVector.y));
     const edgeFade = edgeDistance < 0.74 ? 1 : clamp(1 - (edgeDistance - 0.74) / 0.5, 0, 1);
     const tooCloseWord = item.kind === "word" && relativeDepth < 24;
-    const depthSoftness = item.kind === "weather" ? depthFade : depthFade * depthFade;
+    const depthSoftness = depthFade * depthFade;
     const observable = relativeDepth > 0 && !tooCloseWord && gridFade > 0 && depthSoftness > 0 && edgeFade > 0;
-    const distanceDimming = 1 - depthRatio * (item.kind === "weather" ? 0.08 : 0.2);
+    const distanceDimming = 1 - depthRatio * 0.2;
     const rawTarget = observable ? Math.min(gridFade, depthSoftness, edgeFade) * distanceDimming : 0;
     const target = rawTarget;
     const isHovered = state.hoveredMeshId === item.id;
-    const hoverBoost = isHovered ? (item.kind === "weather" ? 0.24 : 0.16) : 0;
+    const hoverBoost = isHovered ? 0.16 : 0;
     const targetOpacity = Math.min(1, target + hoverBoost);
     const fadeSeconds = targetOpacity > mesh.material.opacity ? getFadeInSeconds(item) : getFadeOutSeconds(item);
     const fadeStep = 1 - Math.exp(-deltaSeconds / fadeSeconds);
     mesh.material.opacity += (targetOpacity - mesh.material.opacity) * fadeStep;
-    mesh.material.color.setHex(isHovered && item.kind === "weather" ? 0xfff4bb : 0xffffff);
-    const breatheAmp = item.kind === "weather" ? 0.035 : item.kind === "card" ? 0.018 : 0.012;
-    const zoomSoftness = 1 - depthRatio * (item.kind === "weather" ? 0.08 : 0.18);
-    const hoverScale = item.kind === "weather" && isHovered ? 1.04 : hover.scale;
+    mesh.material.color.setHex(0xffffff);
+    const breatheAmp = item.kind === "card" ? 0.018 : 0.012;
+    const zoomSoftness = 1 - depthRatio * 0.18;
+    const hoverScale = hover.scale;
     const presenceScale = 0.94 + easeOutCubic(clamp(mesh.material.opacity, 0, 1)) * 0.06;
     const breathe = (1 + Math.sin((now * floatSpeed + phaseOffset) * 0.82) * breatheAmp) * zoomSoftness * hoverScale * presenceScale;
     mesh.scale.set(item.scale.x * breathe, item.scale.y * breathe, item.scale.z);
@@ -2212,11 +1784,11 @@ function updateMeshVisibility(deltaSeconds = 1 / 60) {
 }
 
 function getFadeInSeconds(item) {
-  return lerp(item.kind === "card" ? 0.72 : 0.6, item.kind === "weather" ? 1.2 : 1.08, seededRandom(item.seed + 501));
+  return lerp(item.kind === "card" ? 0.72 : 0.6, 1.08, seededRandom(item.seed + 501));
 }
 
 function getFadeOutSeconds(item) {
-  return lerp(item.kind === "card" ? 0.92 : 0.8, item.kind === "weather" ? 1.5 : 1.38, seededRandom(item.seed + 907));
+  return lerp(item.kind === "card" ? 0.92 : 0.8, 1.38, seededRandom(item.seed + 907));
 }
 
 function updateIdleCruise(nowMs, deltaSeconds) {
@@ -2310,7 +1882,6 @@ function getCardHoverLift(item, nowMs) {
 
 function getItemFloatSpeed(item) {
   if (item.kind === "word") return floatSpeeds.word;
-  if (item.kind === "weather") return floatSpeeds.weather;
   if (item.kind === "card") return getCardFloatSpeed(item.card);
   return floatSpeeds.standard;
 }
@@ -2373,16 +1944,9 @@ function handleTap(x, y) {
   raycaster.setFromCamera(pointerNdc, camera);
   const hits = raycaster.intersectObjects([...activeMeshes.values()].filter((mesh) => mesh.visible), false);
   const visibleHits = hits.filter((entry) => entry.object.material.opacity > 0.24);
-  const hit =
-    visibleHits.find((entry) => entry.object.userData.kind === "weather") ??
-    visibleHits.find((entry) => entry.object.userData.kind === "card") ??
-    visibleHits[0];
+  const hit = visibleHits.find((entry) => entry.object.userData.kind === "card") ?? visibleHits[0];
   if (!hit) return;
   const item = hit.object.userData;
-  if (item.kind === "weather") {
-    openWeatherReview(item.fragment);
-    return;
-  }
   if (item.kind === "word") {
     item.lit = true;
     hit.object.material.map = makeWordTexture(item.text, true, item.seed);
@@ -2417,37 +1981,22 @@ function createCardSession(card) {
     currentPromptIndex: 0,
     question: questions[0],
     questions,
-    dwellCopy: "哪些纸片让你有感觉或是有了启发？",
-    reflectionStage: "observing",
     ritualStage: "observing",
     ritualSeed: seed,
     questionStartedAt: performance.now(),
-    inputOpen: false,
     openedAt: performance.now(),
     selectedTags: new Set(),
-    collectedTags: new Set(),
     selectedFragments: new Map(),
     collectedEchoes: new Set(),
     savedFragmentIds: new Set(),
     savedEchoIds: new Set(),
-    customFragmentOpen: false,
-    customFragmentText: "",
     customFragmentCount: 0,
     answerText: "",
-    inputSaveTimer: null,
-    customSaveTimer: null,
     fragments: [],
-    responseTags: [],
     echoMessages: [],
-    echoText: "",
     echoStatus: "idle",
-    echoError: "",
-    bottleSent: false,
-    finalVisible: false,
+    echoConfirmed: false,
     inputExpanded: false,
-    closeHintSeenStep1: false,
-    closeHintSeenStep3: false,
-    hasResponse: false,
     hasOpened: false,
     openRecordSaved: false,
   };
@@ -2458,8 +2007,6 @@ function syncActiveCard() {
   if (!card) return;
   const session = getActiveSession();
   state.selectedCard = card;
-  state.selectedPrompts = session.prompts;
-  state.currentPromptIndex = session.currentPromptIndex;
   state.selectedTags = session.selectedTags;
   const size = getCardCanvasSize(card);
   focusCard.width = size.width;
@@ -2494,7 +2041,6 @@ function scheduleObservationFlow(session) {
   state.activeDwellTimer = window.setTimeout(() => {
     if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
     session.ritualStage = "fragments";
-    session.reflectionStage = "fragments";
     session.fragments = createRitualFragments(session);
     renderModalByMode();
   }, 8000);
@@ -2510,8 +2056,6 @@ function closeModal() {
   state.cardSessions.forEach((cardSession) => {
     if (!cardSession.hasOpened) return;
     flushSessionExitRecords(cardSession);
-    window.clearTimeout(cardSession.inputSaveTimer);
-    window.clearTimeout(cardSession.customSaveTimer);
   });
   cardModal.classList.remove("open");
   cardModal.setAttribute("aria-hidden", "true");
@@ -2527,8 +2071,6 @@ function captureAnswerTextFromDom(session) {
 
 function clearModalTimers() {
   window.clearTimeout(state.activeDwellTimer);
-  window.clearTimeout(state.closeHintTimer);
-  state.closeHintTimer = null;
   state.modalTimers.forEach((timer) => window.clearTimeout(timer));
   state.modalTimers = [];
 }
@@ -2598,7 +2140,7 @@ function selectSemanticPrompts(card, seed) {
     .filter((prompt) => prompt.sourceProfileId === card.id)
     .map((prompt) => ({
       prompt: { ...prompt, scope: "semantic", cardId: card.id },
-      weight: scoreObservationPerspective(prompt, { visualTokens, vectorTokens, energy, mode: state.mode, recentKeys, isOwnProfile: true }),
+      weight: scoreObservationPerspective(prompt, { visualTokens, vectorTokens, energy, recentKeys, isOwnProfile: true }),
     }))
     .filter((entry) => entry.weight > 0);
 
@@ -2609,7 +2151,7 @@ function selectSemanticPrompts(card, seed) {
       .filter((prompt) => prompt.sourceProfileId !== card.id)
       .map((prompt) => ({
         prompt: { ...prompt, scope: "semantic", cardId: card.id },
-        weight: scoreObservationPerspective(prompt, { visualTokens, vectorTokens, energy, mode: state.mode, recentKeys, isOwnProfile: false }),
+        weight: scoreObservationPerspective(prompt, { visualTokens, vectorTokens, energy, recentKeys, isOwnProfile: false }),
       }))
       .filter((entry) => entry.weight > 0);
     const support = weightedSampleUnique(supportCandidates, maxPromptsPerCard - selected.length, seed + hashString(card.id) + 4049);
@@ -2628,11 +2170,10 @@ function scoreObservationPerspective(prompt, context) {
   const visualScore = overlapRatio(context.visualTokens, prompt.compatibleVisualFeatures ?? []);
   const vectorScore = overlapRatio(context.vectorTokens, prompt.compatibleVectors ?? []);
   const intensityScore = 1 - Math.min(1, Math.abs((prompt.intensity ?? 0.35) - context.energy));
-  const modeScore = !prompt.modeCompatibility?.length || prompt.modeCompatibility.includes(context.mode) ? 1 : 0.35;
-  const toneScore = prompt.tone === "observational" || prompt.tone === "gentle-attention" || context.mode === "journal" ? 1 : 0.88;
+  const toneScore = prompt.tone === "observational" || prompt.tone === "gentle-attention" ? 1 : 0.88;
   const recentPenalty = context.recentKeys.includes(prompt.avoidRecentKey ?? normalizePerspectiveKey(prompt.text)) ? 0.68 : 1;
   const ownProfileBoost = context.isOwnProfile ? 18 : 0;
-  return (visualScore * 4.2 + vectorScore * 4.8 + intensityScore * 1.6 + modeScore + toneScore + ownProfileBoost) * recentPenalty;
+  return (visualScore * 4.2 + vectorScore * 4.8 + intensityScore * 1.6 + toneScore + ownProfileBoost) * recentPenalty;
 }
 
 function isStrongSemanticMatch(prompt, context) {
@@ -2695,36 +2236,8 @@ function renderCurrentPrompt() {
 function renderModalByMode() {
   const session = getActiveSession();
   if (session) cardModal.dataset.stage = session.ritualStage;
-  updateModalCloseHint(session);
   renderCurrentPrompt();
   renderRitualMode();
-}
-
-function updateModalCloseHint(session) {
-  if (!modalCloseHint || !session) return;
-  window.clearTimeout(state.closeHintTimer);
-  modalCloseHint.classList.remove("visible", "persistent");
-
-  if (session.ritualStage === "observing" && !session.closeHintSeenStep1) {
-    session.closeHintSeenStep1 = true;
-    modalCloseHint.classList.add("visible");
-    state.closeHintTimer = window.setTimeout(() => {
-      modalCloseHint.classList.remove("visible");
-    }, 3000);
-    return;
-  }
-
-  if (session.ritualStage === "echoes") {
-    if (session.closeHintSeenStep3) {
-      modalCloseHint.classList.add("visible", "persistent");
-      return;
-    }
-    session.closeHintSeenStep3 = true;
-    state.closeHintTimer = window.setTimeout(() => {
-      if (!cardModal.classList.contains("open") || getActiveSession() !== session || session.ritualStage !== "echoes") return;
-      modalCloseHint.classList.add("visible", "persistent");
-    }, 5000);
-  }
 }
 
 function renderRitualMode() {
@@ -2749,13 +2262,6 @@ function renderRitualMode() {
   }
 
   renderEchoStage(session);
-}
-
-function getSoftTagsForSession(session) {
-  if (session.fragments?.length) return session.fragments.filter((fragment) => !fragment.custom);
-  const promptTags = getPromptDisplayTags(getCurrentPrompt()).map((label) => ({ family: inferFamily(label), label }));
-  const base = uniqueTags([...promptTags, ...generateChoiceTags(getCurrentPrompt(), session.card), ...softTagPool]);
-  return stableShuffle(base, session.ritualSeed + hashString(session.question)).slice(0, 9);
 }
 
 function renderFragmentStage(session) {
@@ -2831,7 +2337,9 @@ function renderFragmentPiece(session, fragment, { isLeaving = false, field = res
     });
     window.setTimeout(() => input.focus(), 40);
   } else {
-    piece.innerHTML = fragment.customAdd ? `<span class="custom-placeholder">自己写下</span><span class="paper-plus">+</span>` : `<span>${escapeHtml(fragment.label)}</span>`;
+    piece.innerHTML = fragment.customAdd
+      ? `<span class="custom-placeholder">自己写下</span><span class="paper-plus"></span>`
+      : `<span>${escapeHtml(fragment.label)}</span>`;
   }
 
   if (!isLeaving) {
@@ -2919,6 +2427,13 @@ function renderEchoStage(session) {
   responseDock.innerHTML = `
     <section class="echo-return-stage${isSending ? " sending" : ""}" aria-label="漂流瓶回声">
       ${
+        !isSending
+          ? `<button class="echo-confirm-button${session.echoConfirmed ? " confirmed" : ""}" id="confirmEchoSave" type="button" aria-label="${session.echoConfirmed ? "已保存" : "确认并保存"}">
+              <span class="ph-duotone ${session.echoConfirmed ? "ph-check-circle" : "ph-check"}" aria-hidden="true"></span>
+            </button>`
+          : ""
+      }
+      ${
         isSending
           ? `<p class="sea-message">你的感受被大海接住，珍藏了起来</p>`
           : `<div class="sea-message echo-message-cycle" aria-live="polite">
@@ -2936,7 +2451,7 @@ function renderEchoStage(session) {
                   ? `<textarea id="answerInput" aria-label="留下点什么"></textarea>`
                   : `<button class="quiet-input-toggle" id="unfoldInput" type="button">
                       <span>如果你还想留下一些话…</span>
-                      <i aria-hidden="true">⌄</i>
+                      <i aria-hidden="true"></i>
                     </button>`
               }
              </div>`
@@ -2971,13 +2486,19 @@ function renderEchoStage(session) {
   responseDock.querySelector("#unfoldInput")?.addEventListener("click", () => {
     expandQuietInput(session);
   });
+  responseDock.querySelector("#confirmEchoSave")?.addEventListener("click", () => {
+    captureAnswerTextFromDom(session);
+    flushSessionExitRecords(session);
+    session.echoConfirmed = true;
+    renderRitualMode();
+  });
 }
 
 function createRitualFragments(session) {
   const base = uniqueTags([
     ...semanticFragmentsForCard(session.card),
     ...getPromptDisplayTags(getCurrentPrompt()).map((label) => ({ family: inferFamily(label), label })),
-    ...generateChoiceTags(getCurrentPrompt(), session.card),
+    ...generatePromptTags(getCurrentPrompt(), session.card),
     ...softTagPool,
     ...defaultTags,
   ]);
@@ -3097,15 +2618,9 @@ function handleFragmentClick(session, fragment, element = null) {
   renderBottleContents(session);
 }
 
-function debounceCustomFragment(session, fragment) {
-  window.clearTimeout(session.customSaveTimer);
-}
-
 function resetFragments(session) {
   session.selectedFragments.clear();
   session.selectedTags.clear();
-  session.customFragmentOpen = false;
-  session.customFragmentText = "";
   session.customFragmentCount = 0;
   session.fragments = createRitualFragments(session);
   record("question_action", {
@@ -3145,8 +2660,6 @@ function handleSendBottle(session, options = {}) {
   if (session.ritualStage !== "fragments") return;
   clearModalTimers();
   session.echoStatus = "floating";
-  session.bottleSent = true;
-  session.skippedFragments = Boolean(options.skipped);
   session.ritualStage = "leaving";
   cardModal.dataset.stage = session.ritualStage;
   renderCurrentPrompt();
@@ -3171,13 +2684,8 @@ function handleSendBottle(session, options = {}) {
     if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
     session.ritualStage = "echoes";
     session.echoStatus = "ready";
-    session.hasResponse = true;
-    session.inputOpen = true;
-    session.finalVisible = true;
     session.echoMessages = createEchoMessages(session);
-    session.echoText = session.echoMessages.map((echo) => echo.text).join("\n");
     renderModalByMode();
-    scheduleInputRevealIfNeeded(session);
   }, 3400);
   state.modalTimers.push(sendTimer, returnTimer);
 }
@@ -3202,38 +2710,11 @@ function createEchoMessages(session) {
   }));
 }
 
-function saveReturnedEchoes(session) {
-  if (session.echoesSaved) return;
-  session.echoesSaved = true;
-  session.echoMessages.forEach((echo) => {
-    record("echo", {
-      mode: "presence",
-      action: "return",
-      cardId: session.card.id,
-      setId: session.card.setId,
-      promptId: getCurrentPrompt()?.id,
-      questionId: getCurrentPrompt()?.id,
-      text: echo.text,
-      labels: [...session.selectedTags],
-      thumbnail: cardThumbnail(session.card),
-      visualKind: "paper",
-      photoBatchId: state.activeBatchId,
-    });
-  });
-}
-
 function collectEcho(session, echo, element = null) {
   if (session.collectedEchoes.has(echo.id)) return;
   session.collectedEchoes.add(echo.id);
-  session.inputOpen = false;
-  session.finalVisible = true;
   session.inputExpanded = false;
   element?.classList.add("collected");
-}
-
-function scheduleInputRevealIfNeeded(session) {
-  session.inputOpen = true;
-  session.finalVisible = true;
 }
 
 function expandQuietInput(session) {
@@ -3250,13 +2731,6 @@ function expandQuietInput(session) {
   });
   unfold.replaceWith(textarea);
   window.setTimeout(() => textarea.focus(), 40);
-}
-
-function debounceAnswerSave(session) {
-  window.clearTimeout(session.inputSaveTimer);
-  session.inputSaveTimer = window.setTimeout(() => {
-    flushAnswerSave(session);
-  }, 620);
 }
 
 function flushAnswerSave(session) {
@@ -3318,25 +2792,12 @@ function escapeHtml(value = "") {
     .replace(/"/g, "&quot;");
 }
 
-function toggleSessionTag(session, tag) {
-  if (session.selectedTags.has(tag.label)) {
-    session.selectedTags.delete(tag.label);
-  } else {
-    session.selectedTags.add(tag.label);
-  }
-}
-
-function tagPayload(tag, action) {
-  const session = getActiveSession();
-  return sessionTagPayload(session, tag, action);
-}
-
 function sessionTagPayload(session, tag, action) {
   const prompt = getSessionPrompt(session);
   return {
     label: tag.label,
     family: tag.family,
-    mode: state.mode,
+    mode: "presence",
     action,
     cardId: session.card.id,
     setId: session.card.setId,
@@ -3348,84 +2809,12 @@ function sessionTagPayload(session, tag, action) {
   };
 }
 
-function handleChoiceStay() {
-  const session = getActiveSession();
-  if (!session.selectedTags.size) return;
-  const prompt = getCurrentPrompt();
-  record("question_action", {
-    mode: "choice",
-    action: session.currentPromptIndex >= session.prompts.length - 1 ? "release" : "stay",
-    cardId: session.card.id,
-    setId: session.card.setId,
-    promptId: prompt?.id,
-    questionId: prompt?.id,
-    labels: [...session.selectedTags],
-    photoBatchId: state.activeBatchId,
-  });
-  if (session.currentPromptIndex >= session.prompts.length - 1) {
-    closeModal();
-    return;
-  }
-  session.currentPromptIndex += 1;
-  session.selectedTags = new Set();
-  syncActiveCard();
-}
-
-function handleJournalCast() {
-  const session = getActiveSession();
-  if (session?.ritualStage === "fragments") handleSendBottle(session);
-}
-
-function handleJournalExplore() {
-  const session = getActiveSession();
-  if (session?.ritualStage === "echoes") {
-    session.inputOpen = true;
-    session.finalVisible = true;
-    renderRitualMode();
-  }
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function generateTags(text) {
-  const trimmed = text.trim();
-  if (!trimmed) return defaultTags;
-  const matches = [];
-  tagRules.forEach((rule) => {
-    if (rule.match.some((word) => trimmed.includes(word))) {
-      rule.tags.slice(0, 2).forEach((label) => matches.push({ family: rule.family, label }));
-    }
-  });
-  const promptTags = getPromptDisplayTags(getCurrentPrompt()).map((label) => ({ family: inferFamily(label), label }));
-  const fallback = [
-    { family: "feeling", label: trimmed.slice(0, 8) },
-    { family: "shift", label: "换个角度" },
-    { family: "action", label: "慢一点" },
-  ];
-  return uniqueTags([...matches, ...promptTags, ...fallback, ...defaultTags]).slice(0, 8);
-}
-
-function generateChoiceTags(prompt, card) {
+function generatePromptTags(prompt, card) {
   const displayTags = getPromptDisplayTags(prompt);
   const baseText = [prompt?.text, card?.title, ...displayTags].filter(Boolean).join(" ");
   const generated = generateAiLikeTags(baseText, { card, prompt });
   const promptTags = displayTags.map((label) => ({ family: inferFamily(label), label }));
   return uniqueTags([...promptTags, ...generated, ...defaultTags]).slice(0, 9);
-}
-
-async function requestEcho(answerText, context = {}) {
-  const selected = (context.selectedTags ?? []).map((label) =>
-    typeof label === "string" ? { family: inferFamily(label), label } : { family: label.family ?? inferFamily(label.label), label: label.label },
-  );
-  const fallbackTags = uniqueTags([...selected, ...generateAiLikeTags(answerText, context), ...softTagPool]).slice(0, 5);
-  return {
-    echoText: generateEchoText(answerText, context, fallbackTags),
-    tags: fallbackTags,
-    visualKind: pickOne(["paper", "mist", "tide", "shell", "glow"], hashString(answerText || context.card?.id || "echo")),
-    source: "mock",
-  };
 }
 
 function getPromptDisplayTags(prompt) {
@@ -3438,14 +2827,6 @@ function generateAiLikeTags(input, context = {}) {
   const opposite = collectRuleTags(text, oppositeTagRules, "opposite", ["反过来", "松开一点", "换个方向"]).slice(0, 3);
   const resonance = collectRuleTags(text, resonanceTagRules, "resonance", ["同一种需要", "相似感受", "被轻轻接住"]).slice(0, 3);
   return uniqueTags([...related, ...opposite, ...resonance]).slice(0, 9);
-}
-
-function generateEchoText(input, context = {}, tags = []) {
-  const compact = input.trim().replace(/\s+/g, " ");
-  if (compact && compact.length <= 8) return `你提到的“${compact}”，还在轻轻回响。`;
-  const tagSeed = tags.map((tag) => tag.label).join("|");
-  const seed = hashString(`${compact}|${context.card?.id ?? ""}|${context.prompt?.id ?? ""}|${tagSeed}`);
-  return pickOne(localEchoFragments, seed);
 }
 
 function collectRuleTags(text, rules, family, fallback) {
@@ -3470,10 +2851,6 @@ function uniqueTags(tags) {
   return [...new Map(tags.map((tag) => [tag.label, tag])).values()];
 }
 
-function submitAnswer() {
-  handleJournalCast();
-}
-
 function renderContentPanel() {
   const rootEl = document.getElementById("cardSetList");
   rootEl.innerHTML = "";
@@ -3485,7 +2862,7 @@ function renderContentPanel() {
       const upload = document.createElement("button");
       upload.className = "photo-upload-button";
       upload.type = "button";
-      upload.textContent = "＋ 上传 / 拍照";
+      upload.innerHTML = `<span class="ph-duotone ph-camera-plus" aria-hidden="true"></span><span>上传 / 拍照</span>`;
       upload.addEventListener("click", () => photoInput.click());
       block.appendChild(upload);
     }
@@ -3513,15 +2890,6 @@ function renderContentPanel() {
   });
 }
 
-function setMode(mode) {
-  state.mode = mode;
-  if (cardModal.classList.contains("open")) renderModalByMode();
-}
-
-function renderModeToggle() {
-  return state.mode;
-}
-
 function updateBatchNav() {
   const show = state.activeCards.length > 1;
   prevCardButton.classList.toggle("visible", show);
@@ -3541,152 +2909,6 @@ function saveVisibility() {
   );
 }
 
-function openWeatherReview(fragment = null) {
-  if (!weatherReview) return;
-  const fragments = buildWeatherFragments(state.weatherWindowDays);
-  const active = fragment && fragments.find((item) => item.id === fragment.id) ? fragment : fragments[0];
-  state.activeWeatherId = active?.id ?? null;
-  state.activeWeatherCardKey = null;
-  weatherReview.classList.add("open");
-  weatherReview.setAttribute("aria-hidden", "false");
-  renderWeatherReview();
-}
-
-function closeWeatherReview() {
-  if (!weatherReview) return;
-  weatherReview.classList.remove("open");
-  weatherReview.setAttribute("aria-hidden", "true");
-  state.activeWeatherId = null;
-  state.activeWeatherCardKey = null;
-}
-
-function renderWeatherReview() {
-  if (!weatherReview || !weatherReviewTitle || !weatherReviewCopy) return;
-  const fragments = buildWeatherFragments(state.weatherWindowDays);
-  const active = fragments.find((fragment) => fragment.id === state.activeWeatherId) ?? fragments[0] ?? null;
-  state.activeWeatherId = active?.id ?? null;
-  weatherReview.querySelectorAll(".weather-window-option").forEach((button) => {
-    button.classList.toggle("active", Number(button.dataset.days) === state.weatherWindowDays);
-  });
-  weatherReviewTitle.textContent = active?.title ?? "这些词最近轻轻聚在一起了";
-  weatherReviewCopy.textContent = active
-    ? `有些感觉似乎还停留在这里：${active.fragments.slice(0, 4).join("、")}`
-    : "最近还没有反复漂回来的碎片。";
-  renderWeatherReviewDeck(fragments, active);
-  renderWeatherReviewDetail(active);
-}
-
-function renderWeatherReviewDeck(fragments, active) {
-  if (!weatherReviewDeck) return;
-  weatherReviewDeck.innerHTML = "";
-  if (!fragments.length) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "最近还没有反复漂回来的碎片。";
-    weatherReviewDeck.appendChild(empty);
-    return;
-  }
-  fragments.forEach((fragment, index) => {
-    const button = document.createElement("button");
-    button.className = `weather-fragment-card${fragment.id === active?.id ? " active" : ""}`;
-    button.type = "button";
-    button.style.setProperty("--tilt", `${((index % 5) - 2) * 2.8}deg`);
-    button.dataset.kind = fragment.visualKind;
-    const title = document.createElement("strong");
-    title.textContent = fragment.title;
-    const text = document.createElement("span");
-    text.textContent = fragment.fragments.slice(0, 3).join("、");
-    button.append(title, text);
-    button.addEventListener("click", () => {
-      state.activeWeatherId = fragment.id;
-      state.activeWeatherCardKey = null;
-      renderWeatherReview();
-    });
-    weatherReviewDeck.appendChild(button);
-  });
-}
-
-function renderWeatherReviewDetail(fragment) {
-  if (!weatherReviewDetail) return;
-  weatherReviewDetail.innerHTML = "";
-  if (!fragment) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "最近还没有反复漂回来的碎片。";
-    weatherReviewDetail.appendChild(empty);
-    return;
-  }
-  const intro = document.createElement("p");
-  intro.className = "weather-detail-title";
-  intro.textContent = "曾经靠近过它的片刻";
-  weatherReviewDetail.appendChild(intro);
-
-  const groups = groupEntriesByCard(fragment.relatedEntries);
-  if (!state.activeWeatherCardKey) state.activeWeatherCardKey = groups[0]?.key ?? null;
-  const deck = document.createElement("div");
-  deck.className = "weather-moment-deck";
-  groups.slice(0, 8).forEach((group, index) => {
-    const button = document.createElement("button");
-    button.className = `weather-moment-card${group.key === state.activeWeatherCardKey ? " active" : ""}`;
-    button.type = "button";
-    button.style.setProperty("--tilt", `${((index % 7) - 3) * 1.7}deg`);
-    button.append(createReviewCardVisual(group));
-    button.addEventListener("click", () => {
-      state.activeWeatherCardKey = group.key;
-      renderWeatherReviewDetail(fragment);
-    });
-    deck.appendChild(button);
-  });
-  weatherReviewDetail.appendChild(deck);
-
-  const activeGroup = groups.find((group) => group.key === state.activeWeatherCardKey) ?? groups[0];
-  const detail = document.createElement("div");
-  detail.className = "weather-moment-detail";
-  if (activeGroup) {
-    appendWeatherRecordSections(detail, activeGroup.entries);
-  } else {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "这些碎片还没有靠近任何卡片。";
-    detail.appendChild(empty);
-  }
-  weatherReviewDetail.appendChild(detail);
-}
-
-function appendWeatherRecordSections(rootEl, entries) {
-  const answers = entries.filter((entry) => entry.type === "answer" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim());
-  const echoes = entries.filter((entry) => entry.type === "echo" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim());
-  const labels = collectRecordLabels(entries);
-  const words = entries.filter((entry) => entry.type === "keyword").map((entry) => entry.payload.text ?? "点亮的文字");
-  [
-    ["回声碎片", echoes],
-    ["留下的话", answers],
-    ["轻轻靠近的词", labels],
-    ["点亮过的文字", words],
-  ].forEach(([label, values]) => {
-    if (!values.length) return;
-    const section = document.createElement("div");
-    section.className = "weather-record-group";
-    const heading = document.createElement("p");
-    heading.textContent = label;
-    section.appendChild(heading);
-    uniqueRecordValues(values)
-      .slice(0, 6)
-      .forEach((value) => {
-        const item = document.createElement("span");
-        item.textContent = value;
-        section.appendChild(item);
-      });
-    rootEl.appendChild(section);
-  });
-  if (!rootEl.children.length) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "这里只留下很轻的一点触碰。";
-    rootEl.appendChild(empty);
-  }
-}
-
 function renderCalendar() {
   const rootEl = document.getElementById("calendarList");
   const monthDate = calendarState.month;
@@ -3702,14 +2924,20 @@ function renderCalendar() {
   });
   let html = `
     <div class="calendar-headline">
-      <button class="calendar-nav-button" id="prevMonth" type="button" aria-label="上个月">‹</button>
+      <button class="calendar-nav-button" id="prevMonth" type="button" aria-label="上个月">
+        <span class="ph-duotone ph-caret-left" aria-hidden="true"></span>
+      </button>
       <div class="calendar-month-title" aria-label="${year}-${monthLabel}">
         <span>${year}</span>
         <i aria-hidden="true">·</i>
         <strong>${monthLabel}</strong>
       </div>
-      <button class="calendar-nav-button" id="nextMonth" type="button" aria-label="下个月">›</button>
-      <button class="calendar-close-button" id="closeCalendarInline" type="button" aria-label="关闭日历">×</button>
+      <button class="calendar-nav-button" id="nextMonth" type="button" aria-label="下个月">
+        <span class="ph-duotone ph-caret-right" aria-hidden="true"></span>
+      </button>
+      <button class="calendar-close-button" id="closeCalendarInline" type="button" aria-label="关闭日历">
+        <span class="ph-duotone ph-x" aria-hidden="true"></span>
+      </button>
     </div>
     <div class="month-grid calendar-month-grid">
   `;
@@ -3737,7 +2965,6 @@ function renderCalendar() {
   rootEl.querySelectorAll(".day-button.has-record").forEach((button) => {
     button.addEventListener("click", () => {
       calendarState.selectedDay = button.dataset.day;
-      calendarState.detailCardKey = null;
       const entries = groups[calendarState.selectedDay] ?? [];
       renderCalendar();
       openCalendarReview(calendarState.selectedDay, entries);
@@ -3961,89 +3188,12 @@ function formatReviewDate(day) {
   return `${year}.${month}.${dateNumber}`;
 }
 
-function formatReviewWeekday(day) {
-  const date = new Date(`${day}T00:00:00`);
-  return ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][date.getDay()];
-}
-
 function uniqueRecordValues(values) {
   return [...new Set(values)];
 }
 
-function renderCardRecordDetail(group) {
-  const detail = document.createElement("section");
-  detail.className = "record-detail";
-  const header = document.createElement("div");
-  header.className = "record-detail-head";
-  const back = document.createElement("button");
-  back.className = "detail-back";
-  back.type = "button";
-  back.textContent = "← 返回";
-  back.addEventListener("click", () => {
-    calendarState.detailCardKey = null;
-    renderCalendar();
-  });
-  const thumb = document.createElement(group.thumbnail ? "img" : "div");
-  thumb.className = "detail-thumb";
-  if (group.thumbnail) thumb.src = group.thumbnail;
-  const title = document.createElement("h4");
-  title.textContent = group.title;
-  header.append(back, thumb, title);
-  detail.appendChild(header);
-
-  const sections = [
-    ["提交内容", group.entries.filter((entry) => entry.type === "answer")],
-    ["文字标签", group.entries.filter((entry) => entry.type === "tag")],
-    ["行动", group.entries.filter((entry) => ["question_action", "card_open", "photo_upload"].includes(entry.type))],
-    ["点亮文字", group.entries.filter((entry) => entry.type === "keyword")],
-  ];
-  sections.forEach(([label, sectionEntries]) => {
-    if (!sectionEntries.length) return;
-    const section = document.createElement("div");
-    section.className = "record-group";
-    const heading = document.createElement("p");
-    heading.textContent = label;
-    section.appendChild(heading);
-    sectionEntries
-      .slice()
-      .reverse()
-      .forEach((entry) => {
-        const item = document.createElement("span");
-        item.textContent = describeRecord(entry);
-        section.appendChild(item);
-      });
-    detail.appendChild(section);
-  });
-  return detail;
-}
-
-function describeRecord(entry) {
-  if (entry.type === "answer") return entry.payload.text;
-  if (entry.type === "tag") return stripTagPrefix(entry.payload.label ?? entry.payload.tag);
-  if (entry.type === "keyword") return entry.payload.text;
-  if (entry.type === "question_action") return describeAction(entry.payload.action);
-  if (entry.type === "photo_upload") return "上传";
-  if (entry.type === "card_open") return "打开";
-  if (entry.type === "app_visit") return "轻轻经过";
-  if (entry.type === "echo") return entry.payload.text ?? "回声";
-  return entry.type;
-}
-
 function stripTagPrefix(value = "") {
   return value.replace(/^相似：/, "").replace(/^灵感：/, "");
-}
-
-function describeAction(action) {
-  return (
-    {
-      stay: "停留",
-      release: "放手",
-      explore: "探索",
-      cast: "投出",
-      choice_select: "选择",
-      journal_collect: "收进瓶子",
-    }[action] ?? "行动"
-  );
 }
 
 function formatRecordDay(value) {
@@ -4195,26 +3345,9 @@ document.getElementById("calendarToggle").addEventListener("click", () => {
   renderCalendar();
   togglePanel(calendarPanel);
 });
-weatherToggle?.addEventListener("click", () => {
-  hideIntroWhisper();
-  state.weatherEnabled = !state.weatherEnabled;
-  localStorage.setItem(weatherStoreKey, state.weatherEnabled ? "on" : "off");
-  renderWeatherButton();
-  rebuildScene();
-});
 document.getElementById("closeCardSetPanel").addEventListener("click", () => togglePanel(cardSetPanel));
-document.getElementById("closeCalendarPanel")?.addEventListener("click", () => togglePanel(calendarPanel));
 document.getElementById("closeCalendarReview").addEventListener("click", closeCalendarReview);
 document.getElementById("calendarReviewScrim").addEventListener("click", closeCalendarReview);
-document.getElementById("closeWeatherReview")?.addEventListener("click", closeWeatherReview);
-document.getElementById("weatherReviewScrim")?.addEventListener("click", closeWeatherReview);
-weatherReview?.querySelectorAll(".weather-window-option").forEach((button) => {
-  button.addEventListener("click", () => {
-    state.weatherWindowDays = Number(button.dataset.days);
-    state.activeWeatherCardKey = null;
-    renderWeatherReview();
-  });
-});
 document.getElementById("closeModal").addEventListener("click", closeModal);
 document.getElementById("modalScrim").addEventListener("click", closeModal);
 document.addEventListener(
