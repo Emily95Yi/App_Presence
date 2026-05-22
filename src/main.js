@@ -2041,6 +2041,7 @@ function syncActiveCard() {
       promptId: prompt?.id,
       questionId: prompt?.id,
       questionText: session.question,
+      questions: [...session.questions],
       openedAt: new Date().toISOString(),
       photoBatchId: state.activeBatchId,
       thumbnail: cardThumbnail(card),
@@ -2802,6 +2803,7 @@ function stopFragments(session) {
       cardId: session.card.id,
       setId: session.card.setId,
       questionText: session.question,
+      questions: [...session.questions],
       thumbnail: cardThumbnail(session.card),
       photoBatchId: state.activeBatchId,
     });
@@ -2952,6 +2954,7 @@ function flushAnswerSave(session) {
     promptId: prompt?.id,
     questionId: prompt?.id,
     questionText: session.question,
+    questions: [...session.questions],
     text,
     thumbnail: cardThumbnail(session.card),
     photoBatchId: state.activeBatchId,
@@ -2976,6 +2979,7 @@ function flushSessionExitRecords(session) {
       promptId: prompt?.id,
       questionId: prompt?.id,
       questionText: session.question,
+      questions: [...session.questions],
       labels: [...session.selectedTags],
       echoLines: [...session.echoLines],
       thumbnail: cardThumbnail(session.card),
@@ -3006,6 +3010,7 @@ function sessionTagPayload(session, tag, action) {
     promptId: prompt?.id,
     questionId: prompt?.id,
     questionText: session.question,
+    questions: [...session.questions],
     thumbnail: cardThumbnail(session.card),
     photoBatchId: state.activeBatchId,
   };
@@ -3272,6 +3277,10 @@ function renderCalendarReview() {
     if (group.key.startsWith("keyword:")) button.classList.add("shell-review-card");
     if (group.card?.setId) button.classList.add(`${group.card.setId}-review-card`);
     button.type = "button";
+    button.style.setProperty("--stack-index", index);
+    button.style.setProperty("--stack-count", groups.length);
+    button.style.setProperty("--stack-x", `${((index % 9) - 4) * 7}px`);
+    button.style.setProperty("--stack-y", `${((index % 5) - 2) * 3}px`);
     button.style.setProperty("--tilt", `${((index % 7) - 3) * 2.4}deg`);
     button.style.setProperty("--rise", `${Math.abs((index % 5) - 2) * 7}px`);
     const visual = createReviewCardVisual(group);
@@ -3279,10 +3288,19 @@ function renderCalendarReview() {
     button.addEventListener("click", () => {
       calendarState.reviewActiveKey = group.key;
       renderCalendarReview();
-      button.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
     calendarReviewDeck.appendChild(button);
   });
+  const randomButton = document.createElement("button");
+  randomButton.className = "review-random-button";
+  randomButton.type = "button";
+  randomButton.textContent = "随机抽一张";
+  randomButton.addEventListener("click", () => {
+    const randomGroup = groups[Math.floor(Math.random() * groups.length) % groups.length];
+    calendarState.reviewActiveKey = randomGroup.key;
+    renderCalendarReview();
+  });
+  calendarReviewDeck.appendChild(randomButton);
   const activeGroup = groups.find((group) => group.key === calendarState.reviewActiveKey) ?? null;
   renderCalendarReviewDetail(activeGroup);
 }
@@ -3362,7 +3380,11 @@ function renderReviewRecordList(entries) {
 }
 
 function getCalendarReviewTexts(entries) {
-  const questions = uniqueRecordValues(entries.map((entry) => entry.payload.questionText || promptTextForRecord(entry)).filter(Boolean));
+  const questions = uniqueRecordValues(
+    entries
+      .flatMap((entry) => calendarQuestionsForEntry(entry))
+      .filter(Boolean),
+  ).slice(0, 3);
   const labels = collectRecordLabels(entries);
   const answers = uniqueRecordValues(entries.filter((entry) => entry.type === "answer" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim()));
   const reflectionLines = uniqueRecordValues(
@@ -3372,6 +3394,16 @@ function getCalendarReviewTexts(entries) {
       .filter(Boolean),
   );
   return uniqueRecordValues([...questions, ...labels, ...answers, ...reflectionLines]);
+}
+
+function calendarQuestionsForEntry(entry) {
+  if (Array.isArray(entry.payload.questions) && entry.payload.questions.length >= 3) {
+    return entry.payload.questions.slice(0, 3);
+  }
+  const card = findCardById(entry.payload.cardId ?? entry.payload.id);
+  const set = [...projectionSets, photoSet].find((candidate) => candidate.id === (card?.setId ?? entry.payload.setId)) ?? photoSet;
+  const fallbackQuestions = card ? selectRitualQuestions(card, set, card.seed ?? hashString(card.id)) : [];
+  return uniqueRecordValues([entry.payload.questionText, promptTextForRecord(entry), ...fallbackQuestions].filter(Boolean)).slice(0, 3);
 }
 
 function promptTextForRecord(entry) {

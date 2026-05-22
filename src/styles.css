@@ -770,18 +770,21 @@ button {
 }
 
 .review-deck {
-  display: flex;
-  align-items: end;
-  gap: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
   min-width: 0;
-  min-height: min(35vh, 310px);
-  overflow: visible;
-  padding: 26px 18px 30px;
-  touch-action: pan-y;
+  height: min(35vh, 310px);
+  min-height: 230px;
+  overflow: hidden;
+  padding: 22px 18px 54px;
+  touch-action: none;
 }
 
 .review-card {
-  position: relative;
+  position: absolute;
+  left: 50%;
+  top: 42%;
   width: min(42vw, 172px);
   min-width: min(42vw, 172px);
   padding: 0;
@@ -789,7 +792,11 @@ button {
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  transform: translateY(var(--rise)) rotate(var(--tilt));
+  z-index: calc(1 + var(--stack-index));
+  transform:
+    translate(-50%, -50%)
+    translate(var(--stack-x), var(--stack-y))
+    rotate(var(--tilt));
   transform-origin: 50% 90%;
   transition:
     transform 260ms ease,
@@ -797,22 +804,10 @@ button {
     z-index 260ms ease;
 }
 
-.review-card + .review-card {
-  margin-left: -46px;
-}
-
-.review-card:nth-child(2n) {
-  align-self: start;
-}
-
-.review-card:nth-child(3n) {
-  align-self: center;
-}
-
 .review-card.active {
-  z-index: 4;
+  z-index: 40;
   filter: drop-shadow(0 24px 48px rgba(64, 101, 130, 0.24));
-  transform: translateY(-12px) rotate(0deg) scale(1.04);
+  transform: translate(-50%, -54%) rotate(0deg) scale(1.06);
 }
 
 .review-card img,
@@ -833,6 +828,29 @@ button {
   background: transparent;
   box-shadow: none;
   filter: drop-shadow(0 18px 36px rgba(64, 101, 130, 0.14));
+}
+
+.review-random-button {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 60;
+  min-height: 34px;
+  padding: 6px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: rgba(49, 79, 105, 0.72);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 560;
+  transform: translateX(-50%);
+  box-shadow: 0 12px 26px rgba(64, 101, 130, 0.1);
+}
+
+.review-random-button:hover,
+.review-random-button:focus-visible {
+  background: rgba(255, 255, 255, 0.88);
 }
 
 .review-text-card {
@@ -863,10 +881,10 @@ button {
 
 .review-detail {
   display: grid;
-  gap: 6px;
+  gap: 3px;
   max-height: 26vh;
   overflow: auto;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 0;
   border-radius: 14px;
   background: transparent;
@@ -879,17 +897,17 @@ button {
 
 .review-record-group {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .review-record-group span {
-  padding: 2px 0;
+  padding: 1px 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: rgba(49, 79, 105, 0.72);
   font-size: 13px;
-  line-height: 1.35;
+  line-height: 1.25;
 }
 
 .response-dock {
@@ -1006,7 +1024,7 @@ button {
   display: grid;
   justify-items: center;
   gap: 12px;
-  width: min(820px, 96vw);
+  width: min(100%, 420px);
   min-height: min(44vh, 360px);
   padding: 8px 22px 12px;
   overflow: hidden;
@@ -1161,7 +1179,7 @@ button {
 
 .sea-fragment-field {
   position: relative;
-  width: min(720px, 94vw);
+  width: 100%;
   height: clamp(250px, 32vh, 330px);
   overflow: visible;
   border-radius: 28px;
@@ -1513,7 +1531,7 @@ button {
   inset: -30px -74px -16px -74px;
   z-index: 2;
   display: block;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .bottle-piece {
