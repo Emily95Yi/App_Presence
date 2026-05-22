@@ -1151,10 +1151,6 @@ button {
   background: transparent;
 }
 
-.ritual-fragment-stage.writing-open .sea-fragment-field {
-  height: clamp(190px, 24vh, 240px);
-}
-
 .sea-fragment-field::before,
 .sea-fragment-field::after {
   display: none;
@@ -1239,32 +1235,59 @@ button {
   color: rgba(31, 38, 34, 0.44);
 }
 
-.paper-fragment.custom-add-fragment {
-  left: calc(100% - 92px);
-  top: calc(100% - 58px);
-  z-index: 5;
+.custom-writing-trigger {
+  position: absolute;
+  left: clamp(88px, 19%, 178px);
+  bottom: clamp(72px, 10vh, 112px);
+  z-index: 9;
   display: inline-flex;
   width: auto;
   min-height: 32px;
-  padding: 2px 4px;
+  padding: 5px 10px 5px 9px;
   gap: 5px;
   align-items: center;
-  transform: translate(-50%, -50%) rotate(-4deg);
-  background: transparent;
-  color: rgba(31, 54, 60, 0.5);
-  filter: none;
+  justify-content: center;
+  border: 1px solid rgba(255, 252, 245, 0.62);
+  border-radius: 999px;
+  transform: translate(-50%, 0) rotate(-7deg);
+  background:
+    linear-gradient(145deg, rgba(255, 252, 245, 0.72), rgba(219, 236, 230, 0.42)),
+    rgba(255, 252, 245, 0.5);
+  color: rgba(31, 54, 60, 0.58);
+  cursor: pointer;
+  filter: drop-shadow(0 8px 16px rgba(70, 112, 158, 0.1));
   font-family: "Yuanti SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-size: 13px;
+  line-height: 1;
   animation: paper-arrive 420ms ease 240ms both;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    filter 180ms ease,
+    transform 180ms ease;
+}
+
+.custom-writing-trigger:hover,
+.custom-writing-trigger:focus-visible {
+  background:
+    linear-gradient(145deg, rgba(255, 252, 245, 0.86), rgba(219, 236, 230, 0.56)),
+    rgba(255, 252, 245, 0.64);
+  color: rgba(31, 54, 60, 0.72);
+  filter: drop-shadow(0 12px 20px rgba(70, 112, 158, 0.14));
+  transform: translate(-50%, -2px) rotate(-4deg);
 }
 
 .custom-writing-area {
-  position: relative;
-  z-index: 5;
+  position: absolute;
+  left: 50%;
+  top: clamp(132px, 52%, 238px);
+  z-index: 18;
   display: grid;
-  width: min(420px, 88vw);
+  width: min(420px, 86vw);
   min-height: 0;
   place-items: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
 }
 
 .custom-writing-panel {
@@ -1278,11 +1301,13 @@ button {
   border: 1px solid rgba(255, 252, 245, 0.52);
   border-radius: 16px 20px 15px 22px;
   background:
-    linear-gradient(145deg, rgba(255, 253, 246, 0.84), rgba(219, 236, 230, 0.54)),
-    rgba(255, 252, 245, 0.72);
-  box-shadow: 0 12px 28px rgba(70, 112, 158, 0.08);
+    linear-gradient(145deg, rgba(255, 253, 246, 0.7), rgba(219, 236, 230, 0.48)),
+    rgba(255, 252, 245, 0.54);
+  box-shadow: 0 16px 38px rgba(70, 112, 158, 0.14);
   color: rgba(31, 38, 34, 0.7);
   font-size: 14px;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
   animation: input-drawer-in 260ms ease both;
 }
 
@@ -1329,7 +1354,7 @@ button {
   resize: vertical;
   border: 0;
   border-radius: 12px;
-  background: rgba(255, 252, 245, 0.42);
+  background: rgba(255, 252, 245, 0.34);
   color: rgba(31, 38, 34, 0.76);
   font: 13px/1.42 "Segoe Print", "Kaiti SC", "STKaiti", cursive, sans-serif;
   outline: 0;
@@ -2346,10 +2371,6 @@ textarea:focus {
     height: 238px;
   }
 
-  .ritual-fragment-stage.writing-open .sea-fragment-field {
-    height: clamp(166px, 22vh, 190px);
-  }
-
   .paper-fragment {
     width: 100px;
     min-height: 56px;
@@ -2357,12 +2378,12 @@ textarea:focus {
     font-size: 12px;
   }
 
-  .paper-fragment.custom-add-fragment {
-    left: calc(100% - 66px);
-    top: calc(100% - 42px);
-    width: auto;
+  .custom-writing-trigger {
+    left: 62px;
+    bottom: 86px;
     min-height: 30px;
-    padding: 2px 4px;
+    padding: 5px 9px 5px 8px;
+    font-size: 12px;
   }
 
   .fragment-stop-notice {
@@ -2372,7 +2393,8 @@ textarea:focus {
   }
 
   .custom-writing-area {
-    width: min(330px, 88vw);
+    top: clamp(118px, 54%, 214px);
+    width: min(330px, 86vw);
   }
 
   .custom-writing-panel {

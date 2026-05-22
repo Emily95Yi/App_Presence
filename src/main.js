@@ -2340,7 +2340,11 @@ function renderFragmentStage(session) {
   `;
 
   const field = responseDock.querySelector("#seaFragmentField");
-  session.fragments.filter((fragment) => !fragment.writing).forEach((fragment) => renderFragmentPiece(session, fragment, { isLeaving, field }));
+  session.fragments
+    .filter((fragment) => !fragment.writing && !fragment.customAdd)
+    .forEach((fragment) => renderFragmentPiece(session, fragment, { isLeaving, field }));
+
+  renderCustomWritingTrigger(session, { isLeaving });
 
   const customWritingArea = responseDock.querySelector("#customWritingArea");
   session.fragments
@@ -2388,6 +2392,24 @@ function renderFragmentPiece(session, fragment, { isLeaving = false, field = res
   return piece;
 }
 
+function renderCustomWritingTrigger(session, { isLeaving = false } = {}) {
+  const stage = responseDock.querySelector(".ritual-fragment-stage");
+  const fragment = session.fragments.find((item) => item.customAdd);
+  if (!stage || !fragment || session.selectedFragments.has(fragment.id)) return null;
+  const trigger = document.createElement("button");
+  trigger.className = `custom-writing-trigger${isLeaving ? " leaving" : ""}`;
+  trigger.type = "button";
+  trigger.dataset.fragmentId = fragment.id;
+  trigger.dataset.family = fragment.family;
+  trigger.innerHTML = `<span class="custom-placeholder">自己写下</span><span class="paper-plus"></span>`;
+  if (!isLeaving) {
+    trigger.addEventListener("pointerdown", (event) => event.preventDefault());
+    trigger.addEventListener("click", () => addCustomWritingFragment(session));
+  }
+  stage.appendChild(trigger);
+  return trigger;
+}
+
 function renderCustomWritingPanel(session, fragment, root = responseDock.querySelector("#customWritingArea")) {
   if (!root || session.selectedFragments.has(fragment.id)) return null;
   const panel = document.createElement("div");
@@ -2416,7 +2438,6 @@ function renderCustomWritingPanel(session, fragment, root = responseDock.querySe
     handleFragmentClick(session, fragment, panel);
   });
   root.appendChild(panel);
-  window.setTimeout(() => textarea.focus(), 40);
   return panel;
 }
 
@@ -2644,7 +2665,7 @@ function pickFragmentPosition(index, seed, placed) {
 function addCustomWritingFragment(session) {
   const activeWriting = session.fragments.find((fragment) => fragment.writing && !session.selectedFragments.has(fragment.id));
   if (activeWriting) {
-    responseDock.querySelector(`[data-fragment-id="${activeWriting.id}"] textarea`)?.focus();
+    responseDock.querySelector(`[data-fragment-id="${activeWriting.id}"] textarea`)?.focus({ preventScroll: true });
     return;
   }
   const index = session.fragments.length + session.customFragmentCount;
@@ -2684,13 +2705,16 @@ function addCustomWritingFragment(session) {
   } else {
     session.fragments.push(fragment);
   }
-  renderRitualMode();
+  responseDock.querySelector(".ritual-fragment-stage")?.classList.add("writing-open");
+  renderCustomWritingPanel(session, fragment);
 }
 
 function closeCustomWritingFragment(session, fragmentId) {
   cancelStopClose(session);
   session.fragments = session.fragments.filter((fragment) => fragment.id !== fragmentId);
-  renderRitualMode();
+  responseDock.querySelector(`.custom-writing-panel[data-fragment-id="${fragmentId}"]`)?.remove();
+  const hasActiveWriting = session.fragments.some((fragment) => fragment.writing && !session.selectedFragments.has(fragment.id));
+  responseDock.querySelector(".ritual-fragment-stage")?.classList.toggle("writing-open", hasActiveWriting);
 }
 
 function removeSelectedFragment(session, fragmentId) {
@@ -2717,6 +2741,7 @@ function handleFragmentClick(session, fragment, element = null) {
   session.selectedTags.add(label);
   element?.classList.add("picked");
   window.setTimeout(() => element?.remove(), 260);
+  if (fragment.writing) responseDock.querySelector(".ritual-fragment-stage")?.classList.remove("writing-open");
   responseDock.querySelector("#driftBottle")?.classList.add("glowing");
   renderBottleContents(session);
   syncFragmentActionState(session);
@@ -2742,7 +2767,9 @@ function resetFragments(session) {
     return;
   }
   field.innerHTML = "";
-  session.fragments.filter((fragment) => !fragment.writing).forEach((fragment) => renderFragmentPiece(session, fragment, { field }));
+  session.fragments
+    .filter((fragment) => !fragment.writing && !fragment.customAdd)
+    .forEach((fragment) => renderFragmentPiece(session, fragment, { field }));
   const customWritingArea = responseDock.querySelector("#customWritingArea");
   if (customWritingArea) customWritingArea.innerHTML = "";
   renderBottleContents(session);
