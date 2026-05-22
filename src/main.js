@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import "@phosphor-icons/web/duotone";
+import { createEchoLines } from "./echoEngine.js";
 import "./styles.css";
 
 const root = document.getElementById("sceneRoot");
@@ -1994,6 +1995,9 @@ function createCardSession(card) {
     answerText: "",
     fragments: [],
     echoMessages: [],
+    echoLines: [],
+    echoLinesVisible: 0,
+    echoRevealedAll: false,
     echoStatus: "idle",
     echoConfirmed: false,
     inputExpanded: false,
@@ -2462,24 +2466,26 @@ function renderEchoStage(session) {
   responseDock.innerHTML = `
     <section class="echo-return-stage${isSending ? " sending" : ""}" aria-label="漂流瓶回声">
       ${
-        !isSending
-          ? `<button class="echo-confirm-button${session.echoConfirmed ? " confirmed" : ""}" id="confirmEchoSave" type="button" aria-label="${session.echoConfirmed ? "已保存" : "确认并保存"}">
-              <span class="ph-duotone ${session.echoConfirmed ? "ph-check-circle" : "ph-check"}" aria-hidden="true"></span>
-            </button>`
-          : ""
-      }
-      ${
         isSending
           ? `<p class="sea-message">你的感受被大海接住，珍藏了起来</p>`
           : `<div class="sea-message echo-message-cycle" aria-live="polite">
-              <span>海面上飘回了一些回应</span>
-              <span>选择你想收藏的回应</span>
-              <span>此刻的你的感受有被好好看见</span>
+              <span>海面上飘回了一点回声</span>
+              <span>它会慢慢浮上来</span>
+              <span>点一下也可以直接看完</span>
             </div>`
       }
       ${
         !isSending
-          ? `<div class="echo-cloud" id="echoCloud"></div>
+          ? `<button class="echo-stream" id="echoStream" type="button" aria-label="展开全部回声">
+              ${session.echoLines
+                .map((line, index) => `<span class="echo-line${index < session.echoLinesVisible ? " visible" : ""}">${escapeHtml(line)}</span>`)
+                .join("")}
+             </button>
+             <div class="echo-actions">
+              <button class="primary-button echo-save-button${session.echoConfirmed ? " confirmed" : ""}" id="confirmEchoSave" type="button">
+                ${session.echoConfirmed ? "已收下" : "收下这张回声"}
+              </button>
+             </div>
              <div class="quiet-input-area">
               ${
                 session.inputExpanded
@@ -2495,22 +2501,6 @@ function renderEchoStage(session) {
     </section>
   `;
 
-  const echoCloud = responseDock.querySelector("#echoCloud");
-  if (echoCloud) {
-    session.echoMessages.forEach((echo, index) => {
-      const button = document.createElement("button");
-      button.className = `echo-fragment${session.collectedEchoes.has(echo.id) ? " collected" : ""}`;
-      button.type = "button";
-      button.style.setProperty("--echo-delay", `${index * 180}ms`);
-      button.style.setProperty("--tilt", `${echo.tilt}deg`);
-      button.style.setProperty("--x", `${echo.x}%`);
-      button.style.setProperty("--y", `${echo.y}%`);
-      button.textContent = echo.text;
-      button.addEventListener("click", () => collectEcho(session, echo, button));
-      echoCloud.appendChild(button);
-    });
-  }
-
   const textarea = responseDock.querySelector("#answerInput");
   if (textarea) {
     textarea.value = session.answerText;
@@ -2520,6 +2510,9 @@ function renderEchoStage(session) {
   }
   responseDock.querySelector("#unfoldInput")?.addEventListener("click", () => {
     expandQuietInput(session);
+  });
+  responseDock.querySelector("#echoStream")?.addEventListener("click", () => {
+    revealAllEchoLines(session);
   });
   responseDock.querySelector("#confirmEchoSave")?.addEventListener("click", () => {
     captureAnswerTextFromDom(session);
@@ -2751,10 +2744,36 @@ function handleSendBottle(session) {
     if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
     session.ritualStage = "echoes";
     session.echoStatus = "ready";
-    session.echoMessages = createEchoMessages(session);
+    session.echoLines = createEchoLines(session);
+    session.echoLinesVisible = 1;
+    session.echoRevealedAll = false;
+    scheduleEchoLineReveal(session);
     renderModalByMode();
   }, 3400);
   state.modalTimers.push(sendTimer, returnTimer);
+}
+
+function revealEchoLine(session, count) {
+  if (session.ritualStage !== "echoes") return;
+  session.echoLinesVisible = Math.min(session.echoLines.length, Math.max(session.echoLinesVisible, count));
+  renderRitualMode();
+}
+
+function revealAllEchoLines(session) {
+  if (session.ritualStage !== "echoes") return;
+  session.echoRevealedAll = true;
+  session.echoLinesVisible = session.echoLines.length;
+  renderRitualMode();
+}
+
+function scheduleEchoLineReveal(session) {
+  [1800, 3600].forEach((delay, index) => {
+    const timer = window.setTimeout(() => {
+      if (!cardModal.classList.contains("open") || getActiveSession() !== session || session.echoRevealedAll) return;
+      revealEchoLine(session, index + 2);
+    }, delay);
+    state.modalTimers.push(timer);
+  });
 }
 
 function createEchoMessages(session) {
@@ -2827,27 +2846,24 @@ function flushSessionExitRecords(session) {
     session.savedFragmentIds.add(fragment.id);
     record("tag", sessionTagPayload(session, { label: fragment.label, family: fragment.family }, fragment.custom ? "custom_fragment_select" : "bottle_fragment_select"));
   });
-  session.echoMessages
-    .filter((echo) => session.collectedEchoes.has(echo.id))
-    .forEach((echo) => {
-      if (session.savedEchoIds.has(echo.id)) return;
-      session.savedEchoIds.add(echo.id);
-      const prompt = getSessionPrompt(session);
-      record("echo", {
-        mode: "presence",
-        action: "collect",
-        cardId: session.card.id,
-        setId: session.card.setId,
-        promptId: prompt?.id,
-        questionId: prompt?.id,
-        questionText: session.question,
-        text: echo.text,
-        labels: [...session.selectedTags],
-        thumbnail: cardThumbnail(session.card),
-        visualKind: "echo",
-        photoBatchId: state.activeBatchId,
-      });
+  if (session.echoLines.length && !session.completedReflectionSaved) {
+    session.completedReflectionSaved = true;
+    const prompt = getSessionPrompt(session);
+    record("reflection", {
+      mode: "presence",
+      action: "complete",
+      cardId: session.card.id,
+      setId: session.card.setId,
+      promptId: prompt?.id,
+      questionId: prompt?.id,
+      questionText: session.question,
+      labels: [...session.selectedTags],
+      echoLines: [...session.echoLines],
+      thumbnail: cardThumbnail(session.card),
+      visualKind: "echo_stream",
+      photoBatchId: state.activeBatchId,
     });
+  }
   flushAnswerSave(session);
 }
 

@@ -1609,6 +1609,75 @@ button {
   font-size: 10px;
 }
 
+.echo-stream {
+  display: grid;
+  width: min(540px, 91vw);
+  min-height: 160px;
+  gap: 10px;
+  align-content: center;
+  justify-items: stretch;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 252, 245, 0.58);
+  border-radius: 20px 22px 18px 24px;
+  background:
+    linear-gradient(145deg, rgba(255, 253, 246, 0.84), rgba(219, 236, 230, 0.58)),
+    url("/assets/ritual/paper-soft.png") center / 100% 100% no-repeat;
+  box-shadow:
+    0 18px 42px rgba(70, 112, 158, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.54);
+  color: rgba(31, 54, 60, 0.75);
+  cursor: pointer;
+  font-family: "Yuanti SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  text-align: left;
+}
+
+.echo-stream:hover,
+.echo-stream:focus-visible {
+  box-shadow:
+    0 20px 46px rgba(70, 112, 158, 0.12),
+    0 0 0 3px rgba(166, 206, 225, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58);
+  outline: none;
+}
+
+.echo-line {
+  display: block;
+  min-height: 1.45em;
+  opacity: 0;
+  filter: blur(5px);
+  font-size: clamp(15px, 2.8vw, 18px);
+  line-height: 1.58;
+  transform: translateY(10px);
+}
+
+.echo-line.visible {
+  animation: echo-line-rise 540ms ease both;
+}
+
+.echo-actions {
+  display: flex;
+  width: min(540px, 91vw);
+  justify-content: center;
+}
+
+.echo-save-button {
+  min-width: min(220px, 72vw);
+  margin-top: 0;
+  background: linear-gradient(180deg, rgba(94, 184, 235, 0.92), rgba(55, 153, 220, 0.96));
+  box-shadow: 0 12px 28px rgba(55, 153, 220, 0.22);
+  color: rgba(255, 252, 245, 0.96);
+  font-size: 15px;
+  font-weight: 620;
+}
+
+.echo-save-button.confirmed {
+  background:
+    linear-gradient(180deg, rgba(219, 236, 230, 0.88), rgba(166, 206, 225, 0.82)),
+    rgba(255, 252, 245, 0.72);
+  box-shadow: 0 10px 24px rgba(70, 112, 158, 0.12);
+  color: rgba(31, 54, 60, 0.64);
+}
+
 .quiet-input-area {
   display: grid;
   gap: 6px;
@@ -1912,6 +1981,20 @@ textarea:focus {
 
   to {
     opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes echo-line-rise {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
     transform: translateY(0);
   }
 }
