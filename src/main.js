@@ -2327,15 +2327,11 @@ function renderFragmentStage(session) {
           ? ""
           : `<div class="modal-actions ritual-actions">
               <button class="primary-button" id="sendFragments" type="button"${hasSelectedFragments ? "" : " disabled"}>
-                <span class="action-icon check-icon" aria-hidden="true"></span>
+                <span class="action-icon send-icon" aria-hidden="true"></span>
                 <span>选好了</span>
               </button>
-              <button class="secondary-button" id="regretFragments" type="button"${hasSelectedFragments ? "" : " disabled"}>
-                <span class="action-icon delete-icon" aria-hidden="true"></span>
-                <span>后悔了</span>
-              </button>
               <button class="secondary-button stop-button" id="stopFragments" type="button">
-                <span class="action-icon arrow-icon" aria-hidden="true"></span>
+                <span class="action-icon pause-icon" aria-hidden="true"></span>
                 <span>先停在这里</span>
               </button>
             </div>`
@@ -2354,7 +2350,6 @@ function renderFragmentStage(session) {
   const bottleContents = responseDock.querySelector("#bottleContents");
   renderBottleContents(session, bottleContents, selected);
 
-  responseDock.querySelector("#regretFragments")?.addEventListener("click", () => resetFragments(session));
   responseDock.querySelector("#stopFragments")?.addEventListener("click", () => stopFragments(session));
   responseDock.querySelector("#sendFragments")?.addEventListener("click", () => handleSendBottle(session));
 }
@@ -2400,15 +2395,21 @@ function renderCustomWritingPanel(session, fragment, root = responseDock.querySe
   panel.dataset.fragmentId = fragment.id;
   panel.dataset.family = fragment.family;
   panel.innerHTML = `
+    <button class="custom-writing-close" type="button" aria-label="关闭自己写下">×</button>
     <label class="custom-writing-label" for="${fragment.id}-draft">把此刻冒出来的话写在这里</label>
     <textarea id="${fragment.id}-draft" aria-label="自己写下" placeholder="可以是一句话，也可以只是一段还没整理好的东西"></textarea>
     <button class="custom-writing-save" type="button">放进来</button>
   `;
   const textarea = panel.querySelector("textarea");
   const saveButton = panel.querySelector(".custom-writing-save");
+  const closeButton = panel.querySelector(".custom-writing-close");
   textarea.value = fragment.draft ?? "";
   textarea.addEventListener("input", () => {
     fragment.draft = textarea.value;
+  });
+  closeButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    closeCustomWritingFragment(session, fragment.id);
   });
   saveButton.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -2474,14 +2475,18 @@ function renderBottleContents(session, root = responseDock.querySelector("#bottl
   if (!root) return;
   root.innerHTML = "";
   selected.forEach((fragment, index) => {
-    const chip = document.createElement("span");
+    const chip = document.createElement("button");
     chip.className = "bottle-piece";
+    chip.type = "button";
     chip.dataset.family = fragment.family;
+    chip.dataset.fragmentId = fragment.id;
     chip.style.setProperty("--piece-delay", `${index * 38}ms`);
     chip.style.setProperty("--piece-index", index);
     const preview = fragmentPreviewLabel(fragment);
     chip.textContent = preview;
-    chip.title = fragment.custom ? fragment.label : "";
+    chip.title = fragment.custom ? `${fragment.label}，点击撤回` : "点击撤回";
+    chip.setAttribute("aria-label", `撤回${preview}`);
+    chip.addEventListener("click", () => removeSelectedFragment(session, fragment.id));
     root.appendChild(chip);
   });
 }
@@ -2489,9 +2494,7 @@ function renderBottleContents(session, root = responseDock.querySelector("#bottl
 function syncFragmentActionState(session) {
   const hasSelectedFragments = Boolean(session?.selectedFragments?.size);
   const sendButton = responseDock.querySelector("#sendFragments");
-  const regretButton = responseDock.querySelector("#regretFragments");
   if (sendButton) sendButton.disabled = !hasSelectedFragments;
-  if (regretButton) regretButton.disabled = !hasSelectedFragments;
 }
 
 function fragmentPreviewLabel(fragment) {
@@ -2681,6 +2684,22 @@ function addCustomWritingFragment(session) {
   } else {
     session.fragments.push(fragment);
   }
+  renderRitualMode();
+}
+
+function closeCustomWritingFragment(session, fragmentId) {
+  cancelStopClose(session);
+  session.fragments = session.fragments.filter((fragment) => fragment.id !== fragmentId);
+  renderRitualMode();
+}
+
+function removeSelectedFragment(session, fragmentId) {
+  cancelStopClose(session);
+  const removed = session.selectedFragments.get(fragmentId);
+  if (!removed) return;
+  session.selectedFragments.delete(fragmentId);
+  const sameLabelStillSelected = [...session.selectedFragments.values()].some((fragment) => fragment.label === removed.label);
+  if (!sameLabelStillSelected) session.selectedTags.delete(removed.label);
   renderRitualMode();
 }
 
