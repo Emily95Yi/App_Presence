@@ -1997,6 +1997,9 @@ function createCardSession(card) {
     echoStatus: "idle",
     echoConfirmed: false,
     inputExpanded: false,
+    stopNoticeVisible: false,
+    completedReflectionSaved: false,
+    cardStaySaved: false,
     hasOpened: false,
     openRecordSaved: false,
   };
@@ -2274,6 +2277,11 @@ function renderFragmentStage(session) {
         <span>海面上冲来了漂流瓶</span>
         <span>哪些只言片语让你很有感觉，点击即可放进你的漂流瓶</span>
       </div>
+      ${
+        session.stopNoticeVisible
+          ? `<p class="fragment-stop-notice" role="status">可以先停在这里。这张卡会回到画布里，等你想再靠近的时候再回来。</p>`
+          : ""
+      }
       <div class="sea-fragment-field" id="seaFragmentField"></div>
       <div class="drift-bottle${selected.length ? " glowing" : ""}" id="driftBottle" aria-label="小漂流瓶区域">
         <span class="bottle-neck"></span>
@@ -2292,9 +2300,9 @@ function renderFragmentStage(session) {
                 <span class="action-icon delete-icon" aria-hidden="true"></span>
                 <span>后悔了</span>
               </button>
-              <button class="secondary-button skip-button" id="skipFragments" type="button">
+              <button class="secondary-button stop-button" id="stopFragments" type="button">
                 <span class="action-icon arrow-icon" aria-hidden="true"></span>
-                <span>跳过</span>
+                <span>先停在这里</span>
               </button>
             </div>`
       }
@@ -2308,15 +2316,15 @@ function renderFragmentStage(session) {
   renderBottleContents(session, bottleContents, selected);
 
   responseDock.querySelector("#regretFragments")?.addEventListener("click", () => resetFragments(session));
-  responseDock.querySelector("#skipFragments")?.addEventListener("click", () => skipFragments(session));
+  responseDock.querySelector("#stopFragments")?.addEventListener("click", () => stopFragments(session));
   responseDock.querySelector("#sendFragments")?.addEventListener("click", () => handleSendBottle(session));
 }
 
 function renderFragmentPiece(session, fragment, { isLeaving = false, field = responseDock.querySelector("#seaFragmentField") } = {}) {
   if (!field || session.selectedFragments.has(fragment.id)) return null;
-  const piece = document.createElement("button");
-  piece.className = `paper-fragment${fragment.custom ? " custom-fragment" : ""}${fragment.customAdd ? " custom-add-fragment" : ""}${fragment.writing ? " writing" : ""}${isLeaving ? " leaving" : ""}`;
-  piece.type = "button";
+  const piece = document.createElement(fragment.writing ? "div" : "button");
+  piece.className = `paper-fragment${fragment.custom ? " custom-fragment" : ""}${fragment.customAdd ? " custom-add-fragment" : ""}${fragment.writing ? " writing custom-writing-panel" : ""}${isLeaving ? " leaving" : ""}`;
+  if (!fragment.writing) piece.type = "button";
   piece.dataset.fragmentId = fragment.id;
   piece.dataset.family = fragment.family;
   piece.style.setProperty("--x", `${fragment.x}%`);
@@ -2328,14 +2336,24 @@ function renderFragmentPiece(session, fragment, { isLeaving = false, field = res
   piece.style.setProperty("--drift-y", `${fragment.driftY}px`);
 
   if (fragment.writing) {
-    piece.innerHTML = `<input type="text" maxlength="18" placeholder="自己写下" aria-label="自己写下一个词语" />`;
-    const input = piece.querySelector("input");
-    input.value = fragment.draft ?? "";
-    input.addEventListener("click", (event) => event.stopPropagation());
-    input.addEventListener("input", () => {
-      fragment.draft = input.value;
+    piece.innerHTML = `
+      <label class="custom-writing-label" for="${fragment.id}-draft">把此刻冒出来的话写在这里</label>
+      <textarea id="${fragment.id}-draft" aria-label="自己写下一句话" placeholder="可以是一句话，也可以只是几个字"></textarea>
+      <button class="custom-writing-save" type="button">放进来</button>
+    `;
+    const textarea = piece.querySelector("textarea");
+    const saveButton = piece.querySelector(".custom-writing-save");
+    textarea.value = fragment.draft ?? "";
+    textarea.addEventListener("click", (event) => event.stopPropagation());
+    textarea.addEventListener("pointerdown", (event) => event.stopPropagation());
+    textarea.addEventListener("input", () => {
+      fragment.draft = textarea.value;
     });
-    window.setTimeout(() => input.focus(), 40);
+    saveButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      handleFragmentClick(session, fragment, piece);
+    });
+    window.setTimeout(() => textarea.focus(), 40);
   } else {
     piece.innerHTML = fragment.customAdd
       ? `<span class="custom-placeholder">自己写下</span><span class="paper-plus"></span>`
@@ -2345,6 +2363,10 @@ function renderFragmentPiece(session, fragment, { isLeaving = false, field = res
   if (!isLeaving) {
     piece.addEventListener("click", () => {
       if (piece.dataset.dragged === "true") return;
+      if (fragment.writing) {
+        piece.querySelector("textarea")?.focus();
+        return;
+      }
       if (fragment.customAdd) {
         addCustomWritingFragment(session);
         return;
@@ -2358,12 +2380,12 @@ function renderFragmentPiece(session, fragment, { isLeaving = false, field = res
 }
 
 function makeFragmentDraggable(piece, fragment, field) {
-  if (!field || fragment.customAdd) return;
+  if (!field || fragment.customAdd || fragment.writing) return;
   let startX = 0;
   let startY = 0;
   let moved = false;
   piece.addEventListener("pointerdown", (event) => {
-    if (event.target.closest("input")) return;
+    if (event.target.closest("input, textarea, button")) return;
     startX = event.clientX;
     startY = event.clientY;
     moved = false;
@@ -2417,9 +2439,18 @@ function renderBottleContents(session, root = responseDock.querySelector("#bottl
     chip.dataset.family = fragment.family;
     chip.style.setProperty("--piece-delay", `${index * 38}ms`);
     chip.style.setProperty("--piece-index", index);
-    chip.textContent = fragment.label;
+    const preview = fragmentPreviewLabel(fragment);
+    chip.textContent = preview;
+    if (preview !== fragment.label) chip.title = fragment.label;
     root.appendChild(chip);
   });
+}
+
+function fragmentPreviewLabel(fragment) {
+  const label = fragment?.label ?? "";
+  if (!fragment?.custom) return label;
+  const compact = label.replace(/\s+/g, " ").trim();
+  return compact.length > 12 ? `${compact.slice(0, 11)}…` : compact;
 }
 
 function renderEchoStage(session) {
@@ -2604,7 +2635,7 @@ function addCustomWritingFragment(session) {
 function handleFragmentClick(session, fragment, element = null) {
   if (session.ritualStage !== "fragments") return;
   if (fragment.writing && !fragment.draft?.trim()) {
-    element?.querySelector("input")?.focus();
+    element?.querySelector("textarea")?.focus();
     return;
   }
   const label = fragment.custom ? fragment.draft.trim() : fragment.label;
@@ -2615,12 +2646,14 @@ function handleFragmentClick(session, fragment, element = null) {
   element?.classList.add("picked");
   window.setTimeout(() => element?.remove(), 260);
   responseDock.querySelector("#driftBottle")?.classList.add("glowing");
+  session.stopNoticeVisible = false;
   renderBottleContents(session);
 }
 
 function resetFragments(session) {
   session.selectedFragments.clear();
   session.selectedTags.clear();
+  session.stopNoticeVisible = false;
   session.customFragmentCount = 0;
   session.fragments = createRitualFragments(session);
   record("question_action", {
@@ -2642,22 +2675,35 @@ function resetFragments(session) {
   bottle.classList.remove("glowing");
 }
 
-function skipFragments(session) {
+function stopFragments(session) {
   if (session.ritualStage !== "fragments") return;
-  session.selectedFragments.clear();
-  session.selectedTags.clear();
-  record("question_action", {
-    mode: "presence",
-    action: "fragment_skip",
-    cardId: session.card.id,
-    setId: session.card.setId,
-    photoBatchId: state.activeBatchId,
-  });
-  handleSendBottle(session, { skipped: true });
+  session.stopNoticeVisible = true;
+  if (!session.cardStaySaved) {
+    session.cardStaySaved = true;
+    record("card_stay", {
+      mode: "presence",
+      action: "stop_without_echo",
+      cardId: session.card.id,
+      setId: session.card.setId,
+      questionText: session.question,
+      thumbnail: cardThumbnail(session.card),
+      photoBatchId: state.activeBatchId,
+    });
+  }
+  renderRitualMode();
+  const stopTimer = window.setTimeout(() => {
+    if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
+    closeModal();
+  }, 1800);
+  state.modalTimers.push(stopTimer);
 }
 
-function handleSendBottle(session, options = {}) {
+function handleSendBottle(session) {
   if (session.ritualStage !== "fragments") return;
+  if (!session.selectedFragments.size) {
+    stopFragments(session);
+    return;
+  }
   clearModalTimers();
   session.echoStatus = "floating";
   session.ritualStage = "leaving";
