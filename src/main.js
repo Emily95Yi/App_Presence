@@ -4,9 +4,6 @@ import { createEchoLines } from "./echoEngine.js";
 import "./styles.css";
 
 const root = document.getElementById("sceneRoot");
-const cardDeckLayer = document.getElementById("cardDeckLayer");
-const cardDeckStack = document.getElementById("cardDeckStack");
-const randomDrawButton = document.getElementById("randomDrawButton");
 const cardModal = document.getElementById("cardModal");
 const focusCard = document.getElementById("focusCard");
 const focusCtx = focusCard.getContext("2d");
@@ -552,10 +549,6 @@ const state = {
   introTimer: null,
   activeDwellTimer: null,
   modalTimers: [],
-  deckCards: [],
-  deckFocusIndex: 0,
-  deckDrawIndex: null,
-  deckDrawTimer: null,
   lastInteractionAt: performance.now(),
   lastFrameAt: performance.now(),
   interactionFloatBoost: 0,
@@ -565,7 +558,6 @@ const chunkOffsets = makeChunkOffsets();
 resize();
 renderContentPanel();
 renderCalendar();
-renderCardDeck();
 recordAppVisit();
 updateChunks(true);
 animate();
@@ -984,109 +976,6 @@ function getEnabledCards() {
   return [...getEnabledProjectionSets().flatMap((set) => set.cards), ...photoCards];
 }
 
-function getDeckCards() {
-  return stableShuffle(getEnabledCards(), 20260523).slice(0, 28);
-}
-
-function renderCardDeck() {
-  if (!cardDeckStack) return;
-  window.clearTimeout(state.deckDrawTimer);
-  state.deckDrawTimer = null;
-  state.deckDrawIndex = null;
-  state.deckCards = getDeckCards();
-  state.deckFocusIndex = clamp(state.deckFocusIndex, 0, Math.max(state.deckCards.length - 1, 0));
-  cardDeckStack.innerHTML = "";
-  cardDeckLayer?.classList.toggle("empty", state.deckCards.length === 0);
-  randomDrawButton.disabled = state.deckCards.length === 0;
-
-  if (!state.deckCards.length) {
-    const empty = document.createElement("p");
-    empty.className = "deck-empty-state";
-    empty.textContent = "先在设置里打开一组卡牌。";
-    cardDeckStack.appendChild(empty);
-    return;
-  }
-
-  state.deckCards.forEach((card, index) => {
-    const button = document.createElement("button");
-    button.className = "deck-card";
-    button.type = "button";
-    button.dataset.index = String(index);
-    button.setAttribute("aria-label", `抽取${card.title ?? "这张卡牌"}`);
-    applyDeckCardPosition(button, index, state.deckCards.length, card);
-
-    const image = document.createElement("img");
-    image.src = card.kind === "projection" && card.src ? card.src : cardPreviewDataUrl(card);
-    image.alt = "";
-    image.loading = "lazy";
-    image.draggable = false;
-    image.style.aspectRatio = `${getCardAspect(card)} / 1`;
-    button.appendChild(image);
-
-    button.addEventListener("pointerenter", () => focusDeckCard(index));
-    button.addEventListener("pointerdown", () => focusDeckCard(index));
-    button.addEventListener("focus", () => focusDeckCard(index));
-    button.addEventListener("click", () => drawDeckCard(index));
-    cardDeckStack.appendChild(button);
-  });
-}
-
-function applyDeckCardPosition(button, index, total, card) {
-  const seed = hashString(`${card.id}:${index}`);
-  const centered = index - (total - 1) / 2;
-  const y = centered * (8 + seededRandom(seed + 1) * 4);
-  const x = (seededRandom(seed + 2) - 0.5) * 18 + Math.sin(index * 0.74) * 5;
-  const rotation = (seededRandom(seed + 3) - 0.5) * 8;
-  const lift = Math.abs(centered) * 0.18;
-  button.style.setProperty("--deck-x", `${x.toFixed(2)}px`);
-  button.style.setProperty("--deck-y", `${(y - lift).toFixed(2)}px`);
-  button.style.setProperty("--deck-r", `${rotation.toFixed(2)}deg`);
-  button.style.setProperty("--deck-z", String(index + 1));
-}
-
-function focusDeckCard(index, options = {}) {
-  if (!state.deckCards[index] || state.deckDrawIndex !== null) return;
-  state.deckFocusIndex = index;
-  cardDeckStack?.querySelectorAll(".deck-card").forEach((cardEl, cardIndex) => {
-    const isFocused = cardIndex === index;
-    cardEl.classList.toggle("is-focused", isFocused);
-    cardEl.classList.toggle("is-muted", !isFocused);
-  });
-  if (!options.quiet) {
-    markCanvasInteraction();
-    hideIntroWhisper();
-  }
-}
-
-function drawDeckCard(index, options = {}) {
-  const card = state.deckCards[index];
-  if (!card || state.deckDrawIndex !== null) return;
-  window.clearTimeout(state.deckDrawTimer);
-  state.deckFocusIndex = index;
-  state.deckDrawIndex = index;
-  cardDeckLayer?.classList.add("is-drawing");
-  cardDeckStack?.querySelectorAll(".deck-card").forEach((cardEl, cardIndex) => {
-    const isDrawing = cardIndex === index;
-    cardEl.classList.toggle("is-focused", isDrawing);
-    cardEl.classList.toggle("is-drawing", isDrawing);
-    cardEl.classList.toggle("is-muted", !isDrawing);
-  });
-  if (options.random) randomDrawButton.classList.add("is-drawing");
-  state.deckDrawTimer = window.setTimeout(() => {
-    openCardExperience([card], 0, null);
-    resetDeckDrawState();
-  }, 820);
-}
-
-function resetDeckDrawState() {
-  window.clearTimeout(state.deckDrawTimer);
-  state.deckDrawTimer = null;
-  state.deckDrawIndex = null;
-  cardDeckLayer?.classList.remove("is-drawing");
-  randomDrawButton?.classList.remove("is-drawing");
-  focusDeckCard(state.deckFocusIndex, { quiet: true });
-}
-
 function getEnabledWords() {
   return wordGroups.filter((group) => group.enabled).flatMap((group) => group.words.map((word) => ({ ...word, groupId: group.id })));
 }
@@ -1212,7 +1101,7 @@ function generateChunkPlanesCached(cx, cy, cz) {
   const clusterRadius = screenPixelsToWorldUnits(canvasGenerationConfig.clusterRadius);
   let itemIndex = 0;
 
-  const desiredCards = 0;
+  const desiredCards = cards.length ? 2 + (seededRandom(seed + 11) > 0.54 ? 1 : 0) + (isNearInitialView(cx, cy, cz) ? 1 : 0) : 0;
   const desiredWords = enabledWords.length ? 1 + (seededRandom(seed + 13) > 0.58 ? 1 : 0) : 0;
   const itemKinds = [
     ...Array.from({ length: desiredCards }, () => "card"),
@@ -1242,7 +1131,7 @@ function generateChunkPlanesCached(cx, cy, cz) {
   });
 
   if (!items.length) {
-    const fallbackKind = enabledWords.length ? "word" : null;
+    const fallbackKind = cards.length ? "card" : enabledWords.length ? "word" : null;
     if (fallbackKind) {
       const item = makePoissonClusterItem(
         {
@@ -1731,7 +1620,6 @@ async function handlePhotoUpload(event) {
   photoSet.enabled = true;
   saveVisibility();
   renderContentPanel();
-  renderCardDeck();
   rebuildScene();
   event.target.value = "";
   openCardExperience(uploadedCards, 0, `batch-${Date.now()}`);
@@ -2178,7 +2066,6 @@ function scheduleObservationFlow(session) {
 
 function closeModal() {
   const session = getActiveSession();
-  resetDeckDrawState();
   clearModalTimers();
   if (session) {
     captureAnswerTextFromDom(session);
@@ -3202,7 +3089,6 @@ function renderContentPanel() {
         child.enabled = !child.enabled;
         saveVisibility();
         renderContentPanel();
-        renderCardDeck();
         rebuildScene();
       });
       block.appendChild(button);
@@ -3708,21 +3594,6 @@ document.getElementById("closeCalendarReview").addEventListener("click", closeCa
 document.getElementById("calendarReviewScrim").addEventListener("click", closeCalendarReview);
 document.getElementById("closeModal").addEventListener("click", closeModal);
 document.getElementById("modalScrim").addEventListener("click", closeModal);
-cardDeckLayer?.addEventListener("pointermove", (event) => {
-  if (state.deckDrawIndex !== null) return;
-  const deckCard = document.elementFromPoint(event.clientX, event.clientY)?.closest?.(".deck-card");
-  if (!deckCard || !cardDeckStack?.contains(deckCard)) return;
-  focusDeckCard(Number(deckCard.dataset.index));
-});
-randomDrawButton?.addEventListener("click", () => {
-  if (!state.deckCards.length) return;
-  const nextIndex =
-    state.deckCards.length > 1
-      ? (state.deckFocusIndex + 1 + Math.floor(Math.random() * (state.deckCards.length - 1))) % state.deckCards.length
-      : 0;
-  focusDeckCard(nextIndex, { quiet: true });
-  drawDeckCard(nextIndex, { random: true });
-});
 document.addEventListener(
   "pointerdown",
   (event) => {
