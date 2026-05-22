@@ -3189,9 +3189,10 @@ function groupedRecords() {
 }
 
 function isCalendarRecord(entry) {
+  if (entry.type === "card_stay") return Boolean(entry.payload.cardId);
   if (entry.type === "card_open") return Boolean(entry.payload.cardId);
+  if (entry.type === "reflection") return entry.payload.action === "complete" && Array.isArray(entry.payload.echoLines);
   if (entry.type === "tag") return ["bottle_fragment_select", "custom_fragment_select"].includes(entry.payload.action);
-  if (entry.type === "echo") return entry.payload.action === "collect" && Boolean(entry.payload.text?.trim());
   if (entry.type === "answer") return entry.payload.action === "exit_save" && Boolean(entry.payload.text?.trim());
   return false;
 }
@@ -3231,7 +3232,8 @@ function calendarCardKey(entry) {
 }
 
 function calendarEntryTitle(entry) {
-  if (entry.type === "echo") return "回声";
+  if (entry.type === "reflection") return "回声";
+  if (entry.type === "card_stay") return "停留";
   if (entry.type === "tag") return "漂流瓶";
   return entry.payload.title ?? entry.payload.cardTitle ?? entry.payload.cardId ?? entry.payload.id ?? "卡牌";
 }
@@ -3362,9 +3364,14 @@ function renderReviewRecordList(entries) {
 function getCalendarReviewTexts(entries) {
   const questions = uniqueRecordValues(entries.map((entry) => entry.payload.questionText || promptTextForRecord(entry)).filter(Boolean));
   const labels = collectRecordLabels(entries);
-  const echoes = uniqueRecordValues(entries.filter((entry) => entry.type === "echo" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim()));
   const answers = uniqueRecordValues(entries.filter((entry) => entry.type === "answer" && entry.payload.text?.trim()).map((entry) => entry.payload.text.trim()));
-  return uniqueRecordValues([...questions, ...labels, ...echoes, ...answers]);
+  const reflectionLines = uniqueRecordValues(
+    entries
+      .filter((entry) => entry.type === "reflection" && Array.isArray(entry.payload.echoLines))
+      .flatMap((entry) => entry.payload.echoLines)
+      .filter(Boolean),
+  );
+  return uniqueRecordValues([...questions, ...labels, ...answers, ...reflectionLines]);
 }
 
 function promptTextForRecord(entry) {
@@ -3375,6 +3382,9 @@ function promptTextForRecord(entry) {
 function collectRecordLabels(entries) {
   const labels = [];
   entries.forEach((entry) => {
+    if (entry.type === "reflection" && Array.isArray(entry.payload.labels)) {
+      labels.push(...entry.payload.labels);
+    }
     if (entry.type === "tag" && ["bottle_fragment_select", "custom_fragment_select"].includes(entry.payload.action)) {
       labels.push(stripTagPrefix(entry.payload.label ?? entry.payload.tag ?? ""));
     }
