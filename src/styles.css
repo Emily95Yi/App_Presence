@@ -16,6 +16,8 @@
   --echo-cyan: rgba(156, 220, 210, 0.46);
   --echo-violet: rgba(205, 187, 235, 0.36);
   --shadow: 0 28px 90px rgba(96, 84, 64, 0.18);
+  --reflection-stage-width: clamp(360px, 100vw, 430px);
+  --reflection-stage-height: min(900px, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px));
   --canvas-background:
     radial-gradient(circle at 18% 8%, rgba(217, 234, 239, 0.88), transparent 34%),
     radial-gradient(circle at 86% 20%, rgba(200, 221, 232, 0.34), transparent 30%),
@@ -517,14 +519,29 @@ button {
 
 .modal-stage {
   position: absolute;
-  inset: max(18px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
-    max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 1;
   display: grid;
-  grid-template-rows: 50vh auto minmax(0, 1fr);
+  grid-template-rows: minmax(260px, 42%) auto minmax(0, 1fr);
+  width: var(--reflection-stage-width);
+  max-width: calc(100vw - 24px);
+  height: var(--reflection-stage-height);
+  max-height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom)));
   align-items: center;
   justify-items: center;
-  gap: 10px;
+  gap: 8px;
   overflow: hidden;
+  transform: translateX(-50%);
+}
+
+.card-modal::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 30%, rgba(255, 252, 245, 0.28), transparent 46%);
 }
 
 .card-modal .modal-stage::before {
@@ -601,9 +618,9 @@ button {
   position: relative;
   z-index: 2;
   width: auto;
-  max-width: min(90vw, 520px);
-  height: 42vh;
-  max-height: 42vh;
+  max-width: min(88vw, 360px);
+  height: min(38dvh, 330px);
+  max-height: 38dvh;
   margin-top: 34px;
   object-fit: contain;
   border-radius: 16px;
@@ -2301,6 +2318,11 @@ textarea:focus {
 }
 
 @media (max-width: 640px) {
+  :root {
+    --reflection-stage-width: min(100vw, 430px);
+    --reflection-stage-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+  }
+
   .mobile-frame {
     align-items: flex-start;
   }
@@ -2319,17 +2341,9 @@ textarea:focus {
     min-width: 40px;
   }
 
-  .modal-stage {
-    grid-template-rows: 50vh auto minmax(0, 1fr);
-    gap: 8px;
-  }
-
   #focusCard {
-    width: auto;
-    max-width: min(88vw, 420px);
-    height: 41vh;
-    max-height: 41vh;
-    margin-top: 34px;
+    height: min(36dvh, 300px);
+    max-height: 36dvh;
   }
 
   .ritual-question-stack {
@@ -2537,13 +2551,6 @@ textarea:focus {
   .side-panel {
     top: 82px;
     right: 24px;
-  }
-
-  #focusCard {
-    width: auto;
-    max-width: min(76vw, 520px);
-    height: 42vh;
-    max-height: 42vh;
   }
 
   .modal-stage {
