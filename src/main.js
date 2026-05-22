@@ -1998,10 +1998,15 @@ function createCardSession(card) {
     echoLines: [],
     echoLinesVisible: 0,
     echoRevealedAll: false,
+    animatedEchoLineIndexes: new Set(),
     echoStatus: "idle",
     echoConfirmed: false,
     inputExpanded: false,
     stopNoticeVisible: false,
+    observationTimer: null,
+    sendTimer: null,
+    returnTimer: null,
+    echoRevealTimers: new Map(),
     stopCloseTimer: null,
     completedReflectionSaved: false,
     cardStaySaved: false,
@@ -2044,15 +2049,18 @@ function syncActiveCard() {
 }
 
 function scheduleObservationFlow(session) {
-  clearModalTimers();
   if (session.ritualStage !== "observing") return;
-  state.activeDwellTimer = window.setTimeout(() => {
+  clearSessionTimer(session, "observationTimer");
+  const timer = window.setTimeout(() => {
+    if (session.observationTimer === timer) session.observationTimer = null;
     if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
     session.ritualStage = "fragments";
     session.fragments = createRitualFragments(session);
     renderModalByMode();
   }, 8000);
-  state.modalTimers.push(state.activeDwellTimer);
+  session.observationTimer = timer;
+  state.activeDwellTimer = timer;
+  state.modalTimers.push(timer);
 }
 
 function closeModal() {
@@ -2082,8 +2090,23 @@ function clearModalTimers() {
   state.modalTimers.forEach((timer) => window.clearTimeout(timer));
   state.modalTimers = [];
   state.cardSessions.forEach((cardSession) => {
+    cardSession.observationTimer = null;
+    cardSession.sendTimer = null;
+    cardSession.returnTimer = null;
+    cardSession.echoRevealTimers?.clear();
     cardSession.stopCloseTimer = null;
   });
+}
+
+function clearSessionTimer(session, key) {
+  if (!session?.[key]) return;
+  window.clearTimeout(session[key]);
+  session[key] = null;
+}
+
+function clearEchoRevealTimers(session) {
+  session.echoRevealTimers?.forEach((timer) => window.clearTimeout(timer));
+  session.echoRevealTimers?.clear();
 }
 
 function getActiveSession() {
@@ -2463,6 +2486,7 @@ function fragmentPreviewLabel(fragment) {
 
 function renderEchoStage(session) {
   const isSending = session.ritualStage === "sending";
+  if (!isSending) scheduleEchoLineReveal(session);
   responseDock.innerHTML = `
     <section class="echo-return-stage${isSending ? " sending" : ""}" aria-label="漂流瓶回声">
       ${
@@ -2478,7 +2502,11 @@ function renderEchoStage(session) {
         !isSending
           ? `<button class="echo-stream" id="echoStream" type="button" aria-label="展开全部回声">
               ${session.echoLines
-                .map((line, index) => `<span class="echo-line${index < session.echoLinesVisible ? " visible" : ""}">${escapeHtml(line)}</span>`)
+                .map((line, index) => {
+                  const visible = index < session.echoLinesVisible;
+                  const revealing = visible && !session.animatedEchoLineIndexes.has(index);
+                  return `<span class="echo-line${visible ? " visible" : ""}${revealing ? " revealing" : ""}">${escapeHtml(line)}</span>`;
+                })
                 .join("")}
              </button>
              <div class="echo-actions">
@@ -2500,6 +2528,11 @@ function renderEchoStage(session) {
       }
     </section>
   `;
+  if (!isSending) {
+    for (let index = 0; index < session.echoLinesVisible; index += 1) {
+      session.animatedEchoLineIndexes.add(index);
+    }
+  }
 
   const textarea = responseDock.querySelector("#answerInput");
   if (textarea) {
@@ -2718,7 +2751,10 @@ function handleSendBottle(session) {
     return;
   }
   cancelStopClose(session);
-  clearModalTimers();
+  clearSessionTimer(session, "observationTimer");
+  clearSessionTimer(session, "sendTimer");
+  clearSessionTimer(session, "returnTimer");
+  clearEchoRevealTimers(session);
   session.echoStatus = "floating";
   session.ritualStage = "leaving";
   cardModal.dataset.stage = session.ritualStage;
@@ -2736,42 +2772,53 @@ function handleSendBottle(session) {
     renderModalByMode();
   }
   const sendTimer = window.setTimeout(() => {
-    if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
+    if (session.sendTimer === sendTimer) session.sendTimer = null;
+    if (!cardModal.classList.contains("open") || session.ritualStage !== "leaving") return;
     session.ritualStage = "sending";
-    renderModalByMode();
+    if (getActiveSession() === session) renderModalByMode();
   }, 460);
   const returnTimer = window.setTimeout(() => {
-    if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
+    if (session.returnTimer === returnTimer) session.returnTimer = null;
+    if (!cardModal.classList.contains("open") || session.ritualStage !== "sending") return;
     session.ritualStage = "echoes";
     session.echoStatus = "ready";
     session.echoLines = createEchoLines(session);
     session.echoLinesVisible = 1;
     session.echoRevealedAll = false;
+    session.animatedEchoLineIndexes.clear();
     scheduleEchoLineReveal(session);
-    renderModalByMode();
+    if (getActiveSession() === session) renderModalByMode();
   }, 3400);
+  session.sendTimer = sendTimer;
+  session.returnTimer = returnTimer;
   state.modalTimers.push(sendTimer, returnTimer);
 }
 
 function revealEchoLine(session, count) {
   if (session.ritualStage !== "echoes") return;
   session.echoLinesVisible = Math.min(session.echoLines.length, Math.max(session.echoLinesVisible, count));
-  renderRitualMode();
+  if (getActiveSession() === session) renderRitualMode();
 }
 
 function revealAllEchoLines(session) {
   if (session.ritualStage !== "echoes") return;
   session.echoRevealedAll = true;
   session.echoLinesVisible = session.echoLines.length;
+  clearEchoRevealTimers(session);
   renderRitualMode();
 }
 
 function scheduleEchoLineReveal(session) {
+  if (session.ritualStage !== "echoes" || session.echoRevealedAll || !session.echoLines.length) return;
   [1800, 3600].forEach((delay, index) => {
+    const targetCount = index + 2;
+    if (session.echoLinesVisible >= targetCount || session.echoRevealTimers.has(targetCount)) return;
     const timer = window.setTimeout(() => {
-      if (!cardModal.classList.contains("open") || getActiveSession() !== session || session.echoRevealedAll) return;
-      revealEchoLine(session, index + 2);
+      session.echoRevealTimers.delete(targetCount);
+      if (!cardModal.classList.contains("open") || session.echoRevealedAll) return;
+      revealEchoLine(session, targetCount);
     }, delay);
+    session.echoRevealTimers.set(targetCount, timer);
     state.modalTimers.push(timer);
   });
 }

@@ -1651,6 +1651,12 @@ button {
 }
 
 .echo-line.visible {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+.echo-line.visible.revealing {
   animation: echo-line-rise 540ms ease both;
 }
 
@@ -2393,6 +2399,36 @@ textarea:focus {
     height: 178px;
   }
 
+  .echo-return-stage {
+    min-height: 0;
+    max-height: min(38vh, 300px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 10px 10px;
+  }
+
+  .echo-stream {
+    width: min(90vw, 380px);
+    min-height: 128px;
+    gap: 7px;
+    padding: 14px 15px;
+  }
+
+  .echo-line {
+    min-height: 1.35em;
+    font-size: 14px;
+    line-height: 1.48;
+  }
+
+  .echo-actions {
+    width: min(90vw, 380px);
+  }
+
+  .echo-save-button {
+    min-height: 40px;
+    font-size: 14px;
+  }
+
   .echo-fragment {
     width: min(144px, 39vw);
     max-width: min(144px, 39vw);
@@ -2400,8 +2436,14 @@ textarea:focus {
     font-size: 12px;
   }
 
+  .quiet-input-area {
+    width: min(90vw, 380px);
+    min-height: 54px;
+  }
+
   .quiet-input-area textarea {
-    min-height: 92px;
+    width: min(86vw, 360px);
+    min-height: 76px;
   }
 }
 
