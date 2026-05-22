@@ -506,6 +506,9 @@ const calendarState = {
   selectedDay: formatRecordDay(new Date().toISOString()),
   reviewGroups: [],
   reviewActiveKey: null,
+  reviewFocusKey: null,
+  reviewDrawingKey: null,
+  reviewDrawTimer: null,
   footerCopy: "",
 };
 const calendarFooterCopies = ["选择一天，回看曾经的停留", "选择一天，回顾收藏的记忆", "选择一天，打开那一瞬间的感受"];
@@ -3251,6 +3254,10 @@ function openCalendarReview(day, entries) {
   const groups = groupEntriesByCard(entries);
   calendarState.reviewGroups = groups;
   calendarState.reviewActiveKey = null;
+  calendarState.reviewFocusKey = groups[0]?.key ?? null;
+  calendarState.reviewDrawingKey = null;
+  window.clearTimeout(calendarState.reviewDrawTimer);
+  calendarState.reviewDrawTimer = null;
   calendarReviewDate.innerHTML = `<span>${formatReviewDate(day)}</span>`;
   calendarReview.classList.add("open");
   calendarReview.setAttribute("aria-hidden", "false");
@@ -3260,49 +3267,104 @@ function openCalendarReview(day, entries) {
 function closeCalendarReview() {
   calendarReview.classList.remove("open");
   calendarReview.setAttribute("aria-hidden", "true");
+  calendarReview.classList.remove("has-review-selection");
+  calendarReviewDeck.classList.remove("is-drawing");
+  window.clearTimeout(calendarState.reviewDrawTimer);
   calendarState.reviewGroups = [];
   calendarState.reviewActiveKey = null;
+  calendarState.reviewFocusKey = null;
+  calendarState.reviewDrawingKey = null;
+  calendarState.reviewDrawTimer = null;
 }
 
 function renderCalendarReview() {
   const groups = calendarState.reviewGroups;
+  const activeGroup = groups.find((group) => group.key === calendarState.reviewActiveKey) ?? null;
+  const focusKey = calendarState.reviewFocusKey ?? activeGroup?.key ?? groups[0]?.key ?? null;
+  const drawingKey = calendarState.reviewDrawingKey;
   calendarReviewDeck.innerHTML = "";
+  calendarReview.classList.toggle("has-review-selection", Boolean(activeGroup));
+  calendarReviewDeck.classList.toggle("has-active-card", Boolean(activeGroup));
+  calendarReviewDeck.classList.toggle("is-drawing", Boolean(drawingKey));
   if (!groups.length) {
     calendarReviewDetail.innerHTML = `<p class="empty-state">这一天还没有留下记录。</p>`;
     return;
   }
   groups.forEach((group, index) => {
     const button = document.createElement("button");
-    button.className = `review-card${group.key === calendarState.reviewActiveKey ? " active" : ""}`;
+    const isActive = group.key === activeGroup?.key;
+    const isFocused = group.key === focusKey && !activeGroup;
+    const isDrawing = group.key === drawingKey;
+    const isMuted = Boolean((focusKey && group.key !== focusKey && !activeGroup) || (activeGroup && !isActive) || (drawingKey && !isDrawing));
+    button.className = `review-card${isActive ? " active" : ""}${isFocused ? " focused" : ""}${isMuted ? " muted" : ""}${
+      isDrawing ? " drawing" : ""
+    }`;
     if (group.key.startsWith("keyword:")) button.classList.add("shell-review-card");
     if (group.card?.setId) button.classList.add(`${group.card.setId}-review-card`);
     button.type = "button";
+    button.dataset.key = group.key;
     button.style.setProperty("--stack-index", index);
     button.style.setProperty("--stack-count", groups.length);
-    button.style.setProperty("--stack-x", `${((index % 9) - 4) * 7}px`);
-    button.style.setProperty("--stack-y", `${((index % 5) - 2) * 3}px`);
-    button.style.setProperty("--tilt", `${((index % 7) - 3) * 2.4}deg`);
+    setCalendarReviewCardMotionVars(button, group, index, groups.length);
     button.style.setProperty("--rise", `${Math.abs((index % 5) - 2) * 7}px`);
     const visual = createReviewCardVisual(group);
     button.append(visual);
+    button.addEventListener("pointerenter", () => focusCalendarReviewCard(group.key));
+    button.addEventListener("pointerdown", () => focusCalendarReviewCard(group.key));
+    button.addEventListener("focus", () => focusCalendarReviewCard(group.key));
     button.addEventListener("click", () => {
-      calendarState.reviewActiveKey = group.key;
-      renderCalendarReview();
+      startCalendarReviewDraw(group.key);
     });
     calendarReviewDeck.appendChild(button);
   });
   const randomButton = document.createElement("button");
   randomButton.className = "review-random-button";
   randomButton.type = "button";
-  randomButton.textContent = "随机抽一张";
+  randomButton.innerHTML = `<span class="ph-duotone ph-arrows-clockwise" aria-hidden="true"></span><span>随机抽一张</span>`;
   randomButton.addEventListener("click", () => {
-    const randomGroup = groups[Math.floor(Math.random() * groups.length) % groups.length];
-    calendarState.reviewActiveKey = randomGroup.key;
-    renderCalendarReview();
+    const currentIndex = Math.max(
+      0,
+      groups.findIndex((group) => group.key === (calendarState.reviewFocusKey ?? calendarState.reviewActiveKey)),
+    );
+    const nextIndex = groups.length > 1 ? (currentIndex + 1 + Math.floor(Math.random() * (groups.length - 1))) % groups.length : 0;
+    startCalendarReviewDraw(groups[nextIndex].key);
   });
   calendarReviewDeck.appendChild(randomButton);
-  const activeGroup = groups.find((group) => group.key === calendarState.reviewActiveKey) ?? null;
   renderCalendarReviewDetail(activeGroup);
+}
+
+function setCalendarReviewCardMotionVars(button, group, index, total) {
+  const seed = hashString(`${group.key}:${index}`);
+  const centered = index - (total - 1) / 2;
+  const x = ((seededRandom(seed + 1) - 0.5) * 18 + Math.sin(index * 0.7) * 5).toFixed(2);
+  const y = (centered * (8 + seededRandom(seed + 2) * 4)).toFixed(2);
+  const tilt = ((seededRandom(seed + 3) - 0.5) * 8).toFixed(2);
+  button.style.setProperty("--stack-x", `${x}px`);
+  button.style.setProperty("--stack-y", `${y}px`);
+  button.style.setProperty("--tilt", `${tilt}deg`);
+  button.style.setProperty("--focus-tilt", `${(Number(tilt) * 0.45).toFixed(2)}deg`);
+  button.style.setProperty("--draw-tilt", `${(Number(tilt) * 0.25).toFixed(2)}deg`);
+}
+
+function focusCalendarReviewCard(key) {
+  if (!key || calendarState.reviewActiveKey || calendarState.reviewDrawingKey) return;
+  if (calendarState.reviewFocusKey === key) return;
+  calendarState.reviewFocusKey = key;
+  renderCalendarReview();
+}
+
+function startCalendarReviewDraw(key) {
+  if (!key || calendarState.reviewDrawingKey) return;
+  window.clearTimeout(calendarState.reviewDrawTimer);
+  calendarState.reviewFocusKey = key;
+  calendarState.reviewDrawingKey = key;
+  renderCalendarReview();
+  calendarState.reviewDrawTimer = window.setTimeout(() => {
+    calendarState.reviewActiveKey = key;
+    calendarState.reviewDrawingKey = null;
+    calendarState.reviewDrawTimer = null;
+    renderCalendarReview();
+  }, 680);
 }
 
 function createReviewCardVisual(group) {
@@ -3592,6 +3654,11 @@ document.getElementById("calendarToggle").addEventListener("click", () => {
 document.getElementById("closeCardSetPanel").addEventListener("click", () => togglePanel(cardSetPanel));
 document.getElementById("closeCalendarReview").addEventListener("click", closeCalendarReview);
 document.getElementById("calendarReviewScrim").addEventListener("click", closeCalendarReview);
+calendarReviewDeck.addEventListener("pointermove", (event) => {
+  const card = document.elementFromPoint(event.clientX, event.clientY)?.closest?.(".review-card");
+  if (!card || !calendarReviewDeck.contains(card)) return;
+  focusCalendarReviewCard(card.dataset.key);
+});
 document.getElementById("closeModal").addEventListener("click", closeModal);
 document.getElementById("modalScrim").addEventListener("click", closeModal);
 document.addEventListener(
