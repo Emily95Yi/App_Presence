@@ -2301,9 +2301,11 @@ function renderRitualMode() {
 function renderFragmentStage(session) {
   if (!session.fragments.length) session.fragments = createRitualFragments(session);
   const selected = [...session.selectedFragments.values()];
+  const hasSelectedFragments = selected.length > 0;
+  const hasActiveWriting = session.fragments.some((fragment) => fragment.writing && !session.selectedFragments.has(fragment.id));
   const isLeaving = session.ritualStage === "leaving";
   responseDock.innerHTML = `
-    <section class="ritual-fragment-stage${isLeaving ? " leaving" : ""}" aria-label="共鸣碎片">
+    <section class="ritual-fragment-stage${isLeaving ? " leaving" : ""}${hasActiveWriting ? " writing-open" : ""}" aria-label="共鸣碎片">
       <div class="fragment-guide" aria-live="polite">
         <span>海面上冲来了漂流瓶</span>
         <span>哪些只言片语让你很有感觉，点击即可放进你的漂流瓶</span>
@@ -2314,6 +2316,7 @@ function renderFragmentStage(session) {
           : ""
       }
       <div class="sea-fragment-field" id="seaFragmentField"></div>
+      <div class="custom-writing-area" id="customWritingArea" aria-live="polite"></div>
       <div class="drift-bottle${selected.length ? " glowing" : ""}" id="driftBottle" aria-label="小漂流瓶区域">
         <span class="bottle-neck"></span>
         <span class="bottle-body"></span>
@@ -2323,11 +2326,11 @@ function renderFragmentStage(session) {
         isLeaving
           ? ""
           : `<div class="modal-actions ritual-actions">
-              <button class="primary-button" id="sendFragments" type="button">
+              <button class="primary-button" id="sendFragments" type="button"${hasSelectedFragments ? "" : " disabled"}>
                 <span class="action-icon check-icon" aria-hidden="true"></span>
                 <span>选好了</span>
               </button>
-              <button class="secondary-button" id="regretFragments" type="button">
+              <button class="secondary-button" id="regretFragments" type="button"${hasSelectedFragments ? "" : " disabled"}>
                 <span class="action-icon delete-icon" aria-hidden="true"></span>
                 <span>后悔了</span>
               </button>
@@ -2341,7 +2344,12 @@ function renderFragmentStage(session) {
   `;
 
   const field = responseDock.querySelector("#seaFragmentField");
-  session.fragments.forEach((fragment) => renderFragmentPiece(session, fragment, { isLeaving, field }));
+  session.fragments.filter((fragment) => !fragment.writing).forEach((fragment) => renderFragmentPiece(session, fragment, { isLeaving, field }));
+
+  const customWritingArea = responseDock.querySelector("#customWritingArea");
+  session.fragments
+    .filter((fragment) => fragment.writing && !session.selectedFragments.has(fragment.id))
+    .forEach((fragment) => renderCustomWritingPanel(session, fragment, customWritingArea));
 
   const bottleContents = responseDock.querySelector("#bottleContents");
   renderBottleContents(session, bottleContents, selected);
@@ -2352,10 +2360,10 @@ function renderFragmentStage(session) {
 }
 
 function renderFragmentPiece(session, fragment, { isLeaving = false, field = responseDock.querySelector("#seaFragmentField") } = {}) {
-  if (!field || session.selectedFragments.has(fragment.id)) return null;
-  const piece = document.createElement(fragment.writing ? "div" : "button");
+  if (!field || fragment.writing || session.selectedFragments.has(fragment.id)) return null;
+  const piece = document.createElement("button");
   piece.className = `paper-fragment${fragment.custom ? " custom-fragment" : ""}${fragment.customAdd ? " custom-add-fragment" : ""}${fragment.writing ? " writing custom-writing-panel" : ""}${isLeaving ? " leaving" : ""}`;
-  if (!fragment.writing) piece.type = "button";
+  piece.type = "button";
   piece.dataset.fragmentId = fragment.id;
   piece.dataset.family = fragment.family;
   piece.style.setProperty("--x", `${fragment.x}%`);
@@ -2366,38 +2374,13 @@ function renderFragmentPiece(session, fragment, { isLeaving = false, field = res
   piece.style.setProperty("--drift-x", `${fragment.driftX}px`);
   piece.style.setProperty("--drift-y", `${fragment.driftY}px`);
 
-  if (fragment.writing) {
-    piece.innerHTML = `
-      <label class="custom-writing-label" for="${fragment.id}-draft">把此刻冒出来的话写在这里</label>
-      <textarea id="${fragment.id}-draft" aria-label="自己写下一句话" placeholder="可以是一句话，也可以只是几个字"></textarea>
-      <button class="custom-writing-save" type="button">放进来</button>
-    `;
-    const textarea = piece.querySelector("textarea");
-    const saveButton = piece.querySelector(".custom-writing-save");
-    textarea.value = fragment.draft ?? "";
-    textarea.addEventListener("click", (event) => event.stopPropagation());
-    textarea.addEventListener("pointerdown", (event) => event.stopPropagation());
-    textarea.addEventListener("input", () => {
-      fragment.draft = textarea.value;
-    });
-    saveButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      handleFragmentClick(session, fragment, piece);
-    });
-    window.setTimeout(() => textarea.focus(), 40);
-  } else {
-    piece.innerHTML = fragment.customAdd
-      ? `<span class="custom-placeholder">自己写下</span><span class="paper-plus"></span>`
-      : `<span>${escapeHtml(fragment.label)}</span>`;
-  }
+  piece.innerHTML = fragment.customAdd
+    ? `<span class="custom-placeholder">自己写下</span><span class="paper-plus"></span>`
+    : `<span>${escapeHtml(fragment.label)}</span>`;
 
   if (!isLeaving) {
     piece.addEventListener("click", () => {
       if (piece.dataset.dragged === "true") return;
-      if (fragment.writing) {
-        piece.querySelector("textarea")?.focus();
-        return;
-      }
       if (fragment.customAdd) {
         addCustomWritingFragment(session);
         return;
@@ -2408,6 +2391,32 @@ function renderFragmentPiece(session, fragment, { isLeaving = false, field = res
   }
   field.appendChild(piece);
   return piece;
+}
+
+function renderCustomWritingPanel(session, fragment, root = responseDock.querySelector("#customWritingArea")) {
+  if (!root || session.selectedFragments.has(fragment.id)) return null;
+  const panel = document.createElement("div");
+  panel.className = "custom-writing-panel";
+  panel.dataset.fragmentId = fragment.id;
+  panel.dataset.family = fragment.family;
+  panel.innerHTML = `
+    <label class="custom-writing-label" for="${fragment.id}-draft">把此刻冒出来的话写在这里</label>
+    <textarea id="${fragment.id}-draft" aria-label="自己写下" placeholder="可以是一句话，也可以只是一段还没整理好的东西"></textarea>
+    <button class="custom-writing-save" type="button">放进来</button>
+  `;
+  const textarea = panel.querySelector("textarea");
+  const saveButton = panel.querySelector(".custom-writing-save");
+  textarea.value = fragment.draft ?? "";
+  textarea.addEventListener("input", () => {
+    fragment.draft = textarea.value;
+  });
+  saveButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    handleFragmentClick(session, fragment, panel);
+  });
+  root.appendChild(panel);
+  window.setTimeout(() => textarea.focus(), 40);
+  return panel;
 }
 
 function makeFragmentDraggable(piece, fragment, field) {
@@ -2475,6 +2484,14 @@ function renderBottleContents(session, root = responseDock.querySelector("#bottl
     chip.title = fragment.custom ? fragment.label : "";
     root.appendChild(chip);
   });
+}
+
+function syncFragmentActionState(session) {
+  const hasSelectedFragments = Boolean(session?.selectedFragments?.size);
+  const sendButton = responseDock.querySelector("#sendFragments");
+  const regretButton = responseDock.querySelector("#regretFragments");
+  if (sendButton) sendButton.disabled = !hasSelectedFragments;
+  if (regretButton) regretButton.disabled = !hasSelectedFragments;
 }
 
 function fragmentPreviewLabel(fragment) {
@@ -2622,6 +2639,11 @@ function pickFragmentPosition(index, seed, placed) {
 }
 
 function addCustomWritingFragment(session) {
+  const activeWriting = session.fragments.find((fragment) => fragment.writing && !session.selectedFragments.has(fragment.id));
+  if (activeWriting) {
+    responseDock.querySelector(`[data-fragment-id="${activeWriting.id}"] textarea`)?.focus();
+    return;
+  }
   const index = session.fragments.length + session.customFragmentCount;
   const customSlots = [
     { x: 76, y: 66 },
@@ -2659,7 +2681,7 @@ function addCustomWritingFragment(session) {
   } else {
     session.fragments.push(fragment);
   }
-  renderFragmentPiece(session, fragment);
+  renderRitualMode();
 }
 
 function handleFragmentClick(session, fragment, element = null) {
@@ -2678,6 +2700,7 @@ function handleFragmentClick(session, fragment, element = null) {
   window.setTimeout(() => element?.remove(), 260);
   responseDock.querySelector("#driftBottle")?.classList.add("glowing");
   renderBottleContents(session);
+  syncFragmentActionState(session);
 }
 
 function resetFragments(session) {
@@ -2700,8 +2723,11 @@ function resetFragments(session) {
     return;
   }
   field.innerHTML = "";
-  session.fragments.forEach((fragment) => renderFragmentPiece(session, fragment, { field }));
+  session.fragments.filter((fragment) => !fragment.writing).forEach((fragment) => renderFragmentPiece(session, fragment, { field }));
+  const customWritingArea = responseDock.querySelector("#customWritingArea");
+  if (customWritingArea) customWritingArea.innerHTML = "";
   renderBottleContents(session);
+  syncFragmentActionState(session);
   bottle.classList.remove("glowing");
 }
 
