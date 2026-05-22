@@ -1998,6 +1998,7 @@ function createCardSession(card) {
     echoConfirmed: false,
     inputExpanded: false,
     stopNoticeVisible: false,
+    stopCloseTimer: null,
     completedReflectionSaved: false,
     cardStaySaved: false,
     hasOpened: false,
@@ -2076,6 +2077,9 @@ function clearModalTimers() {
   window.clearTimeout(state.activeDwellTimer);
   state.modalTimers.forEach((timer) => window.clearTimeout(timer));
   state.modalTimers = [];
+  state.cardSessions.forEach((cardSession) => {
+    cardSession.stopCloseTimer = null;
+  });
 }
 
 function getActiveSession() {
@@ -2634,6 +2638,7 @@ function addCustomWritingFragment(session) {
 
 function handleFragmentClick(session, fragment, element = null) {
   if (session.ritualStage !== "fragments") return;
+  cancelStopClose(session);
   if (fragment.writing && !fragment.draft?.trim()) {
     element?.querySelector("textarea")?.focus();
     return;
@@ -2646,14 +2651,13 @@ function handleFragmentClick(session, fragment, element = null) {
   element?.classList.add("picked");
   window.setTimeout(() => element?.remove(), 260);
   responseDock.querySelector("#driftBottle")?.classList.add("glowing");
-  session.stopNoticeVisible = false;
   renderBottleContents(session);
 }
 
 function resetFragments(session) {
+  cancelStopClose(session);
   session.selectedFragments.clear();
   session.selectedTags.clear();
-  session.stopNoticeVisible = false;
   session.customFragmentCount = 0;
   session.fragments = createRitualFragments(session);
   record("question_action", {
@@ -2675,8 +2679,22 @@ function resetFragments(session) {
   bottle.classList.remove("glowing");
 }
 
+function clearStopCloseTimer(session) {
+  if (!session?.stopCloseTimer) return;
+  window.clearTimeout(session.stopCloseTimer);
+  session.stopCloseTimer = null;
+}
+
+function cancelStopClose(session) {
+  if (!session) return;
+  clearStopCloseTimer(session);
+  session.stopNoticeVisible = false;
+  responseDock.querySelector(".fragment-stop-notice")?.remove();
+}
+
 function stopFragments(session) {
   if (session.ritualStage !== "fragments") return;
+  clearStopCloseTimer(session);
   session.stopNoticeVisible = true;
   if (!session.cardStaySaved) {
     session.cardStaySaved = true;
@@ -2692,9 +2710,11 @@ function stopFragments(session) {
   }
   renderRitualMode();
   const stopTimer = window.setTimeout(() => {
+    if (session.stopCloseTimer === stopTimer) session.stopCloseTimer = null;
     if (!cardModal.classList.contains("open") || getActiveSession() !== session) return;
     closeModal();
   }, 1800);
+  session.stopCloseTimer = stopTimer;
   state.modalTimers.push(stopTimer);
 }
 
@@ -2704,6 +2724,7 @@ function handleSendBottle(session) {
     stopFragments(session);
     return;
   }
+  cancelStopClose(session);
   clearModalTimers();
   session.echoStatus = "floating";
   session.ritualStage = "leaving";
