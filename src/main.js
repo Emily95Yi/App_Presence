@@ -2441,7 +2441,7 @@ function renderBottleContents(session, root = responseDock.querySelector("#bottl
     chip.style.setProperty("--piece-index", index);
     const preview = fragmentPreviewLabel(fragment);
     chip.textContent = preview;
-    if (preview !== fragment.label) chip.title = fragment.label;
+    chip.title = fragment.custom ? fragment.label : "";
     root.appendChild(chip);
   });
 }
