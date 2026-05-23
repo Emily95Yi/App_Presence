@@ -523,16 +523,27 @@ button {
   left: 50%;
   z-index: 1;
   display: grid;
-  grid-template-rows: minmax(260px, 42%) auto minmax(0, 1fr);
+  grid-template-rows: clamp(210px, 38cqh, 330px) auto minmax(0, 1fr);
   width: var(--reflection-stage-width);
   max-width: calc(100vw - 24px);
   height: var(--reflection-stage-height);
   max-height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom)));
   align-items: center;
   justify-items: center;
-  gap: 8px;
+  gap: clamp(6px, 1.2cqh, 12px);
   overflow: hidden;
+  container-type: size;
   transform: translateX(-50%);
+}
+
+.card-modal[data-stage="fragments"] .modal-stage,
+.card-modal[data-stage="leaving"] .modal-stage {
+  grid-template-rows: clamp(168px, 30cqh, 280px) auto minmax(0, 1fr);
+}
+
+.card-modal[data-stage="sending"] .modal-stage,
+.card-modal[data-stage="echoes"] .modal-stage {
+  grid-template-rows: clamp(138px, 24cqh, 224px) auto minmax(0, 1fr);
 }
 
 .card-modal::after {
@@ -618,14 +629,26 @@ button {
   position: relative;
   z-index: 2;
   width: auto;
-  max-width: min(88vw, 360px);
-  height: min(38dvh, 330px);
-  max-height: 38dvh;
-  margin-top: 34px;
+  max-width: min(78cqw, 88vw, 360px);
+  height: clamp(178px, 35cqh, 320px);
+  max-height: 100%;
+  margin-top: clamp(14px, 3.8cqh, 34px);
   object-fit: contain;
   border-radius: 16px;
   box-shadow: none;
   align-self: start;
+}
+
+.card-modal[data-stage="fragments"] #focusCard,
+.card-modal[data-stage="leaving"] #focusCard {
+  height: clamp(148px, 27cqh, 256px);
+  margin-top: clamp(10px, 2.8cqh, 24px);
+}
+
+.card-modal[data-stage="sending"] #focusCard,
+.card-modal[data-stage="echoes"] #focusCard {
+  height: clamp(120px, 21cqh, 206px);
+  margin-top: clamp(8px, 2cqh, 18px);
 }
 
 .prompt-layer {
@@ -642,7 +665,7 @@ button {
 
 .prompt-layer[data-stage="observing"] {
   width: min(760px, 94vw);
-  transform: translateY(12px);
+  transform: translateY(clamp(4px, 1.4cqh, 12px));
 }
 
 .prompt-bubble {
@@ -1034,6 +1057,7 @@ button {
   z-index: 4;
   width: min(760px, 100%);
   min-height: 74px;
+  align-self: start;
   padding: 0;
   border: 0;
   border-radius: 24px;
@@ -1041,6 +1065,13 @@ button {
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+.card-modal[data-stage="fragments"] .response-dock,
+.card-modal[data-stage="leaving"] .response-dock,
+.card-modal[data-stage="sending"] .response-dock,
+.card-modal[data-stage="echoes"] .response-dock {
+  width: min(100%, 420px);
 }
 
 .card-modal[data-stage="observing"] .response-dock {
@@ -1156,8 +1187,16 @@ button {
 
 .echo-return-stage {
   gap: 8px;
-  margin-top: -24px;
+  margin-top: -8px;
   min-height: min(40vh, 330px);
+}
+
+.card-modal[data-stage="echoes"] .response-dock {
+  transform: translateY(-10px);
+}
+
+.card-modal[data-stage="sending"] .response-dock {
+  transform: translateY(-4px);
 }
 
 .ritual-fragment-stage {
@@ -1857,8 +1896,8 @@ button {
 
 .echo-stream {
   display: grid;
-  width: min(540px, 91vw);
-  min-height: 160px;
+  width: min(100%, 540px);
+  min-height: 148px;
   gap: 10px;
   align-content: center;
   justify-items: stretch;
@@ -1908,8 +1947,9 @@ button {
 
 .echo-actions {
   display: flex;
-  width: min(540px, 91vw);
+  width: min(100%, 540px);
   justify-content: center;
+  margin-top: -2px;
 }
 
 .echo-save-button {
@@ -1933,15 +1973,15 @@ button {
 .quiet-input-area {
   display: grid;
   gap: 6px;
-  width: min(520px, 92vw);
-  min-height: 102px;
+  width: min(100%, 520px);
+  min-height: 86px;
   align-content: start;
   justify-items: start;
   animation: input-drawer-in 300ms ease both;
 }
 
 .quiet-input-area textarea {
-  width: min(420px, 88vw);
+  width: min(100%, 420px);
   min-height: 88px;
   border-radius: 14px 18px 14px 20px;
   background: rgba(255, 252, 245, 0.46);
@@ -2479,8 +2519,19 @@ textarea:focus {
   }
 
   #focusCard {
-    height: min(36dvh, 300px);
-    max-height: 36dvh;
+    height: clamp(168px, 34cqh, 292px);
+    max-height: 100%;
+    max-width: min(82cqw, 88vw, 330px);
+  }
+
+  .card-modal[data-stage="fragments"] #focusCard,
+  .card-modal[data-stage="leaving"] #focusCard {
+    height: clamp(140px, 26cqh, 236px);
+  }
+
+  .card-modal[data-stage="sending"] #focusCard,
+  .card-modal[data-stage="echoes"] #focusCard {
+    height: clamp(112px, 20cqh, 184px);
   }
 
   .ritual-question-stack {
@@ -2636,11 +2687,16 @@ textarea:focus {
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 4px 10px 10px;
+    margin-top: -6px;
+  }
+
+  .card-modal[data-stage="echoes"] .response-dock {
+    transform: translateY(-8px);
   }
 
   .echo-stream {
     width: min(90vw, 380px);
-    min-height: 128px;
+    min-height: 116px;
     gap: 7px;
     padding: 14px 15px;
   }
@@ -2669,7 +2725,7 @@ textarea:focus {
 
   .quiet-input-area {
     width: min(90vw, 380px);
-    min-height: 54px;
+    min-height: 48px;
   }
 
   .quiet-input-area textarea {

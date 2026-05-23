@@ -2537,11 +2537,7 @@ function renderEchoStage(session) {
       ${
         isSending
           ? `<p class="sea-message">你的感受被大海接住，珍藏了起来</p>`
-          : `<div class="sea-message echo-message-cycle" aria-live="polite">
-              <span>海面上飘回了一点回声</span>
-              <span>它会慢慢浮上来</span>
-              <span>点一下也可以直接看完</span>
-            </div>`
+          : ""
       }
       ${
         !isSending
