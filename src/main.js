@@ -3377,15 +3377,15 @@ function setCalendarReviewCardMotionVars(button, group, index, total) {
   const x = ((seededRandom(seed + 1) - 0.5) * 18 + Math.sin(index * 0.7) * 5).toFixed(2);
   const y = (centered * (calendarReviewDeckStep + seededRandom(seed + 2) * 4)).toFixed(2);
   const tilt = ((seededRandom(seed + 3) - 0.5) * 8).toFixed(2);
-  const scale = (0.98 + seededRandom(seed + 4) * 0.04).toFixed(3);
+  const scale = (0.992 + seededRandom(seed + 4) * 0.016).toFixed(3);
   button.style.setProperty("--stack-x", `${x}px`);
   button.style.setProperty("--stack-y", `${y}px`);
   button.style.setProperty("--tilt", `${tilt}deg`);
   button.style.setProperty("--focus-tilt", `${(Number(tilt) * 0.45).toFixed(2)}deg`);
   button.style.setProperty("--draw-tilt", `${(Number(tilt) * 0.25).toFixed(2)}deg`);
   button.style.setProperty("--stack-scale", scale);
-  button.style.setProperty("--focus-scale", `${(Number(scale) + 0.055).toFixed(3)}`);
-  button.style.setProperty("--draw-scale", `${(Number(scale) + 0.11).toFixed(3)}`);
+  button.style.setProperty("--focus-scale", `${(Number(scale) + 0.05).toFixed(3)}`);
+  button.style.setProperty("--draw-scale", `${(Number(scale) + 0.05).toFixed(3)}`);
 }
 
 function focusCalendarReviewCard(key) {

@@ -867,6 +867,20 @@ button {
   will-change: transform, filter, opacity;
 }
 
+.review-card::after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 14px;
+  background: rgba(238, 245, 247, 0);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 420ms ease,
+    background 420ms ease;
+}
+
 .review-card.focused {
   z-index: 90;
   filter:
@@ -875,19 +889,26 @@ button {
   opacity: 1;
   transform:
     translate(-50%, -50%)
-    translate(calc(var(--stack-x) + 22px), calc(var(--stack-y) + var(--deck-scroll-y) - 62px))
+    translate(var(--stack-x), calc(var(--stack-y) + var(--deck-scroll-y) - 46px))
     rotate(var(--focus-tilt))
     scale(var(--focus-scale));
 }
 
 .review-card.muted {
-  filter: blur(1.2px) saturate(0.78) drop-shadow(0 12px 28px rgba(64, 101, 130, 0.09));
-  opacity: 0.5;
+  filter: saturate(0.92) drop-shadow(0 13px 28px rgba(64, 101, 130, 0.12));
+  opacity: 1;
+}
+
+.review-card.muted::after {
+  background:
+    linear-gradient(180deg, rgba(238, 245, 247, 0.24), rgba(238, 245, 247, 0.12)),
+    rgba(255, 255, 255, 0.12);
+  opacity: 1;
 }
 
 .review-card.before-focus:not(.focused):not(.drawing),
 .review-card.after-focus:not(.focused):not(.drawing) {
-  opacity: 0.58;
+  opacity: 1;
 }
 
 .review-card.before-focus:not(.focused):not(.drawing) {
@@ -914,18 +935,26 @@ button {
   opacity: 1;
   transform:
     translate(-50%, -50%)
-    translate(calc(var(--stack-x) + 26px), calc(var(--stack-y) + var(--deck-scroll-y) - 96px))
+    translate(var(--stack-x), calc(var(--stack-y) + var(--deck-scroll-y) - 78px))
     rotate(var(--draw-tilt))
     scale(var(--draw-scale));
 }
 
 .review-deck.is-drawing .review-card.muted {
-  opacity: 0.22;
+  opacity: 1;
+  filter: saturate(0.88) drop-shadow(0 12px 26px rgba(64, 101, 130, 0.1));
   transform:
     translate(-50%, -50%)
-    translate(calc(var(--stack-x) - 10px), calc(var(--stack-y) + var(--deck-scroll-y) + 10px))
+    translate(var(--stack-x), calc(var(--stack-y) + var(--deck-scroll-y) + 10px))
     rotate(var(--tilt))
-    scale(0.98);
+    scale(var(--stack-scale));
+}
+
+.review-deck.is-drawing .review-card.muted::after {
+  background:
+    linear-gradient(180deg, rgba(238, 245, 247, 0.34), rgba(238, 245, 247, 0.18)),
+    rgba(255, 255, 255, 0.18);
+  opacity: 1;
 }
 
 .review-deck.has-active-card .review-card:not(.active) {
@@ -947,7 +976,7 @@ button {
     drop-shadow(0 0 24px rgba(255, 242, 190, 0.28));
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, -52%) rotate(0deg) scale(1.04);
+  transform: translate(-50%, -52%) rotate(0deg) scale(1.05);
   animation: none;
 }
 
@@ -958,10 +987,12 @@ button {
   width: 100%;
   height: auto;
   max-height: none;
-  border: 0;
+  border: 1px solid rgba(255, 252, 245, 0.72);
   border-radius: 14px;
   background: var(--paper-strong);
-  box-shadow: 0 18px 50px rgba(64, 101, 130, 0.16);
+  box-shadow:
+    0 18px 50px rgba(64, 101, 130, 0.16),
+    0 0 0 1px rgba(66, 103, 134, 0.08);
   object-fit: contain;
   animation: review-card-breathe 7s ease-in-out calc(var(--stack-index) * -420ms) infinite;
 }
