@@ -1082,6 +1082,16 @@ button {
   filter: none;
 }
 
+.round-review-card::after,
+.relationship-review-card::after {
+  display: none;
+}
+
+.relationship-review-card img {
+  background: transparent;
+  box-shadow: none;
+}
+
 .review-random-button {
   position: absolute;
   left: 50%;
