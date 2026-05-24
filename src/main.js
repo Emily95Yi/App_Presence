@@ -3439,6 +3439,7 @@ function applyCalendarReviewCardClasses() {
   calendarReview.classList.toggle("has-review-selection", Boolean(activeKey));
   calendarReviewDeck.classList.toggle("has-active-card", Boolean(activeKey));
   calendarReviewDeck.classList.toggle("is-drawing", Boolean(drawingKey));
+  calendarReviewDeck.classList.toggle("has-focus-veil", Boolean((focusKey || drawingKey) && !activeKey));
   calendarReviewDeck.querySelectorAll(".review-card").forEach((card) => {
     const key = card.dataset.key;
     const index = Number(card.dataset.index);

@@ -816,6 +816,7 @@ button {
 
 .review-deck::before {
   position: absolute;
+  z-index: 0;
   top: 52%;
   left: 50%;
   width: min(92cqw, 360px);
@@ -838,6 +839,34 @@ button {
 
 .review-deck.is-scrolling::before {
   transform: translate(-50%, -50%) scale(1.02);
+}
+
+.review-deck::after {
+  position: absolute;
+  z-index: 900;
+  inset: 64px 6px 46px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(250, 253, 255, 0.16), rgba(232, 241, 246, 0.08) 54%, transparent 82%),
+    rgba(240, 245, 250, 0.1);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(6px) saturate(0.94) brightness(0.98);
+  -webkit-backdrop-filter: blur(6px) saturate(0.94) brightness(0.98);
+  transition:
+    opacity 360ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(8px) scale(0.98);
+}
+
+.review-deck.has-focus-veil::after {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.review-deck.has-active-card::after {
+  opacity: 0;
 }
 
 .review-card {
@@ -882,10 +911,11 @@ button {
 }
 
 .review-card.focused {
-  z-index: 90;
+  z-index: 950;
   filter:
-    drop-shadow(0 18px 34px rgba(64, 101, 130, 0.16))
-    drop-shadow(0 0 18px rgba(239, 215, 126, 0.14));
+    contrast(1.02)
+    drop-shadow(0 20px 36px rgba(64, 101, 130, 0.19))
+    drop-shadow(0 0 14px rgba(239, 215, 126, 0.1));
   opacity: 1;
   transform:
     translate(-50%, -50%)
@@ -895,15 +925,15 @@ button {
 }
 
 .review-card.muted {
-  filter: saturate(0.92) drop-shadow(0 13px 28px rgba(64, 101, 130, 0.12));
-  opacity: 1;
+  filter:
+    saturate(0.96)
+    brightness(0.985)
+    drop-shadow(0 12px 24px rgba(64, 101, 130, 0.1));
+  opacity: 0.96;
 }
 
 .review-card.muted::after {
-  background:
-    linear-gradient(180deg, rgba(238, 245, 247, 0.24), rgba(238, 245, 247, 0.12)),
-    rgba(255, 255, 255, 0.12);
-  opacity: 1;
+  opacity: 0;
 }
 
 .review-card.before-focus:not(.focused):not(.drawing),
@@ -928,7 +958,7 @@ button {
 }
 
 .review-card.drawing {
-  z-index: 110;
+  z-index: 960;
   filter:
     drop-shadow(0 20px 40px rgba(64, 101, 130, 0.18))
     drop-shadow(0 0 22px rgba(255, 242, 190, 0.26));
@@ -941,8 +971,11 @@ button {
 }
 
 .review-deck.is-drawing .review-card.muted {
-  opacity: 1;
-  filter: saturate(0.88) drop-shadow(0 12px 26px rgba(64, 101, 130, 0.1));
+  opacity: 0.94;
+  filter:
+    saturate(0.94)
+    brightness(0.98)
+    drop-shadow(0 12px 24px rgba(64, 101, 130, 0.09));
   transform:
     translate(-50%, -50%)
     translate(var(--stack-x), calc(var(--stack-y) + var(--deck-scroll-y) + 10px))
@@ -951,10 +984,7 @@ button {
 }
 
 .review-deck.is-drawing .review-card.muted::after {
-  background:
-    linear-gradient(180deg, rgba(238, 245, 247, 0.34), rgba(238, 245, 247, 0.18)),
-    rgba(255, 255, 255, 0.18);
-  opacity: 1;
+  opacity: 0;
 }
 
 .review-deck.has-active-card .review-card:not(.active) {
@@ -970,7 +1000,7 @@ button {
 
 .review-card.active {
   width: min(70cqw, 270px);
-  z-index: 120;
+  z-index: 970;
   filter:
     drop-shadow(0 18px 38px rgba(64, 101, 130, 0.16))
     drop-shadow(0 0 18px rgba(255, 242, 190, 0.18));
@@ -1004,7 +1034,7 @@ button {
 .review-deck-arrow,
 .review-back-button {
   position: absolute;
-  z-index: 145;
+  z-index: 985;
   display: inline-grid;
   place-items: center;
   border: 0;
@@ -1097,7 +1127,7 @@ button {
   left: 50%;
   top: 14px;
   bottom: auto;
-  z-index: 140;
+  z-index: 980;
   display: inline-flex;
   align-items: center;
   gap: 7px;
