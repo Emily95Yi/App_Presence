@@ -3260,8 +3260,8 @@ function openCalendarReview(day, entries) {
   calendarState.reviewFocusKey = null;
   calendarState.reviewDrawingKey = null;
   calendarState.reviewDeckMaxOffset = getCalendarReviewDeckMaxOffset(groups);
-  calendarState.reviewDeckOffset = calendarState.reviewDeckMaxOffset;
-  calendarState.reviewDeckTargetOffset = calendarState.reviewDeckMaxOffset;
+  calendarState.reviewDeckOffset = 0;
+  calendarState.reviewDeckTargetOffset = 0;
   calendarState.reviewDeckPointer = null;
   calendarState.reviewDeckSuppressClickUntil = 0;
   window.clearTimeout(calendarState.reviewDrawTimer);
@@ -3381,8 +3381,8 @@ function setCalendarReviewCardMotionVars(button, group, index, total) {
   button.style.setProperty("--stack-x", `${x}px`);
   button.style.setProperty("--stack-y", `${y}px`);
   button.style.setProperty("--tilt", `${tilt}deg`);
-  button.style.setProperty("--focus-tilt", `${(Number(tilt) * 0.45).toFixed(2)}deg`);
-  button.style.setProperty("--draw-tilt", `${(Number(tilt) * 0.25).toFixed(2)}deg`);
+  button.style.setProperty("--focus-tilt", "0deg");
+  button.style.setProperty("--draw-tilt", "0deg");
   button.style.setProperty("--stack-scale", scale);
   button.style.setProperty("--focus-scale", `${(Number(scale) + 0.05).toFixed(3)}`);
   button.style.setProperty("--draw-scale", `${(Number(scale) + 0.05).toFixed(3)}`);
