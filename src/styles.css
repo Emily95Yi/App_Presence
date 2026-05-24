@@ -804,9 +804,10 @@ button {
   place-items: center;
   min-width: 0;
   min-height: 0;
-  overflow: visible;
-  padding: 66px 18px 34px;
+  overflow: hidden;
+  padding: 86px 18px 42px;
   touch-action: none;
+  --deck-scroll-y: 0px;
 }
 
 .review-deck.has-active-card {
@@ -835,11 +836,15 @@ button {
   transform: translate(-50%, -50%) scale(0.78);
 }
 
+.review-deck.is-scrolling::before {
+  transform: translate(-50%, -50%) scale(1.02);
+}
+
 .review-card {
   position: absolute;
   left: 50%;
-  top: 55%;
-  width: min(49cqw, 184px);
+  top: 51%;
+  width: min(80cqw, 304px);
   min-width: 0;
   padding: 0;
   border: 0;
@@ -849,8 +854,9 @@ button {
   z-index: calc(1 + var(--stack-index));
   transform:
     translate(-50%, -50%)
-    translate(var(--stack-x), var(--stack-y))
-    rotate(var(--tilt));
+    translate(var(--stack-x), calc(var(--stack-y) + var(--deck-scroll-y)))
+    rotate(var(--tilt))
+    scale(var(--stack-scale));
   transform-origin: 50% 90%;
   transition:
     transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -869,14 +875,35 @@ button {
   opacity: 1;
   transform:
     translate(-50%, -50%)
-    translate(calc(var(--stack-x) + 22px), calc(var(--stack-y) - 62px))
+    translate(calc(var(--stack-x) + 22px), calc(var(--stack-y) + var(--deck-scroll-y) - 62px))
     rotate(var(--focus-tilt))
-    scale(1.065);
+    scale(var(--focus-scale));
 }
 
 .review-card.muted {
   filter: blur(1.2px) saturate(0.78) drop-shadow(0 12px 28px rgba(64, 101, 130, 0.09));
-  opacity: 0.42;
+  opacity: 0.5;
+}
+
+.review-card.before-focus:not(.focused):not(.drawing),
+.review-card.after-focus:not(.focused):not(.drawing) {
+  opacity: 0.58;
+}
+
+.review-card.before-focus:not(.focused):not(.drawing) {
+  transform:
+    translate(-50%, -50%)
+    translate(var(--stack-x), calc(var(--stack-y) + var(--deck-scroll-y) - 16px))
+    rotate(var(--tilt))
+    scale(var(--stack-scale));
+}
+
+.review-card.after-focus:not(.focused):not(.drawing) {
+  transform:
+    translate(-50%, -50%)
+    translate(var(--stack-x), calc(var(--stack-y) + var(--deck-scroll-y) + 16px))
+    rotate(var(--tilt))
+    scale(var(--stack-scale));
 }
 
 .review-card.drawing {
@@ -887,16 +914,16 @@ button {
   opacity: 1;
   transform:
     translate(-50%, -50%)
-    translate(calc(var(--stack-x) + 26px), calc(var(--stack-y) - 96px))
+    translate(calc(var(--stack-x) + 26px), calc(var(--stack-y) + var(--deck-scroll-y) - 96px))
     rotate(var(--draw-tilt))
-    scale(1.12);
+    scale(var(--draw-scale));
 }
 
 .review-deck.is-drawing .review-card.muted {
   opacity: 0.22;
   transform:
     translate(-50%, -50%)
-    translate(calc(var(--stack-x) - 10px), calc(var(--stack-y) + 10px))
+    translate(calc(var(--stack-x) - 10px), calc(var(--stack-y) + var(--deck-scroll-y) + 10px))
     rotate(var(--tilt))
     scale(0.98);
 }
@@ -907,19 +934,21 @@ button {
   pointer-events: none;
   transform:
     translate(-50%, -50%)
-    translate(calc(var(--stack-x) - 18px), calc(var(--stack-y) + 18px))
+    translate(calc(var(--stack-x) - 18px), calc(var(--stack-y) + var(--deck-scroll-y) + 18px))
     rotate(var(--tilt))
     scale(0.92);
 }
 
 .review-card.active {
+  width: min(68cqw, 250px);
   z-index: 120;
   filter:
     drop-shadow(0 30px 64px rgba(64, 101, 130, 0.26))
     drop-shadow(0 0 24px rgba(255, 242, 190, 0.28));
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, -52%) rotate(0deg) scale(1.1);
+  transform: translate(-50%, -52%) rotate(0deg) scale(1.04);
+  animation: none;
 }
 
 .review-card img,
@@ -927,12 +956,94 @@ button {
 .review-shell-card {
   display: block;
   width: 100%;
-  max-height: min(46cqh, 300px);
+  height: auto;
+  max-height: none;
   border: 0;
   border-radius: 14px;
   background: var(--paper-strong);
   box-shadow: 0 18px 50px rgba(64, 101, 130, 0.16);
   object-fit: contain;
+  animation: review-card-breathe 7s ease-in-out calc(var(--stack-index) * -420ms) infinite;
+}
+
+.review-card.focused img,
+.review-card.drawing img,
+.review-card.active img {
+  animation: none;
+}
+
+.review-deck-arrow,
+.review-back-button {
+  position: absolute;
+  z-index: 145;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  background: rgba(255, 255, 255, 0.24);
+  color: rgba(49, 79, 105, 0.46);
+  cursor: pointer;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition:
+    opacity 260ms ease,
+    transform 260ms ease,
+    color 260ms ease;
+}
+
+.review-deck-arrow {
+  left: 50%;
+  width: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+
+.review-deck-arrow-up {
+  top: 58px;
+}
+
+.review-deck-arrow-down {
+  bottom: 14px;
+}
+
+.review-deck-arrow:hover,
+.review-deck-arrow:focus-visible {
+  color: rgba(49, 79, 105, 0.72);
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.review-back-button:hover,
+.review-back-button:focus-visible {
+  color: rgba(49, 79, 105, 0.72);
+  transform: translateY(-1px);
+}
+
+.review-deck.at-top .review-deck-arrow-up,
+.review-deck.at-bottom .review-deck-arrow-down {
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.review-deck.has-active-card .review-deck-arrow {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.review-back-button {
+  top: 16px;
+  left: 14px;
+  grid-auto-flow: column;
+  gap: 3px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.review-back-button .ph-duotone,
+.review-deck-arrow .ph-duotone {
+  font-size: 17px;
 }
 
 .round-review-card img {
@@ -1065,6 +1176,16 @@ button {
   }
   50% {
     filter: drop-shadow(0 0 16px rgba(239, 215, 126, 0.2));
+  }
+}
+
+@keyframes review-card-breathe {
+  0%,
+  100% {
+    box-shadow: 0 18px 50px rgba(64, 101, 130, 0.14);
+  }
+  50% {
+    box-shadow: 0 22px 58px rgba(64, 101, 130, 0.18);
   }
 }
 

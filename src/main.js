@@ -509,9 +509,16 @@ const calendarState = {
   reviewFocusKey: null,
   reviewDrawingKey: null,
   reviewDrawTimer: null,
+  reviewDeckOffset: 0,
+  reviewDeckTargetOffset: 0,
+  reviewDeckMaxOffset: 0,
+  reviewDeckRaf: null,
+  reviewDeckPointer: null,
+  reviewDeckSuppressClickUntil: 0,
   footerCopy: "",
 };
 const calendarFooterCopies = ["选择一天，回看曾经的停留", "选择一天，回顾收藏的记忆", "选择一天，打开那一瞬间的感受"];
+const calendarReviewDeckStep = 72;
 
 const renderer = new THREE.WebGLRenderer({
   antialias: false,
@@ -3252,6 +3259,11 @@ function openCalendarReview(day, entries) {
   calendarState.reviewActiveKey = null;
   calendarState.reviewFocusKey = null;
   calendarState.reviewDrawingKey = null;
+  calendarState.reviewDeckMaxOffset = getCalendarReviewDeckMaxOffset(groups);
+  calendarState.reviewDeckOffset = calendarState.reviewDeckMaxOffset;
+  calendarState.reviewDeckTargetOffset = calendarState.reviewDeckMaxOffset;
+  calendarState.reviewDeckPointer = null;
+  calendarState.reviewDeckSuppressClickUntil = 0;
   window.clearTimeout(calendarState.reviewDrawTimer);
   calendarState.reviewDrawTimer = null;
   calendarReviewDate.innerHTML = `<span>${formatReviewDate(day)}</span>`;
@@ -3266,21 +3278,29 @@ function closeCalendarReview() {
   calendarReview.classList.remove("has-review-selection");
   calendarReviewDeck.classList.remove("is-drawing");
   window.clearTimeout(calendarState.reviewDrawTimer);
+  window.cancelAnimationFrame(calendarState.reviewDeckRaf);
   calendarState.reviewGroups = [];
   calendarState.reviewActiveKey = null;
   calendarState.reviewFocusKey = null;
   calendarState.reviewDrawingKey = null;
   calendarState.reviewDrawTimer = null;
+  calendarState.reviewDeckOffset = 0;
+  calendarState.reviewDeckTargetOffset = 0;
+  calendarState.reviewDeckMaxOffset = 0;
+  calendarState.reviewDeckRaf = null;
+  calendarState.reviewDeckPointer = null;
 }
 
 function renderCalendarReview() {
   const groups = calendarState.reviewGroups;
   const activeGroup = groups.find((group) => group.key === calendarState.reviewActiveKey) ?? null;
   calendarReviewDeck.innerHTML = "";
+  calendarReviewDeck.style.setProperty("--deck-scroll-y", `${calendarState.reviewDeckOffset}px`);
   if (!groups.length) {
     calendarReviewDetail.innerHTML = `<p class="empty-state">这一天还没有留下记录。</p>`;
     return;
   }
+  renderCalendarReviewDeckControls(activeGroup);
   groups.forEach((group, index) => {
     const button = document.createElement("button");
     button.className = "review-card";
@@ -3288,6 +3308,7 @@ function renderCalendarReview() {
     if (group.card?.setId) button.classList.add(`${group.card.setId}-review-card`);
     button.type = "button";
     button.dataset.key = group.key;
+    button.dataset.index = String(index);
     button.style.setProperty("--stack-index", index);
     button.style.setProperty("--stack-count", groups.length);
     setCalendarReviewCardMotionVars(button, group, index, groups.length);
@@ -3298,6 +3319,7 @@ function renderCalendarReview() {
     button.addEventListener("pointerdown", () => focusCalendarReviewCard(group.key));
     button.addEventListener("focus", () => focusCalendarReviewCard(group.key));
     button.addEventListener("click", () => {
+      if (Date.now() < calendarState.reviewDeckSuppressClickUntil) return;
       startCalendarReviewDraw(group.key);
     });
     calendarReviewDeck.appendChild(button);
@@ -3315,21 +3337,55 @@ function renderCalendarReview() {
     startCalendarReviewDraw(groups[nextIndex].key);
   });
   calendarReviewDeck.appendChild(randomButton);
+  if (activeGroup) {
+    const backButton = document.createElement("button");
+    backButton.className = "review-back-button";
+    backButton.type = "button";
+    backButton.setAttribute("aria-label", "返回卡牌堆");
+    backButton.innerHTML = `<span class="ph-duotone ph-caret-left" aria-hidden="true"></span><span>返回</span>`;
+    backButton.addEventListener("click", () => {
+      calendarState.reviewActiveKey = null;
+      calendarState.reviewDrawingKey = null;
+      calendarState.reviewFocusKey = null;
+      renderCalendarReview();
+    });
+    calendarReviewDeck.appendChild(backButton);
+  }
   renderCalendarReviewDetail(activeGroup);
   applyCalendarReviewCardClasses();
+}
+
+function renderCalendarReviewDeckControls(activeGroup) {
+  ["up", "down"].forEach((direction) => {
+    const button = document.createElement("button");
+    button.className = `review-deck-arrow review-deck-arrow-${direction}`;
+    button.type = "button";
+    button.setAttribute("aria-label", direction === "up" ? "向上翻看" : "向下翻看");
+    button.innerHTML = `<span class="ph-duotone ph-caret-${direction}" aria-hidden="true"></span>`;
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (activeGroup) return;
+      scrollCalendarReviewDeck(direction === "up" ? calendarReviewDeckStep : -calendarReviewDeckStep);
+    });
+    calendarReviewDeck.appendChild(button);
+  });
 }
 
 function setCalendarReviewCardMotionVars(button, group, index, total) {
   const seed = hashString(`${group.key}:${index}`);
   const centered = index - (total - 1) / 2;
   const x = ((seededRandom(seed + 1) - 0.5) * 18 + Math.sin(index * 0.7) * 5).toFixed(2);
-  const y = (centered * (8 + seededRandom(seed + 2) * 4)).toFixed(2);
+  const y = (centered * (calendarReviewDeckStep + seededRandom(seed + 2) * 4)).toFixed(2);
   const tilt = ((seededRandom(seed + 3) - 0.5) * 8).toFixed(2);
+  const scale = (0.98 + seededRandom(seed + 4) * 0.04).toFixed(3);
   button.style.setProperty("--stack-x", `${x}px`);
   button.style.setProperty("--stack-y", `${y}px`);
   button.style.setProperty("--tilt", `${tilt}deg`);
   button.style.setProperty("--focus-tilt", `${(Number(tilt) * 0.45).toFixed(2)}deg`);
   button.style.setProperty("--draw-tilt", `${(Number(tilt) * 0.25).toFixed(2)}deg`);
+  button.style.setProperty("--stack-scale", scale);
+  button.style.setProperty("--focus-scale", `${(Number(scale) + 0.055).toFixed(3)}`);
+  button.style.setProperty("--draw-scale", `${(Number(scale) + 0.11).toFixed(3)}`);
 }
 
 function focusCalendarReviewCard(key) {
@@ -3357,20 +3413,106 @@ function applyCalendarReviewCardClasses() {
   const activeKey = calendarState.reviewActiveKey;
   const focusKey = activeKey ? null : calendarState.reviewFocusKey;
   const drawingKey = calendarState.reviewDrawingKey;
+  const focusIndex = focusKey
+    ? calendarState.reviewGroups.findIndex((group) => group.key === focusKey)
+    : -1;
   calendarReview.classList.toggle("has-review-selection", Boolean(activeKey));
   calendarReviewDeck.classList.toggle("has-active-card", Boolean(activeKey));
   calendarReviewDeck.classList.toggle("is-drawing", Boolean(drawingKey));
   calendarReviewDeck.querySelectorAll(".review-card").forEach((card) => {
     const key = card.dataset.key;
+    const index = Number(card.dataset.index);
     const isActive = key === activeKey;
     const isFocused = !activeKey && key === focusKey;
     const isDrawing = key === drawingKey;
     const isMuted = Boolean((focusKey && key !== focusKey && !activeKey) || (activeKey && !isActive) || (drawingKey && !isDrawing));
+    const isBeforeFocus = focusIndex >= 0 && index === focusIndex - 1;
+    const isAfterFocus = focusIndex >= 0 && index === focusIndex + 1;
     card.classList.toggle("active", isActive);
     card.classList.toggle("focused", isFocused);
     card.classList.toggle("drawing", isDrawing);
     card.classList.toggle("muted", isMuted);
+    card.classList.toggle("before-focus", isBeforeFocus);
+    card.classList.toggle("after-focus", isAfterFocus);
   });
+  applyCalendarReviewDeckOffset();
+}
+
+function getCalendarReviewDeckMaxOffset(groups = calendarState.reviewGroups) {
+  return Math.max(0, ((groups.length - 1) * calendarReviewDeckStep) / 2);
+}
+
+function clampCalendarReviewDeckOffset(value) {
+  return clamp(value, -calendarState.reviewDeckMaxOffset, calendarState.reviewDeckMaxOffset);
+}
+
+function scrollCalendarReviewDeck(delta) {
+  if (calendarState.reviewActiveKey || calendarState.reviewDrawingKey || !calendarState.reviewGroups.length) return;
+  calendarState.reviewDeckTargetOffset = clampCalendarReviewDeckOffset(calendarState.reviewDeckTargetOffset + delta);
+  startCalendarReviewDeckAnimation();
+}
+
+function startCalendarReviewDeckAnimation() {
+  if (calendarState.reviewDeckRaf) return;
+  calendarReviewDeck.classList.add("is-scrolling");
+  const step = () => {
+    const diff = calendarState.reviewDeckTargetOffset - calendarState.reviewDeckOffset;
+    if (Math.abs(diff) < 0.35) {
+      calendarState.reviewDeckOffset = calendarState.reviewDeckTargetOffset;
+      calendarState.reviewDeckRaf = null;
+      calendarReviewDeck.classList.remove("is-scrolling");
+      applyCalendarReviewDeckOffset();
+      return;
+    }
+    calendarState.reviewDeckOffset += diff * 0.16;
+    applyCalendarReviewDeckOffset();
+    calendarState.reviewDeckRaf = window.requestAnimationFrame(step);
+  };
+  calendarState.reviewDeckRaf = window.requestAnimationFrame(step);
+}
+
+function applyCalendarReviewDeckOffset() {
+  calendarReviewDeck.style.setProperty("--deck-scroll-y", `${calendarState.reviewDeckOffset.toFixed(2)}px`);
+  const atTop = calendarState.reviewDeckTargetOffset >= calendarState.reviewDeckMaxOffset - 0.5;
+  const atBottom = calendarState.reviewDeckTargetOffset <= -calendarState.reviewDeckMaxOffset + 0.5;
+  calendarReviewDeck.classList.toggle("at-top", atTop);
+  calendarReviewDeck.classList.toggle("at-bottom", atBottom);
+}
+
+function handleCalendarReviewDeckWheel(event) {
+  if (!calendarReview.classList.contains("open") || calendarState.reviewActiveKey || calendarState.reviewDrawingKey) return;
+  event.preventDefault();
+  scrollCalendarReviewDeck(-event.deltaY * 0.46);
+}
+
+function startCalendarReviewDeckPointer(event) {
+  if (calendarState.reviewActiveKey || calendarState.reviewDrawingKey) return;
+  calendarState.reviewDeckPointer = {
+    id: event.pointerId,
+    y: event.clientY,
+    startOffset: calendarState.reviewDeckTargetOffset,
+    moved: false,
+  };
+  calendarReviewDeck.setPointerCapture?.(event.pointerId);
+}
+
+function moveCalendarReviewDeckPointer(event) {
+  const pointer = calendarState.reviewDeckPointer;
+  if (!pointer || pointer.id !== event.pointerId || calendarState.reviewActiveKey || calendarState.reviewDrawingKey) return;
+  const delta = event.clientY - pointer.y;
+  if (Math.abs(delta) > 4) pointer.moved = true;
+  if (!pointer.moved) return;
+  event.preventDefault();
+  calendarState.reviewDeckTargetOffset = clampCalendarReviewDeckOffset(pointer.startOffset + delta * 0.92);
+  startCalendarReviewDeckAnimation();
+}
+
+function endCalendarReviewDeckPointer(event) {
+  const pointer = calendarState.reviewDeckPointer;
+  if (!pointer || pointer.id !== event.pointerId) return;
+  if (pointer.moved) calendarState.reviewDeckSuppressClickUntil = Date.now() + 220;
+  calendarState.reviewDeckPointer = null;
+  calendarReviewDeck.releasePointerCapture?.(event.pointerId);
 }
 
 function createReviewCardVisual(group) {
@@ -3656,7 +3798,13 @@ document.getElementById("calendarToggle").addEventListener("click", () => {
 document.getElementById("closeCardSetPanel").addEventListener("click", () => togglePanel(cardSetPanel));
 document.getElementById("closeCalendarReview").addEventListener("click", closeCalendarReview);
 document.getElementById("calendarReviewScrim").addEventListener("click", closeCalendarReview);
+calendarReviewDeck.addEventListener("wheel", handleCalendarReviewDeckWheel, { passive: false });
+calendarReviewDeck.addEventListener("pointerdown", startCalendarReviewDeckPointer);
+calendarReviewDeck.addEventListener("pointermove", moveCalendarReviewDeckPointer);
+calendarReviewDeck.addEventListener("pointerup", endCalendarReviewDeckPointer);
+calendarReviewDeck.addEventListener("pointercancel", endCalendarReviewDeckPointer);
 calendarReviewDeck.addEventListener("pointermove", (event) => {
+  if (calendarState.reviewDeckPointer?.moved) return;
   const card = document.elementFromPoint(event.clientX, event.clientY)?.closest?.(".review-card");
   if (!card || !calendarReviewDeck.contains(card)) return;
   focusCalendarReviewCard(card.dataset.key);
