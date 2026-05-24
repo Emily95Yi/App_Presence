@@ -3328,7 +3328,12 @@ function renderCalendarReview() {
   randomButton.className = "review-random-button";
   randomButton.type = "button";
   randomButton.innerHTML = `<span class="ph-duotone ph-arrows-clockwise" aria-hidden="true"></span><span>随机抽一张</span>`;
-  randomButton.addEventListener("click", () => {
+  randomButton.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+  });
+  randomButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     const currentIndex = Math.max(
       0,
       groups.findIndex((group) => group.key === (calendarState.reviewFocusKey ?? calendarState.reviewActiveKey)),
@@ -3343,7 +3348,12 @@ function renderCalendarReview() {
     backButton.type = "button";
     backButton.setAttribute("aria-label", "返回卡牌堆");
     backButton.innerHTML = `<span class="ph-duotone ph-caret-left" aria-hidden="true"></span><span>返回</span>`;
-    backButton.addEventListener("click", () => {
+    backButton.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    backButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       calendarState.reviewActiveKey = null;
       calendarState.reviewDrawingKey = null;
       calendarState.reviewFocusKey = null;
@@ -3362,7 +3372,11 @@ function renderCalendarReviewDeckControls(activeGroup) {
     button.type = "button";
     button.setAttribute("aria-label", direction === "up" ? "向上翻看" : "向下翻看");
     button.innerHTML = `<span class="ph-duotone ph-caret-${direction}" aria-hidden="true"></span>`;
+    button.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
     button.addEventListener("click", (event) => {
+      event.preventDefault();
       event.stopPropagation();
       if (activeGroup) return;
       scrollCalendarReviewDeck(direction === "up" ? calendarReviewDeckStep : -calendarReviewDeckStep);
@@ -3487,6 +3501,7 @@ function handleCalendarReviewDeckWheel(event) {
 
 function startCalendarReviewDeckPointer(event) {
   if (calendarState.reviewActiveKey || calendarState.reviewDrawingKey) return;
+  if (event.target?.closest?.(".review-random-button, .review-deck-arrow, .review-back-button")) return;
   calendarState.reviewDeckPointer = {
     id: event.pointerId,
     y: event.clientY,
