@@ -1,6 +1,14 @@
 import * as THREE from "three";
 import "@phosphor-icons/web/duotone";
 import { createEchoLines } from "./echoEngine.js";
+import {
+  chooseIntroCameraTarget,
+  createIntroCameraJourney,
+  sampleIntroCameraJourney,
+} from "./introCameraJourney.js";
+import { getIdleCruiseRamp } from "./introIdleTransitionPolicy.js";
+import { shouldRefreshProjectionCardImage } from "./canvasAssetRefreshPolicy.js";
+import { createSplashIntro } from "./splashIntro.js";
 import "./styles.css";
 
 const root = document.getElementById("sceneRoot");
@@ -19,6 +27,23 @@ const photoInput = document.getElementById("photoInput");
 const prevCardButton = document.getElementById("prevCard");
 const nextCardButton = document.getElementById("nextCard");
 const introWhisper = document.getElementById("introWhisper");
+let startupAssetsReady = Promise.resolve();
+let showSplash = true;
+let splashIntro = createSplashIntro({
+  document,
+  logoSrc: "/assets/brand/presence-logo.png",
+  onReveal: () => {
+    document.body.classList.add("splash-revealing");
+  },
+  onComplete: () => {
+    showSplash = false;
+    document.body.classList.remove("splash-active", "splash-revealing");
+    splashIntro = null;
+    if (!startIntroCameraJourney()) scheduleIntroWhisper();
+  },
+  waitForReady: () => startupAssetsReady,
+});
+window.addEventListener("pagehide", () => splashIntro?.destroy(), { once: true });
 
 const recordStoreKey = "presence.records.v1";
 const visibilityStoreKey = "presence.contentVisibility.v1";
@@ -51,6 +76,7 @@ const poissonPlacementAttempts = 36;
 const cardCenterMinDistancePx = canvasGenerationConfig.minDistanceBetweenCards;
 const wordCenterMinDistancePx = canvasGenerationConfig.minDistanceBetweenBubbles;
 const idleCruiseDelayMs = 2000;
+const idleCruiseRampMs = 1600;
 const idleCruiseScreenSeconds = 25;
 const interactionBoostDecaySeconds = 1;
 const interactionFloatBoostAmount = 0.18;
@@ -562,6 +588,10 @@ const state = {
   lastInteractionAt: performance.now(),
   lastFrameAt: performance.now(),
   interactionFloatBoost: 0,
+  introJourney: null,
+  introJourneyStarted: false,
+  pendingIntroJourneyRebuild: false,
+  idleCruiseStartedAt: null,
 };
 
 const chunkOffsets = makeChunkOffsets();
@@ -570,8 +600,9 @@ renderContentPanel();
 renderCalendar();
 recordAppVisit();
 updateChunks(true);
+startupAssetsReady = preloadStartupCanvasAssets();
 animate();
-scheduleIntroWhisper();
+if (!showSplash) scheduleIntroWhisper();
 
 function createNumberedCardImages(setId, count, extension) {
   return Array.from({ length: count }, (_, index) => {
@@ -1361,6 +1392,22 @@ function createMesh(item) {
   return mesh;
 }
 
+function preloadStartupCanvasAssets() {
+  const cards = [
+    ...new Map(
+      [...activeMeshes.values()]
+        .map((mesh) => mesh.userData?.card)
+        .filter((card) => card?.kind === "projection" && card.src)
+        .map((card) => [card.id, card]),
+    ).values(),
+  ];
+  if (!cards.length) return Promise.resolve();
+  return Promise.all(cards.map((card) => loadProjectionCardImage(card, { refresh: false }))).then(() => {
+    cards.forEach((card) => textureCache.delete(`card-${card.id}`));
+    rebuildScene();
+  });
+}
+
 function makeCardTexture(card) {
   const key = `card-${card.id}`;
   if (textureCache.has(key)) return textureCache.get(key);
@@ -1383,6 +1430,23 @@ function makeCardTexture(card) {
   texture.anisotropy = 2;
   textureCache.set(key, texture);
   return texture;
+}
+
+function refreshActiveProjectionCardTextures() {
+  activeMeshes.forEach((mesh) => {
+    const item = mesh.userData;
+    const card = item?.card;
+    if (item?.kind !== "card" || card?.kind !== "projection" || !card.imageElement) return;
+    textureCache.delete(`card-${card.id}`);
+    const previousTexture = mesh.material.map;
+    const nextTexture = makeCardTexture(card);
+    if (previousTexture && previousTexture !== nextTexture) previousTexture.dispose();
+    mesh.material.map = nextTexture;
+    mesh.material.needsUpdate = true;
+    const cardHeight = item.scale.y;
+    const nextScale = new THREE.Vector3(clamp(cardHeight * getCardAspect(card), 10, 35), cardHeight, 1);
+    item.scale.copy(nextScale);
+  });
 }
 
 function makeWordTexture(text, lit, seed) {
@@ -1503,24 +1567,44 @@ function getCardCanvasSize(card) {
 }
 
 function ensureCardImage(card) {
-  if (card.kind !== "projection" || !card.src || card.imageElement || card.imageStatus === "loading" || card.imageStatus === "failed") {
-    return;
-  }
+  const refresh = shouldRefreshProjectionCardImage({
+    showSplash,
+    isIntroJourneyActive: Boolean(state.introJourney),
+  });
+  void loadProjectionCardImage(card, { refresh });
+}
+
+function loadProjectionCardImage(card, { refresh = true } = {}) {
+  if (card.kind !== "projection" || !card.src) return Promise.resolve(null);
+  if (card.imageElement) return Promise.resolve(card.imageElement);
+  if (card.imageStatus === "failed") return Promise.resolve(null);
+  if (card.imagePromise) return card.imagePromise;
   card.imageStatus = "loading";
-  const image = new Image();
-  image.addEventListener("load", () => {
-    card.imageElement = image;
-    card.width = image.naturalWidth;
-    card.height = image.naturalHeight;
-    card.imageStatus = "loaded";
-    textureCache.delete(`card-${card.id}`);
-    refreshActiveCardVisual(card);
-    rebuildScene();
-  });
-  image.addEventListener("error", () => {
-    card.imageStatus = "failed";
-  });
-  image.src = card.src;
+  card.imagePromise = loadImage(card.src)
+    .then((image) => {
+      if (image.decode) return image.decode().catch(() => {}).then(() => image);
+      return image;
+    })
+    .then((image) => {
+      card.imageElement = image;
+      card.width = image.naturalWidth;
+      card.height = image.naturalHeight;
+      card.imageStatus = "loaded";
+      textureCache.delete(`card-${card.id}`);
+      if (refresh) {
+        refreshActiveCardVisual(card);
+        rebuildScene();
+      } else if (!showSplash && state.introJourney) {
+        state.pendingIntroJourneyRebuild = true;
+      }
+      return image;
+    })
+    .catch((error) => {
+      card.imageStatus = "failed";
+      console.warn(`Card image failed to load: ${card.src}`, error);
+      return null;
+    });
+  return card.imagePromise;
 }
 
 function refreshActiveCardVisual(card) {
@@ -1716,6 +1800,7 @@ function animate() {
   state.targetVel.z = clamp(state.targetVel.z, -maxVelocity * 0.86, maxVelocity * 0.86);
   state.velocity.lerp(state.targetVel, velocityLerp);
   state.basePos.add(state.velocity);
+  updateIntroCameraJourney(nowMs);
   updateIdleCruise(nowMs, deltaSeconds);
   state.interactionFloatBoost = Math.max(0, state.interactionFloatBoost - deltaSeconds / interactionBoostDecaySeconds);
   state.targetVel.multiplyScalar(velocityDecay);
@@ -1802,11 +1887,67 @@ function getFadeOutSeconds(item) {
   return lerp(item.kind === "card" ? 0.92 : 0.8, 1.38, seededRandom(item.seed + 907));
 }
 
+function startIntroCameraJourney() {
+  if (state.introJourneyStarted || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+  state.introJourneyStarted = true;
+  updateChunks(true);
+  const target = chooseIntroCameraTarget(activeMeshes.values(), state.basePos);
+  if (!target) return false;
+  state.introJourney = createIntroCameraJourney({
+    from: state.basePos,
+    target,
+    startedAt: performance.now(),
+  });
+  state.velocity.multiplyScalar(0);
+  state.targetVel.multiplyScalar(0);
+  state.scrollAccum = 0;
+  return true;
+}
+
+function updateIntroCameraJourney(nowMs) {
+  if (!state.introJourney) return;
+  const sample = sampleIntroCameraJourney(state.introJourney, nowMs);
+  state.basePos.set(sample.position.x, sample.position.y, sample.position.z);
+  state.velocity.multiplyScalar(0);
+  state.targetVel.multiplyScalar(0);
+  state.scrollAccum = 0;
+  if (sample.done) {
+    state.introJourney = null;
+    if (state.pendingIntroJourneyRebuild) {
+      state.pendingIntroJourneyRebuild = false;
+      refreshActiveProjectionCardTextures();
+    }
+    state.lastInteractionAt = nowMs;
+    state.idleCruiseStartedAt = null;
+    scheduleIntroWhisper();
+  }
+}
+
+function cancelIntroCameraJourney() {
+  state.introJourney = null;
+  if (state.pendingIntroJourneyRebuild) {
+    state.pendingIntroJourneyRebuild = false;
+    refreshActiveProjectionCardTextures();
+  }
+  state.lastInteractionAt = performance.now();
+  state.idleCruiseStartedAt = null;
+}
+
 function updateIdleCruise(nowMs, deltaSeconds) {
+  if (state.introJourney) return;
   const isIdle = nowMs - state.lastInteractionAt > idleCruiseDelayMs && !state.isDragging && state.pointers.size === 0 && !cardModal.classList.contains("open");
-  if (!isIdle || deltaSeconds <= 0) return;
+  if (!isIdle || deltaSeconds <= 0) {
+    state.idleCruiseStartedAt = null;
+    return;
+  }
+  if (state.idleCruiseStartedAt === null) state.idleCruiseStartedAt = nowMs;
+  const ramp = getIdleCruiseRamp({
+    nowMs,
+    startedAt: state.idleCruiseStartedAt,
+    rampMs: idleCruiseRampMs,
+  });
   const visibleWidth = getVisibleWorldWidth();
-  const speed = visibleWidth / idleCruiseScreenSeconds;
+  const speed = (visibleWidth / idleCruiseScreenSeconds) * ramp;
   const angle = nowMs * 0.000035;
   const directionX = Math.cos(angle) * 0.94;
   const directionY = Math.sin(angle * 0.73) * 0.34;
@@ -1829,6 +1970,7 @@ function getFloatAmplitude(item) {
 }
 
 function markCanvasInteraction() {
+  cancelIntroCameraJourney();
   state.lastInteractionAt = performance.now();
   state.interactionFloatBoost = 1;
 }
