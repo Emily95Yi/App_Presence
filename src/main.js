@@ -3250,7 +3250,7 @@ function openCalendarReview(day, entries) {
   const groups = groupEntriesByCard(entries);
   calendarState.reviewGroups = groups;
   calendarState.reviewActiveKey = null;
-  calendarState.reviewFocusKey = groups[0]?.key ?? null;
+  calendarState.reviewFocusKey = null;
   calendarState.reviewDrawingKey = null;
   window.clearTimeout(calendarState.reviewDrawTimer);
   calendarState.reviewDrawTimer = null;
@@ -3276,25 +3276,14 @@ function closeCalendarReview() {
 function renderCalendarReview() {
   const groups = calendarState.reviewGroups;
   const activeGroup = groups.find((group) => group.key === calendarState.reviewActiveKey) ?? null;
-  const focusKey = calendarState.reviewFocusKey ?? activeGroup?.key ?? groups[0]?.key ?? null;
-  const drawingKey = calendarState.reviewDrawingKey;
   calendarReviewDeck.innerHTML = "";
-  calendarReview.classList.toggle("has-review-selection", Boolean(activeGroup));
-  calendarReviewDeck.classList.toggle("has-active-card", Boolean(activeGroup));
-  calendarReviewDeck.classList.toggle("is-drawing", Boolean(drawingKey));
   if (!groups.length) {
     calendarReviewDetail.innerHTML = `<p class="empty-state">这一天还没有留下记录。</p>`;
     return;
   }
   groups.forEach((group, index) => {
     const button = document.createElement("button");
-    const isActive = group.key === activeGroup?.key;
-    const isFocused = group.key === focusKey && !activeGroup;
-    const isDrawing = group.key === drawingKey;
-    const isMuted = Boolean((focusKey && group.key !== focusKey && !activeGroup) || (activeGroup && !isActive) || (drawingKey && !isDrawing));
-    button.className = `review-card${isActive ? " active" : ""}${isFocused ? " focused" : ""}${isMuted ? " muted" : ""}${
-      isDrawing ? " drawing" : ""
-    }`;
+    button.className = "review-card";
     if (group.key.startsWith("keyword:")) button.classList.add("shell-review-card");
     if (group.card?.setId) button.classList.add(`${group.card.setId}-review-card`);
     button.type = "button";
@@ -3327,6 +3316,7 @@ function renderCalendarReview() {
   });
   calendarReviewDeck.appendChild(randomButton);
   renderCalendarReviewDetail(activeGroup);
+  applyCalendarReviewCardClasses();
 }
 
 function setCalendarReviewCardMotionVars(button, group, index, total) {
@@ -3346,7 +3336,7 @@ function focusCalendarReviewCard(key) {
   if (!key || calendarState.reviewActiveKey || calendarState.reviewDrawingKey) return;
   if (calendarState.reviewFocusKey === key) return;
   calendarState.reviewFocusKey = key;
-  renderCalendarReview();
+  applyCalendarReviewCardClasses();
 }
 
 function startCalendarReviewDraw(key) {
@@ -3354,13 +3344,33 @@ function startCalendarReviewDraw(key) {
   window.clearTimeout(calendarState.reviewDrawTimer);
   calendarState.reviewFocusKey = key;
   calendarState.reviewDrawingKey = key;
-  renderCalendarReview();
+  applyCalendarReviewCardClasses();
   calendarState.reviewDrawTimer = window.setTimeout(() => {
     calendarState.reviewActiveKey = key;
     calendarState.reviewDrawingKey = null;
     calendarState.reviewDrawTimer = null;
     renderCalendarReview();
   }, 680);
+}
+
+function applyCalendarReviewCardClasses() {
+  const activeKey = calendarState.reviewActiveKey;
+  const focusKey = activeKey ? null : calendarState.reviewFocusKey;
+  const drawingKey = calendarState.reviewDrawingKey;
+  calendarReview.classList.toggle("has-review-selection", Boolean(activeKey));
+  calendarReviewDeck.classList.toggle("has-active-card", Boolean(activeKey));
+  calendarReviewDeck.classList.toggle("is-drawing", Boolean(drawingKey));
+  calendarReviewDeck.querySelectorAll(".review-card").forEach((card) => {
+    const key = card.dataset.key;
+    const isActive = key === activeKey;
+    const isFocused = !activeKey && key === focusKey;
+    const isDrawing = key === drawingKey;
+    const isMuted = Boolean((focusKey && key !== focusKey && !activeKey) || (activeKey && !isActive) || (drawingKey && !isDrawing));
+    card.classList.toggle("active", isActive);
+    card.classList.toggle("focused", isFocused);
+    card.classList.toggle("drawing", isDrawing);
+    card.classList.toggle("muted", isMuted);
+  });
 }
 
 function createReviewCardVisual(group) {
@@ -3411,10 +3421,6 @@ function cardPreviewDataUrl(card) {
 function renderCalendarReviewDetail(group) {
   calendarReviewDetail.innerHTML = "";
   if (!group) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "点击一张记忆，再看见那一刻。";
-    calendarReviewDetail.appendChild(empty);
     return;
   }
   calendarReviewDetail.appendChild(renderReviewRecordList(group.entries));
