@@ -3415,6 +3415,12 @@ function focusCalendarReviewCard(key, { center = false } = {}) {
   applyCalendarReviewCardClasses();
 }
 
+function clearCalendarReviewFocus() {
+  if (calendarState.reviewActiveKey || calendarState.reviewDrawingKey || !calendarState.reviewFocusKey) return;
+  calendarState.reviewFocusKey = null;
+  applyCalendarReviewCardClasses();
+}
+
 function startCalendarReviewDraw(key) {
   if (!key || calendarState.reviewDrawingKey) return;
   window.clearTimeout(calendarState.reviewDrawTimer);
@@ -3437,6 +3443,7 @@ function applyCalendarReviewCardClasses() {
     ? calendarState.reviewGroups.findIndex((group) => group.key === focusKey)
     : -1;
   calendarReview.classList.toggle("has-review-selection", Boolean(activeKey));
+  calendarReview.classList.toggle("has-focus-veil", Boolean((focusKey || drawingKey) && !activeKey));
   calendarReviewDeck.classList.toggle("has-active-card", Boolean(activeKey));
   calendarReviewDeck.classList.toggle("is-drawing", Boolean(drawingKey));
   calendarReviewDeck.classList.toggle("has-focus-veil", Boolean((focusKey || drawingKey) && !activeKey));
@@ -3860,8 +3867,16 @@ calendarReviewDeck.addEventListener("pointercancel", endCalendarReviewDeckPointe
 calendarReviewDeck.addEventListener("pointermove", (event) => {
   if (calendarState.reviewDeckPointer?.moved) return;
   const card = document.elementFromPoint(event.clientX, event.clientY)?.closest?.(".review-card");
-  if (!card || !calendarReviewDeck.contains(card)) return;
+  if (!card || !calendarReviewDeck.contains(card)) {
+    clearCalendarReviewFocus();
+    return;
+  }
   focusCalendarReviewCard(card.dataset.key);
+});
+calendarReviewDeck.addEventListener("pointerleave", clearCalendarReviewFocus);
+calendarReviewDeck.addEventListener("focusout", (event) => {
+  if (calendarReviewDeck.contains(event.relatedTarget)) return;
+  clearCalendarReviewFocus();
 });
 document.getElementById("closeModal").addEventListener("click", closeModal);
 document.getElementById("modalScrim").addEventListener("click", closeModal);
