@@ -477,7 +477,7 @@ const resonanceTagRules = [
 const cardImageManifest = {
   standard: createNumberedCardImages("standard", 58, "png"),
   round: createNumberedCardImages("round", 68, "png"),
-  relationship: createNumberedCardImages("relationship", 30, "png"),
+  relationship: createNumberedCardImages("relationship", 36, "png"),
 };
 
 const standardSemanticProfiles = await loadStandardSemanticProfiles();
@@ -487,7 +487,7 @@ const searchablePromptBank = [...promptBank, ...observationPerspectiveBank];
 const projectionSets = [
   makeCardSet("standard", "标准", "标准投射卡，58 张", ["#dbece6", "#c7d7ea", "#efd77e", "#dfa28f"], 1100),
   makeCardSet("round", "圆", "圆形意象卡，68 张", ["#f3df91", "#cfe5db", "#f2b9a1", "#fff4c2"], 2200),
-  makeCardSet("relationship", "关系", "关系投射卡，30 张", ["#d7c4d7", "#b9c5d9", "#e6d8c7", "#a8b5aa"], 3300),
+  makeCardSet("relationship", "关系", "关系投射卡，36 张", ["#d7c4d7", "#b9c5d9", "#e6d8c7", "#a8b5aa"], 3300),
 ];
 
 const localUserId = getOrCreateLocalUserId();
