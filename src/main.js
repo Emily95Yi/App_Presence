@@ -8,7 +8,10 @@ import {
 } from "./introCameraJourney.js";
 import { getIdleCruiseRamp } from "./introIdleTransitionPolicy.js";
 import { shouldRefreshProjectionCardImage } from "./canvasAssetRefreshPolicy.js";
-import { canOpenCanvasCard } from "./canvasTouchInteractionPolicy.js";
+import {
+  canOpenCanvasCard,
+  getPinchSuppressTapUntil,
+} from "./canvasTouchInteractionPolicy.js";
 import { createSplashIntro } from "./splashIntro.js";
 import "./styles.css";
 
@@ -577,6 +580,7 @@ const state = {
   scrollAccum: 0,
   browseMode: false,
   pinchSuppressTapUntil: 0,
+  isPinching: false,
   activeCards: [],
   activeCardIndex: 0,
   activeBatchId: null,
@@ -2077,6 +2081,8 @@ function onPointerMove(event) {
     const dist = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
     if (state.lastTouchDist > 0) state.scrollAccum += (state.lastTouchDist - dist) * 0.0065;
     state.lastTouchDist = dist;
+    state.isPinching = true;
+    state.pinchSuppressTapUntil = getPinchSuppressTapUntil({ nowMs: performance.now() });
     return;
   }
   const dx = event.clientX - previous.x;
@@ -2088,11 +2094,20 @@ function onPointerMove(event) {
 
 function onPointerUp(event) {
   markCanvasInteraction();
+  const nowMs = performance.now();
   const last = state.lastPointer;
+  const wasPinching = state.isPinching || state.pointers.size > 1;
   state.pointers.delete(event.pointerId);
   state.lastTouchDist = 0;
   state.isDragging = state.pointers.size > 0;
-  if (last && last.moved < 9 && performance.now() - last.t < 360) handleTap(event.clientX, event.clientY);
+  if (wasPinching) {
+    state.pinchSuppressTapUntil = getPinchSuppressTapUntil({ nowMs });
+    state.isPinching = state.pointers.size > 1;
+    state.lastPointer = null;
+    return;
+  }
+  state.isPinching = false;
+  if (last && last.moved < 9 && nowMs - last.t < 360) handleTap(event.clientX, event.clientY);
 }
 
 function handleTap(x, y) {
