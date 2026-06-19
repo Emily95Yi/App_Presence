@@ -2121,14 +2121,14 @@ function setForwardControlValue(value) {
   state.forwardControlValue = clamp(value, 0, 1);
   const percentage = Math.round(state.forwardControlValue * 100);
   forwardSlider.style.setProperty("--forward-value", String(state.forwardControlValue));
-  forwardSliderFill.style.transform = `scaleX(${state.forwardControlValue})`;
-  forwardSliderThumb.style.left = `${state.forwardControlValue * 100}%`;
+  forwardSliderFill.style.transform = `scaleY(${state.forwardControlValue})`;
+  forwardSliderThumb.style.bottom = `${state.forwardControlValue * 100}%`;
   forwardSlider.setAttribute("aria-valuenow", String(percentage));
 }
 
-function updateForwardControlFromClientX(clientX) {
+function updateForwardControlFromClientY(clientY) {
   const rect = forwardSlider.getBoundingClientRect();
-  setForwardControlValue((clientX - rect.left) / rect.width);
+  setForwardControlValue((rect.bottom - clientY) / rect.height);
 }
 
 function resetForwardControl() {
@@ -4060,31 +4060,31 @@ forwardSlider.addEventListener("pointerdown", (event) => {
   markCanvasInteraction();
   state.forwardPointerId = event.pointerId;
   forwardSlider.setPointerCapture(event.pointerId);
-  updateForwardControlFromClientX(event.clientX);
+  updateForwardControlFromClientY(event.clientY);
 });
 
 forwardSlider.addEventListener("pointermove", (event) => {
   if (state.forwardPointerId !== event.pointerId) return;
   markCanvasInteraction();
-  updateForwardControlFromClientX(event.clientX);
+  updateForwardControlFromClientY(event.clientY);
 });
 
 forwardSlider.addEventListener("pointerup", resetForwardControl);
 forwardSlider.addEventListener("pointercancel", resetForwardControl);
 
 forwardSlider.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowRight") {
+  if (event.key === "ArrowUp") {
     event.preventDefault();
     setForwardControlValue(state.forwardControlValue + 0.12);
   }
-  if (event.key === "ArrowLeft" || event.key === "Escape") {
+  if (event.key === "ArrowDown" || event.key === "Escape") {
     event.preventDefault();
     resetForwardControl();
   }
 });
 
 forwardSlider.addEventListener("keyup", (event) => {
-  if (event.key === "ArrowRight") resetForwardControl();
+  if (event.key === "ArrowUp") resetForwardControl();
 });
 
 setForwardControlValue(0);

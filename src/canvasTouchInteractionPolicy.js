@@ -1,5 +1,5 @@
 const defaultPinchSuppressMs = 280;
-const defaultForwardMaxScrollDelta = 0.034;
+const defaultForwardMaxScrollDelta = 0.058;
 const defaultForwardDeadZone = 0.08;
 
 export function isCanvasTapSuppressed({ nowMs, suppressTapUntil = 0 }) {
@@ -21,7 +21,7 @@ export function getForwardSliderScrollDelta(
   const clamped = clamp(Number.isFinite(value) ? value : 0, 0, 1);
   if (clamped <= deadZone) return 0;
   const normalized = (clamped - deadZone) / (1 - deadZone);
-  return Number((normalized * maxScrollDelta).toFixed(6));
+  return Number((-normalized * maxScrollDelta).toFixed(6));
 }
 
 function clamp(value, min, max) {

@@ -19,6 +19,6 @@ assert.equal(getPinchSuppressTapUntil({ nowMs: 2000, durationMs: 360 }), 2360);
 
 assert.equal(getForwardSliderScrollDelta(0), 0);
 assert.equal(getForwardSliderScrollDelta(0.04), 0);
-assert.ok(getForwardSliderScrollDelta(0.5) > 0);
-assert.equal(getForwardSliderScrollDelta(1), 0.034);
-assert.equal(getForwardSliderScrollDelta(2), 0.034);
+assert.ok(getForwardSliderScrollDelta(0.5) < 0);
+assert.equal(getForwardSliderScrollDelta(1), -0.058);
+assert.equal(getForwardSliderScrollDelta(2), -0.058);

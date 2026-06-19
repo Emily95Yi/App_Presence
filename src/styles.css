@@ -368,20 +368,20 @@ button {
 
 .forward-slider {
   position: fixed;
-  left: 50%;
-  bottom: max(16px, calc(env(safe-area-inset-bottom) + 12px));
+  right: max(14px, calc(env(safe-area-inset-right) + 12px));
+  bottom: max(18px, calc(env(safe-area-inset-bottom) + 16px));
   z-index: 6;
   display: none;
-  width: min(220px, calc(100vw - 72px));
-  height: 44px;
-  padding: 15px 18px;
+  width: 48px;
+  height: min(176px, calc(100dvh - 180px));
+  min-height: 128px;
+  padding: 18px 15px;
   border: 1px solid rgba(31, 38, 34, 0.1);
   border-radius: 999px;
   background: rgba(247, 252, 253, 0.58);
   box-shadow: 0 18px 46px rgba(70, 90, 84, 0.12);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  transform: translateX(-50%);
   touch-action: none;
 }
 
@@ -410,14 +410,14 @@ button {
   inset: 0;
   border-radius: inherit;
   background: rgba(143, 184, 165, 0.7);
-  transform: scaleX(0);
-  transform-origin: left center;
+  transform: scaleY(0);
+  transform-origin: center bottom;
 }
 
 .forward-slider__thumb {
   position: absolute;
-  top: 50%;
-  left: 0;
+  bottom: 0;
+  left: 50%;
   display: grid;
   width: 28px;
   height: 28px;
@@ -426,7 +426,7 @@ button {
   background: rgba(255, 255, 255, 0.96);
   color: rgba(31, 38, 34, 0.62);
   box-shadow: 0 8px 20px rgba(52, 76, 67, 0.2);
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, 50%);
 }
 
 .forward-slider__thumb .ph-duotone {
