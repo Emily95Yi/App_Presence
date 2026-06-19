@@ -10,6 +10,7 @@ import { getIdleCruiseRamp } from "./introIdleTransitionPolicy.js";
 import { shouldRefreshProjectionCardImage } from "./canvasAssetRefreshPolicy.js";
 import {
   canOpenCanvasCard,
+  getForwardSliderScrollDelta,
   getPinchSuppressTapUntil,
 } from "./canvasTouchInteractionPolicy.js";
 import { createSplashIntro } from "./splashIntro.js";
@@ -31,6 +32,9 @@ const photoInput = document.getElementById("photoInput");
 const prevCardButton = document.getElementById("prevCard");
 const nextCardButton = document.getElementById("nextCard");
 const browseModeToggle = document.getElementById("browseModeToggle");
+const forwardSlider = document.getElementById("forwardSlider");
+const forwardSliderFill = document.getElementById("forwardSliderFill");
+const forwardSliderThumb = document.getElementById("forwardSliderThumb");
 const introWhisper = document.getElementById("introWhisper");
 let startupAssetsReady = Promise.resolve();
 let showSplash = true;
@@ -581,6 +585,8 @@ const state = {
   browseMode: false,
   pinchSuppressTapUntil: 0,
   isPinching: false,
+  forwardControlValue: 0,
+  forwardPointerId: null,
   activeCards: [],
   activeCardIndex: 0,
   activeBatchId: null,
@@ -1802,6 +1808,7 @@ function animate() {
   const deltaSeconds = Math.min((nowMs - state.lastFrameAt) / 1000, 0.08);
   state.lastFrameAt = nowMs;
   state.targetVel.z += state.scrollAccum;
+  state.targetVel.z += getForwardSliderScrollDelta(state.forwardControlValue);
   state.scrollAccum *= 0.78;
   state.targetVel.x = clamp(state.targetVel.x, -maxVelocity, maxVelocity);
   state.targetVel.y = clamp(state.targetVel.y, -maxVelocity, maxVelocity);
@@ -2108,6 +2115,25 @@ function onPointerUp(event) {
   }
   state.isPinching = false;
   if (last && last.moved < 9 && nowMs - last.t < 360) handleTap(event.clientX, event.clientY);
+}
+
+function setForwardControlValue(value) {
+  state.forwardControlValue = clamp(value, 0, 1);
+  const percentage = Math.round(state.forwardControlValue * 100);
+  forwardSlider.style.setProperty("--forward-value", String(state.forwardControlValue));
+  forwardSliderFill.style.transform = `scaleX(${state.forwardControlValue})`;
+  forwardSliderThumb.style.left = `${state.forwardControlValue * 100}%`;
+  forwardSlider.setAttribute("aria-valuenow", String(percentage));
+}
+
+function updateForwardControlFromClientX(clientX) {
+  const rect = forwardSlider.getBoundingClientRect();
+  setForwardControlValue((clientX - rect.left) / rect.width);
+}
+
+function resetForwardControl() {
+  state.forwardPointerId = null;
+  setForwardControlValue(0);
 }
 
 function handleTap(x, y) {
@@ -4028,6 +4054,40 @@ renderer.domElement.addEventListener("mousemove", (event) => {
   updateHover(event.clientX, event.clientY);
 });
 renderer.domElement.addEventListener("mouseleave", () => setHoveredMeshId(null));
+
+forwardSlider.addEventListener("pointerdown", (event) => {
+  hideIntroWhisper();
+  markCanvasInteraction();
+  state.forwardPointerId = event.pointerId;
+  forwardSlider.setPointerCapture(event.pointerId);
+  updateForwardControlFromClientX(event.clientX);
+});
+
+forwardSlider.addEventListener("pointermove", (event) => {
+  if (state.forwardPointerId !== event.pointerId) return;
+  markCanvasInteraction();
+  updateForwardControlFromClientX(event.clientX);
+});
+
+forwardSlider.addEventListener("pointerup", resetForwardControl);
+forwardSlider.addEventListener("pointercancel", resetForwardControl);
+
+forwardSlider.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowRight") {
+    event.preventDefault();
+    setForwardControlValue(state.forwardControlValue + 0.12);
+  }
+  if (event.key === "ArrowLeft" || event.key === "Escape") {
+    event.preventDefault();
+    resetForwardControl();
+  }
+});
+
+forwardSlider.addEventListener("keyup", (event) => {
+  if (event.key === "ArrowRight") resetForwardControl();
+});
+
+setForwardControlValue(0);
 
 document.getElementById("introGuideToggle").addEventListener("click", () => scheduleIntroWhisper(true));
 browseModeToggle.addEventListener("click", () => {
