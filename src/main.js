@@ -8,6 +8,7 @@ import {
 } from "./introCameraJourney.js";
 import { getIdleCruiseRamp } from "./introIdleTransitionPolicy.js";
 import { shouldRefreshProjectionCardImage } from "./canvasAssetRefreshPolicy.js";
+import { canOpenCanvasCard } from "./canvasTouchInteractionPolicy.js";
 import { createSplashIntro } from "./splashIntro.js";
 import "./styles.css";
 
@@ -26,6 +27,7 @@ const calendarReviewDetail = document.getElementById("calendarReviewDetail");
 const photoInput = document.getElementById("photoInput");
 const prevCardButton = document.getElementById("prevCard");
 const nextCardButton = document.getElementById("nextCard");
+const browseModeToggle = document.getElementById("browseModeToggle");
 const introWhisper = document.getElementById("introWhisper");
 let startupAssetsReady = Promise.resolve();
 let showSplash = true;
@@ -573,6 +575,8 @@ const state = {
   lastPointer: null,
   lastTouchDist: 0,
   scrollAccum: 0,
+  browseMode: false,
+  pinchSuppressTapUntil: 0,
   activeCards: [],
   activeCardIndex: 0,
   activeBatchId: null,
@@ -2097,7 +2101,9 @@ function handleTap(x, y) {
   raycaster.setFromCamera(pointerNdc, camera);
   const hits = raycaster.intersectObjects([...activeMeshes.values()].filter((mesh) => mesh.visible), false);
   const visibleHits = hits.filter((entry) => entry.object.material.opacity > 0.24);
-  const hit = visibleHits.find((entry) => entry.object.userData.kind === "card") ?? visibleHits[0];
+  const hit = state.browseMode
+    ? visibleHits.find((entry) => entry.object.userData.kind === "word") ?? visibleHits[0]
+    : visibleHits.find((entry) => entry.object.userData.kind === "card") ?? visibleHits[0];
   if (!hit) return;
   const item = hit.object.userData;
   if (item.kind === "word") {
@@ -2105,6 +2111,15 @@ function handleTap(x, y) {
     hit.object.material.map = makeWordTexture(item.text, true, item.seed);
     hit.object.material.needsUpdate = true;
     record("keyword", { wordId: item.word?.id ?? item.id, text: item.text, groupId: item.groupId });
+    return;
+  }
+  if (
+    !canOpenCanvasCard({
+      browseMode: state.browseMode,
+      nowMs: performance.now(),
+      suppressTapUntil: state.pinchSuppressTapUntil,
+    })
+  ) {
     return;
   }
   openCardExperience([item.card], 0, null);
@@ -3931,6 +3946,18 @@ function togglePanel(panel) {
   }
 }
 
+function setBrowseMode(enabled) {
+  state.browseMode = enabled;
+  syncBrowseModeToggle();
+  setHoveredMeshId(null);
+}
+
+function syncBrowseModeToggle() {
+  browseModeToggle.classList.toggle("active", state.browseMode);
+  browseModeToggle.setAttribute("aria-pressed", String(state.browseMode));
+  browseModeToggle.setAttribute("aria-label", state.browseMode ? "关闭浏览模式" : "开启浏览模式");
+}
+
 function closeCalendarPanelFromOutsideTap(event) {
   if (!calendarPanel.classList.contains("open")) return false;
   const target = event.target;
@@ -3988,6 +4015,10 @@ renderer.domElement.addEventListener("mousemove", (event) => {
 renderer.domElement.addEventListener("mouseleave", () => setHoveredMeshId(null));
 
 document.getElementById("introGuideToggle").addEventListener("click", () => scheduleIntroWhisper(true));
+browseModeToggle.addEventListener("click", () => {
+  hideIntroWhisper();
+  setBrowseMode(!state.browseMode);
+});
 document.getElementById("cardSetToggle").addEventListener("click", () => {
   hideIntroWhisper();
   togglePanel(cardSetPanel);

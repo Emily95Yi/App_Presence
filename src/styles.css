@@ -309,6 +309,13 @@ button {
   color: rgba(31, 38, 34, 0.64);
 }
 
+.browse-mode-button.active {
+  border-color: rgba(143, 184, 165, 0.46);
+  background: rgba(232, 247, 240, 0.78);
+  color: rgba(27, 70, 54, 0.9);
+  box-shadow: 0 14px 36px rgba(84, 120, 102, 0.16);
+}
+
 .side-panel {
   position: fixed;
   top: max(68px, calc(env(safe-area-inset-top) + 58px));
