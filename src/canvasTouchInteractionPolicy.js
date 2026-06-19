@@ -1,5 +1,5 @@
 const defaultPinchSuppressMs = 280;
-const defaultForwardMaxScrollDelta = 0.058;
+const defaultForwardMaxScrollDelta = 0.078;
 const defaultForwardDeadZone = 0.08;
 
 export function isCanvasTapSuppressed({ nowMs, suppressTapUntil = 0 }) {
