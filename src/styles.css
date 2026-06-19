@@ -373,8 +373,8 @@ button {
   z-index: 6;
   display: none;
   width: 48px;
-  height: clamp(112px, 16dvh, 144px);
-  min-height: 112px;
+  height: clamp(96px, 14dvh, 120px);
+  min-height: 96px;
   padding: 18px 15px;
   border: 1px solid rgba(31, 38, 34, 0.1);
   border-radius: 999px;
